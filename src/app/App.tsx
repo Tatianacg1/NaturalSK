@@ -1,5 +1,7 @@
+// Componente principal de la página pública.
+// Contiene la navegación, el hero, secciones de hospedaje, galería, testimonios y contacto.
 import { useState, useEffect } from "react";
-import { MapPin, Phone, Instagram, Star, ChevronDown, Menu, X } from "lucide-react";
+import { MapPin, Phone, Instagram, Star, ChevronDown, Menu, X, LogIn } from "lucide-react";
 
 const HERO_IMG = "/images/galterm1.jpeg";
 const CABIN_IMG = "/images/galperla1.jpeg";
@@ -88,7 +90,9 @@ const testimonials = [
   },
 ];
 
-function NavBar() {
+// Barra de navegación principal del sitio.
+// Contiene enlaces de sección, botón de reservar y botón de inicio de sesión.
+function NavBar({ onLoginClick }: { onLoginClick: () => void }) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -133,6 +137,14 @@ function NavBar() {
           >
             Reservar
           </a>
+          <button
+            onClick={onLoginClick}
+            className="text-muted-foreground hover:text-foreground transition-colors text-sm tracking-wide flex items-center gap-2 px-3 py-2"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+          >
+            <LogIn size={16} />
+            Iniciar Sesión
+          </button>
         </div>
 
         <button className="md:hidden text-foreground" onClick={() => setOpen(!open)}>
@@ -162,6 +174,17 @@ function NavBar() {
           >
             Reservar
           </a>
+          <button
+            onClick={() => {
+              onLoginClick();
+              setOpen(false);
+            }}
+            className="text-foreground text-lg flex items-center gap-2"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            <LogIn size={18} />
+            Iniciar Sesión
+          </button>
         </div>
       )}
     </nav>
@@ -632,10 +655,12 @@ function Footer() {
   );
 }
 
-export default function App() {
+// Componente principal público de la aplicación.
+// Ensambla todas las secciones de la landing page y recibe el controlador de login.
+export default function App({ onLoginClick }: { onLoginClick: () => void }) {
   return (
     <div className="bg-background text-foreground min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      <NavBar />
+      <NavBar onLoginClick={onLoginClick} />
       <Hero />
       <About />
       <Accommodations />
