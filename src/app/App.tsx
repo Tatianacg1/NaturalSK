@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import { MapPin, Phone, Instagram, Star, ChevronDown, Menu, X } from "lucide-react";
 
-const HERO_IMG = "src/imports/GALTERM1.JPEG";
-const CABIN_IMG = "src/imports/GALPERLA1.JPEG";
-const TENT_IMG = "src/imports/NATURALS1.JPEG";
-const RIVER_IMG = "src/imports/PISC1.JPEG";
-const STARS_IMG = "src/imports/GLAMP1.JPEG";
-const VALLEY_IMG = "src/imports/PISC1.JPEG";
-const PERLA_IMG = "/src/imports/PERLA1.JPEG";
-const ESMERALDA_IMG = "/src/imports/ESMERALDA1.JPEG";
-const ZAFIRO_IMG = "/src/imports/ZAFIRO1.JPEG";
-const DIAMANTE_IMG = "/src/imports/DIAMANTE1.JPEG";
-const HABITACION_PAREJA_IMG = "/src/imports/HABITACIONP1.JPEG";
-const HABITACION_CUADRUPLE_IMG = "/src/imports/HABITACIONC1.JPEG";
+const HERO_IMG = "/images/galterm1.jpeg";
+const CABIN_IMG = "/images/galperla1.jpeg";
+const TENT_IMG = "/images/naturals1.jpeg";
+const RIVER_IMG = "/images/pisc1.jpeg";
+const STARS_IMG = "/images/glamp1.jpeg";
+const VALLEY_IMG = "/images/pisc1.jpeg";
+const PERLA_IMG = "/images/perla1.jpeg";
+const ESMERALDA_IMG = "/images/esmeralda1.jpeg";
+const ZAFIRO_IMG = "/images/zafiro1.jpeg";
+const DIAMANTE_IMG = "/images/diamante1.jpeg";
+const HABITACION_PAREJA_IMG = "/images/habitacionp1.jpeg";
+const HABITACION_CUADRUPLE_IMG = "/images/habitacionc1.jpeg";
 const accommodations = [
   {
     name: "Glamping Perla",
@@ -108,7 +108,7 @@ function NavBar() {
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <img
-          src="/src/imports/SK.png"
+          src="/images/SK.png"
           alt="Natural Sound"
           className="h-20 md:h-24 w-auto object-contain mr-8"
         />
