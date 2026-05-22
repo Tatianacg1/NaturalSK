@@ -1,0 +1,1 @@
+:root{--green:#08120c;--gold:#c89d63;}body{background:var(--green);color:white;font-family:sans-serif}.hero{height:100vh;display:flex;align-items:center}.logo img{height:80px}
