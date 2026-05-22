@@ -108,7 +108,7 @@ function NavBar() {
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <img
-          src="/images/SK.png"
+          src="/images/sk.png"
           alt="Natural Sound"
           className="h-20 md:h-24 w-auto object-contain mr-8"
         />
