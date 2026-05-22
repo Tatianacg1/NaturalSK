@@ -606,7 +606,7 @@ function Footer() {
             className="text-muted-foreground text-xs tracking-wide"
             style={{ fontFamily: "'DM Mono', monospace" }}
           >
-            Glamping & Hotel Boutique · Sierra Gorda, Qro.
+            Glamping & Hotel Boutique · San Felix, Bello.
           </p>
         </div>
         <div className="flex flex-wrap gap-6">
@@ -625,7 +625,7 @@ function Footer() {
           className="text-muted-foreground/50 text-xs"
           style={{ fontFamily: "'DM Mono', monospace" }}
         >
-          © 2025 Natural Sound
+          © 2026 Natural Sound
         </p>
       </div>
     </footer>
