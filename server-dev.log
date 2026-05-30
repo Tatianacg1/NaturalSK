@@ -1,0 +1,18 @@
+Servidor ejecutándose en http://localhost:5000
+Frontend en http://localhost:5173
+
+Endpoints disponibles:
+POST   /api/auth/register
+POST   /api/auth/login
+GET    /api/auth/me
+GET    /api/reservas
+POST   /api/reservas
+PUT    /api/reservas/:id
+DELETE /api/reservas/:id
+GET    /api/usuarios
+GET    /api/usuarios/perfil/actual
+PUT    /api/usuarios/perfil/actual
+GET    /api/alojamientos
+GET    /api/alojamientos/:id
+Conectado a SQLite
+Base de datos inicializada correctamente

@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+// Contexto de autenticación integrado con backend.
+// Gestiona la sesión del usuario y comunicación con APIs.
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 
 interface User {
-  id: string;
+  id: number;
   email: string;
   name: string;
   role: "admin" | "user";
@@ -17,50 +19,109 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const savedUser = localStorage.getItem("user");
-    return savedUser ? JSON.parse(savedUser) : null;
+// Función auxiliar para llamadas a la API.
+const fetchAPI = async (endpoint: string, options: RequestInit = {}) => {
+  const token = localStorage.getItem("authToken");
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  const response = await fetch(`${apiUrl}${endpoint}`, {
+    ...options,
+    headers,
   });
 
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Error en la solicitud");
+  }
+
+  return response.json();
+};
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Verificar si hay sesión válida al cargar la app.
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        if (token) {
+          const currentUser = await fetchAPI("/auth/me");
+          setUser({
+            id: currentUser.id,
+            name: currentUser.nombre,
+            email: currentUser.email,
+            role: currentUser.rol === "admin" ? "admin" : "user",
+          });
+        }
+      } catch (error) {
+        console.log("No hay sesión válida");
+        localStorage.removeItem("authToken");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Login con el backend real.
   const login = async (email: string, password: string) => {
-    // Simulación de login - En producción, esto sería una llamada a API
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const newUser: User = {
-          id: "1",
-          email,
-          name: email.split("@")[0],
-          role: email === "admin@naturalsound.com" ? "admin" : "user",
-        };
-        setUser(newUser);
-        localStorage.setItem("user", JSON.stringify(newUser));
-        resolve();
-      }, 800);
-    });
+    try {
+      const response = await fetchAPI("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, contraseña: password }),
+      });
+
+      localStorage.setItem("authToken", response.token);
+      setUser({
+        id: response.usuario.id,
+        name: response.usuario.name,
+        email: response.usuario.email,
+        role: response.usuario.role,
+      });
+    } catch (error) {
+      throw new Error("Usuario o contraseña incorrectos");
+    }
   };
 
+  // Registro con el backend real.
   const register = async (name: string, email: string, password: string) => {
-    // Simulación de registro
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const newUser: User = {
-          id: Math.random().toString(),
+    try {
+      await fetchAPI("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          nombre: name,
           email,
-          name,
-          role: "user",
-        };
-        setUser(newUser);
-        localStorage.setItem("user", JSON.stringify(newUser));
-        resolve();
-      }, 800);
-    });
+          contraseña: password,
+        }),
+      });
+
+      // Hacer login automático después del registro.
+      await login(email, password);
+    } catch (error) {
+      throw new Error("Error al registrarse");
+    }
   };
 
+  // Logout limpiando autenticación.
   const logout = () => {
+    localStorage.removeItem("authToken");
     setUser(null);
-    localStorage.removeItem("user");
   };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Cargando...</div>;
+  }
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, register }}>

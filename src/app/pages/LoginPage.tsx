@@ -2,7 +2,7 @@
 // Incluye formularios para iniciar sesión o crear cuenta, y alterna entre ambos modos.
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, ArrowLeft } from "lucide-react";
 
 interface LoginPageProps {
   onSwitchToApp: () => void;
@@ -43,7 +43,8 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
       }
       onSwitchToApp();
     } catch (err) {
-      setError("Ocurrió un error. Intenta de nuevo.");
+      const errorMessage = err instanceof Error ? err.message : "Ocurrió un error. Intenta de nuevo.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +59,16 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f1a0e] via-[#1a2817] to-[#0f1a0e] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#0f1a0e] via-[#1a2817] to-[#0f1a0e] flex items-center justify-center p-4 relative">
+      {/* Botón de volver atrás */}
+      <button
+        onClick={onSwitchToApp}
+        className="absolute top-6 left-6 text-foreground hover:text-primary transition-colors z-10"
+        title="Volver a la página principal"
+      >
+        <ArrowLeft size={24} />
+      </button>
+
       {/* Elementos decorativos de fondo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 right-20 w-72 h-72 bg-green-900/10 rounded-full blur-3xl" />
@@ -66,8 +76,12 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
       </div>
 
       <div className="relative w-full max-w-md">
-        {/* Sección del logo y subtítulo */}
-        <div className="text-center mb-12">
+        {/* Sección del logo y subtítulo - clickeable */}
+        <button
+          onClick={onSwitchToApp}
+          className="w-full text-center mb-12 hover:opacity-80 transition-opacity cursor-pointer bg-none border-none p-0"
+          title="Volver a la página principal"
+        >
           <img
             src="/images/sk.png"
             alt="Natural Sound"
@@ -79,7 +93,7 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
           >
             Glamping & Hotel Boutique
           </p>
-        </div>
+        </button>
 
         {/* Tarjeta de formulario */}
         <div className="bg-card border border-border rounded-lg shadow-2xl overflow-hidden backdrop-blur-sm bg-card/80">
