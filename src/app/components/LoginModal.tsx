@@ -1,7 +1,6 @@
-// Modal de inicio de sesión rápido.
-// Permite al usuario abrir un cuadro de diálogo para iniciar sesión o registrarse.
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, AlertCircle } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -9,27 +8,38 @@ interface LoginModalProps {
 }
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
+  const { login, register } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [fullName, setFullName] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  // Maneja el envío del formulario de inicio de sesión o registro dentro del modal.
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLogin) {
-      console.log("Login:", { email, password, rememberMe });
-    } else {
-      console.log("Registro:", { fullName, email, password });
+    setError("");
+    setIsLoading(true);
+    try {
+      if (isLogin) {
+        await login(email, password);
+      } else {
+        if (!fullName.trim()) { setError("Ingresa tu nombre completo"); setIsLoading(false); return; }
+        await register(fullName, email, password);
+      }
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Ocurrió un error. Intenta de nuevo.");
+    } finally {
+      setIsLoading(false);
     }
-    // Aquí iría la lógica de autenticación
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Capa de oscurecimiento del fondo */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -37,7 +47,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       />
 
       {/* Contenedor del modal */}
-      <div className="relative bg-card border border-border rounded-lg w-full max-w-md shadow-2xl">
+      <div className="relative bg-card border border-border rounded-lg w-full max-w-md shadow-2xl max-h-[95vh] overflow-y-auto">
         {/* Botón para cerrar el modal */}
         <button
           onClick={onClose}
@@ -46,11 +56,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           <X size={24} />
         </button>
 
-        <div className="p-8">
+        <div className="p-5 sm:p-8">
           {/* Encabezado del modal */}
           <div className="mb-8">
             <h2
-              className="text-3xl font-semibold text-foreground mb-2"
+              className="text-2xl sm:text-3xl font-semibold text-foreground mb-2"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               {isLogin ? "Iniciar Sesión" : "Crear Cuenta"}
@@ -64,6 +74,14 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 : "Únete a nuestra comunidad"}
             </p>
           </div>
+
+          {/* Error de autenticación */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded flex items-center gap-2">
+              <AlertCircle size={16} className="text-red-500 shrink-0" />
+              <p className="text-red-500 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>{error}</p>
+            </div>
+          )}
 
           {/* Formulario dentro del modal */}
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -148,10 +166,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             {/* Botón de envío del formulario */}
             <button
               type="submit"
-              className="w-full bg-primary text-primary-foreground py-3 rounded font-semibold hover:bg-primary/80 transition-colors mt-6"
+              disabled={isLoading}
+              className="w-full bg-primary text-primary-foreground py-3 rounded font-semibold hover:bg-primary/80 transition-colors mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
-              {isLogin ? "Inicia Sesión" : "Crear Cuenta"}
+              {isLoading ? "Cargando..." : isLogin ? "Inicia Sesión" : "Crear Cuenta"}
             </button>
           </form>
 
@@ -175,6 +194,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               setEmail("");
               setPassword("");
               setFullName("");
+              setError("");
             }}
             className="w-full border border-border py-3 rounded text-foreground hover:border-primary hover:text-primary transition-colors"
             style={{ fontFamily: "'DM Sans', sans-serif" }}

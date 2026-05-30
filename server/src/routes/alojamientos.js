@@ -7,7 +7,8 @@ const router = express.Router();
 // Obtener todos los alojamientos
 router.get('/', async (req, res) => {
   try {
-    const alojamientos = await all('SELECT * FROM alojamientos WHERE disponible = 1');
+    const alojamientos = await all(`SELECT * FROM alojamientos WHERE disponible = 1
+      ORDER BY CASE tipo WHEN 'Glamping' THEN 1 WHEN 'Habitación' THEN 2 ELSE 3 END, nombre`);
     res.json(alojamientos);
   } catch (error) {
     console.error('Error al obtener alojamientos:', error);

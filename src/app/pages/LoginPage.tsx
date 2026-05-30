@@ -59,7 +59,7 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f1a0e] via-[#1a2817] to-[#0f1a0e] flex items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-gradient-to-br from-[#0f1a0e] via-[#1a2817] to-[#0f1a0e] flex items-center justify-center p-3 sm:p-4 relative">
       {/* Botón de volver atrás */}
       <button
         onClick={onSwitchToApp}
@@ -85,7 +85,7 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
           <img
             src="/images/sk.png"
             alt="Natural Sound"
-            className="h-24 md:h-32 w-auto object-contain mx-auto mb-6"
+            className="h-20 sm:h-24 md:h-32 w-auto object-contain mx-auto mb-4 sm:mb-6"
           />
           <p
             className="text-accent text-xs tracking-[0.3em] uppercase"
@@ -98,9 +98,9 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
         {/* Tarjeta de formulario */}
         <div className="bg-card border border-border rounded-lg shadow-2xl overflow-hidden backdrop-blur-sm bg-card/80">
           {/* Encabezado del formulario */}
-          <div className="px-8 pt-8 pb-4">
+          <div className="px-5 sm:px-8 pt-6 sm:pt-8 pb-4">
             <h1
-              className="text-3xl font-semibold text-foreground mb-2"
+              className="text-2xl sm:text-3xl font-semibold text-foreground mb-2"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               {isLogin ? "Bienvenido" : "Crear Cuenta"}
@@ -129,7 +129,7 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
           )}
 
           {/* Formulario de login/registro */}
-          <form onSubmit={handleSubmit} className="px-8 py-8 space-y-5">
+          <form onSubmit={handleSubmit} className="px-5 sm:px-8 py-5 sm:py-8 space-y-4 sm:space-y-5">
             {/* Nombre completo (solo registro) */}
             {!isLogin && (
               <div>
@@ -219,7 +219,7 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
           </form>
 
           {/* Separador visual */}
-          <div className="px-8 flex items-center gap-3">
+          <div className="px-5 sm:px-8 flex items-center gap-3">
             <div className="flex-1 border-t border-border" />
             <span
               className="text-xs text-muted-foreground"
@@ -231,7 +231,7 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
           </div>
 
           {/* Botón para cambiar entre login y registro */}
-          <div className="px-8 py-6">
+          <div className="px-5 sm:px-8 py-5 sm:py-6">
             <button
               type="button"
               onClick={toggleMode}
@@ -246,7 +246,7 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
 
           {/* Enlace de pie de página */}
           {isLogin && (
-            <div className="px-8 pb-6 text-center">
+            <div className="px-5 sm:px-8 pb-5 sm:pb-6 text-center">
               <button
                 type="button"
                 className="text-xs text-primary hover:underline"

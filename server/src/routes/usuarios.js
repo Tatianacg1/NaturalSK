@@ -113,10 +113,9 @@ router.get('/config/:userId', verificarToken, async (req, res) => {
       return res.status(403).json({ error: 'No tienes permiso para acceder a esta configuración' });
     }
 
-    const config = await get('SELECT * FROM configuracion WHERE usuario_id = ?', [req.params.userId]);
-    
+    let config = await get('SELECT * FROM configuracion WHERE usuario_id = ?', [req.params.userId]);
+
     if (!config) {
-      // Crear configuración por defecto si no existe
       await run('INSERT INTO configuracion (usuario_id) VALUES (?)', [req.params.userId]);
       config = await get('SELECT * FROM configuracion WHERE usuario_id = ?', [req.params.userId]);
     }

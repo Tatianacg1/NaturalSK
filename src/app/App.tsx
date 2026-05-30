@@ -110,11 +110,11 @@ function NavBar({ onLoginClick }: { onLoginClick: () => void }) {
         scrolled ? "bg-[#0f1a0e]/95 backdrop-blur-md border-b border-border" : "bg-transparent"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
         <img
           src="/images/sk.png"
           alt="Natural Sound"
-          className="h-20 md:h-24 w-auto object-contain mr-8"
+          className="h-14 sm:h-16 md:h-20 w-auto object-contain mr-4 md:mr-8"
         />
 
         <div className="hidden md:flex items-center gap-8">
@@ -193,7 +193,7 @@ function NavBar({ onLoginClick }: { onLoginClick: () => void }) {
 
 function Hero() {
   return (
-    <section className="relative h-screen min-h-[600px] flex items-end pb-20 overflow-hidden">
+    <section className="relative h-screen min-h-[600px] flex items-end pb-14 md:pb-20 overflow-hidden">
       <div className="absolute inset-0 bg-[#0a1208]">
         <img
           src={HERO_IMG}
@@ -212,7 +212,7 @@ function Hero() {
             Glamping & Hotel Boutique
           </p>
           <h1
-            className="text-foreground text-5xl md:text-7xl font-bold leading-none mb-6"
+            className="text-foreground text-4xl sm:text-5xl md:text-7xl font-bold leading-none mb-4 md:mb-6"
             style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700 }}
           >
             Donde la
@@ -222,7 +222,7 @@ function Hero() {
             habla.
           </h1>
           <p
-            className="text-muted-foreground text-lg leading-relaxed mb-10 max-w-md"
+            className="text-muted-foreground text-sm md:text-lg leading-relaxed mb-6 md:mb-10 max-w-md"
             style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300 }}
           >
            Natural Sound combina exclusivos glampings y cómodas habitaciones en medio de la naturaleza. Disfruta de jacuzzi privado, piscina climatizada, termales artificiales y espacios diseñados para el descanso y la desconexión.
@@ -230,14 +230,14 @@ function Hero() {
           <div className="flex flex-wrap gap-4">
             <a
               href="#hospedaje"
-              className="bg-primary text-primary-foreground px-8 py-4 text-sm tracking-widest uppercase hover:bg-primary/80 transition-colors"
+              className="bg-primary text-primary-foreground px-6 py-3 md:px-8 md:py-4 text-xs md:text-sm tracking-widest uppercase hover:bg-primary/80 transition-colors"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
               Ver hospedaje
             </a>
             <a
               href="#galería"
-              className="border border-border text-foreground px-8 py-4 text-sm tracking-widest uppercase hover:border-primary hover:text-primary transition-colors"
+              className="border border-border text-foreground px-6 py-3 md:px-8 md:py-4 text-xs md:text-sm tracking-widest uppercase hover:border-primary hover:text-primary transition-colors"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
               Experiencias
@@ -259,8 +259,8 @@ function Hero() {
 
 function About() {
   return (
-    <section id="nosotros" className="py-28 px-6">
-      <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+    <section id="nosotros" className="py-14 px-4 md:py-28 md:px-6">
+      <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-8 md:gap-16 items-center">
         <div>
           <p
             className="text-accent text-xs tracking-[0.3em] uppercase mb-4"
@@ -269,7 +269,7 @@ function About() {
             01 — Nuestra historia
           </p>
           <h2
-            className="text-foreground text-4xl md:text-5xl font-semibold leading-tight mb-8"
+            className="text-foreground text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight mb-6 md:mb-8"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
            Un refugio diseñado para desconectarte de la rutina y reconectar con la naturaleza.
@@ -286,11 +286,11 @@ function About() {
           >
             Nuestros glampings y habitaciones han sido diseñados para convivir en perfecta armonía con la naturaleza. Cada espacio fusiona confort, exclusividad y paisajes inspiradores, brindando una experiencia de descanso donde el lujo se vive de forma auténtica y natural.
           </p>
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-3 gap-3 md:gap-6">
             {[["50 min ", "Medellin"], ["30 min", "Bello"], ["4.9 ★", "Calificación"]].map(([val, lab]) => (
               <div key={lab} className="border-t border-border pt-5">
                 <p
-                  className="text-primary text-2xl font-bold mb-1"
+                  className="text-primary text-lg md:text-2xl font-bold mb-1"
                   style={{ fontFamily: "'Playfair Display', serif" }}
                 >
                   {val}
@@ -339,7 +339,7 @@ function About() {
 
 function Accommodations() {
   return (
-    <section id="hospedaje" className="py-28 px-6 bg-card/40">
+    <section id="hospedaje" className="py-14 px-4 md:py-28 md:px-6 bg-card/40">
       <div className="max-w-7xl mx-auto">
         <div className="mb-16">
           <p
@@ -349,7 +349,7 @@ function Accommodations() {
             02 — Hospedaje
           </p>
           <h2
-            className="text-foreground text-4xl md:text-5xl font-semibold"
+            className="text-foreground text-3xl md:text-4xl lg:text-5xl font-semibold"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             Alojamientos únicos
@@ -358,7 +358,7 @@ function Accommodations() {
           </h2>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
           {accommodations.map((acc) => (
             <div
               key={acc.name}
@@ -432,7 +432,7 @@ function Accommodations() {
 
 function Gallery() {
   return (
-    <section id="galería" className="py-28 px-6 bg-card/40">
+    <section id="galería" className="py-14 px-4 md:py-28 md:px-6 bg-card/40">
       <div className="max-w-7xl mx-auto">
         <p
           className="text-accent text-xs tracking-[0.3em] uppercase mb-4"
@@ -441,13 +441,13 @@ function Gallery() {
           03 — Galería
         </p>
         <h2
-          className="text-foreground text-4xl md:text-5xl font-semibold mb-14"
+          className="text-foreground text-3xl md:text-4xl lg:text-5xl font-semibold mb-8 md:mb-14"
           style={{ fontFamily: "'Playfair Display', serif" }}
         >
           Natural Sound en imágenes.
         </h2>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 auto-rows-[200px]">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 auto-rows-[130px] sm:auto-rows-[160px] md:auto-rows-[200px]">
           <div className="col-span-2 row-span-2 overflow-hidden bg-secondary">
             <img
               src={HERO_IMG}
@@ -475,7 +475,7 @@ function Gallery() {
 
 function Testimonials() {
   return (
-    <section className="py-28 px-6">
+    <section className="py-14 px-4 md:py-28 md:px-6">
       <div className="max-w-7xl mx-auto">
         <p
           className="text-accent text-xs tracking-[0.3em] uppercase mb-4"
@@ -484,7 +484,7 @@ function Testimonials() {
           04 — Testimonios
         </p>
         <h2
-          className="text-foreground text-4xl md:text-5xl font-semibold mb-16"
+          className="text-foreground text-3xl md:text-4xl lg:text-5xl font-semibold mb-8 md:mb-16"
           style={{ fontFamily: "'Playfair Display', serif" }}
         >
           Lo que dicen
@@ -492,9 +492,9 @@ function Testimonials() {
           quienes ya vivieron Natural Sound.
         </h2>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
           {testimonials.map((t) => (
-            <div key={t.name} className="border border-border p-8 flex flex-col gap-5">
+            <div key={t.name} className="border border-border p-5 md:p-8 flex flex-col gap-4 md:gap-5">
               <div className="flex gap-1">
                 {Array.from({ length: t.rating }).map((_, i) => (
                   <Star key={i} size={12} className="fill-accent text-accent" />
@@ -541,8 +541,8 @@ function Testimonials() {
 
 function Contact() {
   return (
-    <section id="contacto" className="py-28 px-6">
-      <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-20 items-start">
+    <section id="contacto" className="py-14 px-4 md:py-28 md:px-6">
+      <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-8 md:gap-20 items-start">
         <div>
           <p
             className="text-accent text-xs tracking-[0.3em] uppercase mb-4"
@@ -551,14 +551,14 @@ function Contact() {
             05 — Contacto
           </p>
           <h2
-            className="text-foreground text-4xl md:text-5xl font-semibold mb-8"
+            className="text-foreground text-3xl md:text-4xl lg:text-5xl font-semibold mb-6 md:mb-8"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             Contáctanos.
             <br />
             Reserva por WhatsApp.
           </h2>
-          <div className="space-y-5 mb-12 bg-card/70 border border-border rounded-3xl p-8">
+          <div className="space-y-4 mb-8 md:mb-12 bg-card/70 border border-border rounded-3xl p-5 md:p-8">
             {([
               { Icon: Phone, text: "+57 (312) 713 1999" },
               { Icon: Instagram, text: "@glampingnaturalsound" },
@@ -616,11 +616,11 @@ function Contact() {
 
 function Footer() {
   return (
-    <footer className="border-t border-border py-12 px-6">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+    <footer className="border-t border-border py-8 px-4 md:py-12 md:px-6">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6 md:gap-8">
         <div>
           <p
-            className="text-primary text-2xl font-bold mb-1"
+            className="text-primary text-xl md:text-2xl font-bold mb-1"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             Natural Sound

@@ -1,9 +1,9 @@
 // Página del panel administrativo.
 // Muestra estadísticas, gestiona reservas, usuarios y configuración en un dashboard.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, BarChart3, Users, Calendar, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2 } from "lucide-react";
-import { reservasAPI, usuariosAPI } from "../../services/api";
+import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal } from "lucide-react";
+import { reservasAPI, usuariosAPI, alojamientosAPI } from "../../services/api";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -44,12 +44,23 @@ interface UsuarioForm {
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "reservas" | "usuarios" | "configuracion">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "reservas" | "historial" | "calendario" | "usuarios" | "configuracion">("calendario");
+  const [overviewSubTab, setOverviewSubTab] = useState<"proximas" | "concluidas">("proximas");
+
+  // Estados de búsqueda y filtros del tab Reservas
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filtroAlojamiento, setFiltroAlojamiento] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const [ordenarPorFecha, setOrdenarPorFecha] = useState(false);
 
   // Estado para datos cargados del backend
   const [reservas, setReservas] = useState<any[]>([]);
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Estados para manejar modales de crear/editar reserva
   const [showReservaModal, setShowReservaModal] = useState(false);
@@ -82,6 +93,35 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     activo: true,
   });
   const [usuarioMessage, setUsuarioMessage] = useState("");
+
+  // Estado para el modal de detalle del historial
+  const [historialReserva, setHistorialReserva] = useState<any>(null);
+
+  // Estados para los modales interactivos del Panel General
+  const [overviewModal, setOverviewModal] = useState<{
+    type: "reservas" | "ingresos" | "ocupacion";
+    filtroAlojamiento: string;
+    filtroEstado?: string;
+  } | null>(null);
+  const [overviewDetailReserva, setOverviewDetailReserva] = useState<any>(null);
+
+  // Estado para el calendario
+  const [calMonth, setCalMonth] = useState<{ year: number; month: number }>(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const [calFiltroAlojamiento, setCalFiltroAlojamiento] = useState("");
+  const [calSelectedDay, setCalSelectedDay] = useState<{ year: number; month: number; day: number } | null>(null);
+
+  // Estado para la pestaña de Configuración
+  const [config, setConfig] = useState({
+    recibir_notificaciones: true,
+    notificaciones_reservas: true,
+    compartir_datos: false,
+  });
+  const [perfilForm, setPerfilForm] = useState({ nombre: "", email: "" });
+  const [configMessage, setConfigMessage] = useState("");
+  const [configLoading, setConfigLoading] = useState(false);
   const valorAlojamiento = Number(reservaForm.valor_alojamiento || 0);
   const valorServicioAdicional = Number(reservaForm.valor_servicio_adicional || 0);
   const abono = Number(reservaForm.abono || 0);
@@ -94,28 +134,46 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       maximumFractionDigits: 0,
     }).format(value);
 
-  const mapReserva = (reserva: any) => ({
-    id: reserva.id,
-    guest: reserva.nombre_huesped,
-    document: reserva.cedula_huesped || "",
-    email: reserva.email_huesped,
-    accommodation: reserva.hospedaje,
-    checkIn: reserva.check_in,
-    checkOut: reserva.check_out,
-    status: reserva.estado,
-    guests: reserva.numero_huespedes,
-    additionalService: reserva.servicio_adicional || "N/A",
-    accommodationValue: Number(reserva.valor_alojamiento || 0),
-    additionalServiceValue: Number(reserva.valor_servicio_adicional || 0),
-    deposit: Number(reserva.abono || 0),
-    fullValue: Number(reserva.valor_alojamiento || 0) + Number(reserva.valor_servicio_adicional || 0),
-    remainingValue: Number(reserva.total || 0),
-    additionalGuests: reserva.huespedes_adicionales || [],
-  });
+  // Formatea un número como entero COP con separador de miles (punto).
+  // Devuelve '' cuando el valor es 0 para que el placeholder "0" sea visible.
+  const displayCOP = (val: number | string): string => {
+    const n = Number(String(val).replace(/\./g, "") || 0);
+    if (!n) return "";
+    return n.toLocaleString("es-CO");
+  };
 
-  const reloadReservas = async () => {
-    const reservasData = await reservasAPI.getAll();
-    setReservas(reservasData.map(mapReserva));
+  // Extrae el entero del string formateado (elimina puntos y caracteres no numéricos).
+  const parseCOP = (str: string): number => {
+    const cleaned = str.replace(/[^\d]/g, "");
+    return cleaned === "" ? 0 : parseInt(cleaned, 10);
+  };
+
+  const mapReserva = (reserva: any) => {
+    let additionalGuests = [];
+    try {
+      additionalGuests = typeof reserva.huespedes_adicionales === "string"
+        ? JSON.parse(reserva.huespedes_adicionales || "[]")
+        : (reserva.huespedes_adicionales || []);
+    } catch { additionalGuests = []; }
+
+    return {
+      id: reserva.id,
+      guest: reserva.nombre_huesped,
+      document: reserva.cedula_huesped || "",
+      email: reserva.email_huesped,
+      accommodation: reserva.hospedaje,
+      checkIn: reserva.check_in,
+      checkOut: reserva.check_out,
+      status: reserva.estado,
+      guests: reserva.numero_huespedes,
+      additionalService: reserva.servicio_adicional || "N/A",
+      accommodationValue: Number(reserva.valor_alojamiento || 0),
+      additionalServiceValue: Number(reserva.valor_servicio_adicional || 0),
+      deposit: Number(reserva.abono || 0),
+      fullValue: Number(reserva.valor_alojamiento || 0) + Number(reserva.valor_servicio_adicional || 0),
+      remainingValue: Number(reserva.total || 0),
+      additionalGuests,
+    };
   };
 
   const mapUsuario = (usuario: any) => ({
@@ -128,87 +186,64 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     active: Boolean(usuario.activo),
   });
 
-  const reloadUsuarios = async () => {
-    const usuariosData = await usuariosAPI.getAll();
-    setUsuarios(usuariosData.map(mapUsuario));
-  };
-
   // Cierra sesión y navega a la página principal.
   const handleLogout = () => {
     logout();  // Limpia el estado de autenticación
     onLogout();  // Navega a la página principal
   };
 
-  // Cargar datos del backend al montar el componente
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("authToken");
-        if (!token) {
-          setIsLoading(false);
-          return;
-        }
+  // Carga todos los datos del backend; silent=true omite el spinner manual
+  const loadData = useCallback(async (silent = false) => {
+    const token = localStorage.getItem("authToken");
+    if (!token) { setIsLoading(false); return; }
+    if (!silent) setIsRefreshing(true);
+    try {
+      const [reservasData, alojamientosData] = await Promise.all([
+        reservasAPI.getAll(),
+        alojamientosAPI.getAll(),
+      ]);
+      setReservas(reservasData.map(mapReserva));
+      setAlojamientos(alojamientosData);
 
-        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-
-        // Cargar reservas
-        try {
-          const reservasResponse = await fetch(`${apiUrl}/reservas`, {
-            headers: {
-              "Authorization": `Bearer ${token}`,
-            },
-          });
-          if (reservasResponse.ok) {
-            const reservasData = await reservasResponse.json();
-            setReservas(reservasData.map(mapReserva));
-          }
-        } catch (error) {
-          console.log("No se pudo cargar reservas:", error);
-        }
-
-        // Cargar usuarios (solo admin)
-        if (user?.role === "admin") {
-          try {
-            const usuariosResponse = await fetch(`${apiUrl}/usuarios`, {
-              headers: {
-                "Authorization": `Bearer ${token}`,
-              },
-            });
-            if (usuariosResponse.ok) {
-              const usuariosData = await usuariosResponse.json();
-              setUsuarios(usuariosData.map(mapUsuario));
-            }
-          } catch (error) {
-            console.log("No se pudo cargar usuarios:", error);
-          }
-        }
-
-        // Cargar alojamientos
-        try {
-          const alojamientosResponse = await fetch(`${apiUrl}/alojamientos`, {
-            headers: {
-              "Authorization": `Bearer ${token}`,
-            },
-          });
-          if (alojamientosResponse.ok) {
-            const alojamientosData = await alojamientosResponse.json();
-            setAlojamientos(alojamientosData);
-          }
-        } catch (error) {
-          console.log("No se pudo cargar alojamientos:", error);
-        }
-      } catch (error) {
-        console.error("Error cargando datos:", error);
-      } finally {
-        setIsLoading(false);
+      if (user?.role === "admin") {
+        const usuariosData = await usuariosAPI.getAll();
+        setUsuarios(usuariosData.map(mapUsuario));
       }
-    };
 
-    fetchData();
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("Error cargando datos:", error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   }, [user?.role]);
 
+  // Carga inicial + polling cada 30 segundos
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(() => loadData(true), 30000);
+    return () => clearInterval(interval);
+  }, [loadData]);
+
+  const reloadReservas = () => loadData(true);
+  const reloadUsuarios = () => loadData(true);
+
+  // Cargar perfil y configuración del usuario cuando hay sesión
+  useEffect(() => {
+    if (!user?.id) return;
+    setPerfilForm({ nombre: user.name || "", email: user.email || "" });
+    usuariosAPI.getConfig(user.id)
+      .then(cfg => setConfig({
+        recibir_notificaciones: Boolean(cfg.recibir_notificaciones),
+        notificaciones_reservas: Boolean(cfg.notificaciones_reservas),
+        compartir_datos: Boolean(cfg.compartir_datos),
+      }))
+      .catch(() => {});
+  }, [user?.id]);
+
   // Funciones para manejar reservas usando el API centralizado
-  const handleOpenReservaModal = (reserva?: any) => {
+  const handleOpenReservaModal = (reserva?: any, prefillDate?: string) => {
     if (reserva) {
       setEditingReserva(reserva);
       setReservaForm({
@@ -233,7 +268,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         cedula_huesped: "",
         email_huesped: "",
         hospedaje: "",
-        check_in: "",
+        check_in: prefillDate || "",
         check_out: "",
         numero_huespedes: 1,
         servicio_adicional: "N/A",
@@ -427,9 +462,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const ocupacion = Math.round((nochesReservadas / (totalAlojamientos * diasMes)) * 100);
 
   const stats = [
-    { label: "Reservas Totales", value: reservasDisplay.length.toString(), icon: Calendar, change: "+12% este mes" },
-    { label: "Ingresos", value: formatCurrency(ingresosTotales), icon: BarChart3, change: "+8.5% este mes" },
-    { label: "Ocupación", value: `${ocupacion}%`, icon: Home, change: "+5% este mes" },
+    { label: "Reservas Totales", value: reservasDisplay.length.toString(), icon: Calendar, change: "+12% este mes", modalType: "reservas" as const },
+    { label: "Ingresos", value: formatCurrency(ingresosTotales), icon: BarChart3, change: "+8.5% este mes", modalType: "ingresos" as const },
+    { label: "Ocupación", value: `${ocupacion}%`, icon: Home, change: "+5% este mes", modalType: "ocupacion" as const },
   ];
 
   // Devuelve clases de estilo según el estado de la reserva.
@@ -445,10 +480,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-[#284735]">
+    <div className="min-h-screen bg-slate-50 text-[#284735] overflow-x-hidden">
       {/* Encabezado principal */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-6 py-4 flex items-center justify-between">
+        <div className="px-4 md:px-6 py-4 flex items-center justify-between min-w-0">
           <div className="flex items-center gap-4">
             {/* Botón de volver atrás */}
             <button
@@ -471,13 +506,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               title="Volver a la página principal"
             >
               <h1
-                className="text-2xl font-semibold text-[#365b43]"
+                className="text-lg sm:text-2xl font-semibold text-[#365b43]"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
                 Natural Sound Admin
               </h1>
               <p
-                className="text-xs text-[#55735d] tracking-wide"
+                className="hidden sm:block text-xs text-[#55735d] tracking-wide"
                 style={{ fontFamily: "'DM Mono', monospace" }}
               >
                 Panel de Control
@@ -511,19 +546,34 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </header>
 
       <div className="flex">
+        {/* Overlay para cerrar el sidebar en móvil */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         {/* Barra lateral de navegación */}
         {sidebarOpen && (
-          <aside className="hidden md:block w-64 bg-white border-r border-slate-200 p-6 min-h-[calc(100vh-80px)]">
+          <aside className="fixed top-[72px] left-0 h-[calc(100vh-72px)] z-40 md:static md:top-auto md:left-auto md:h-auto md:z-auto w-64 bg-white border-r border-slate-200 p-6 md:min-h-[calc(100vh-80px)]">
             <nav className="space-y-2">
               {[
                 { id: "overview", label: "Panel General", icon: BarChart3 },
+                { id: "calendario", label: "Calendario", icon: CalendarDays },
                 { id: "reservas", label: "Reservas", icon: Calendar },
+                { id: "historial", label: "Historial", icon: History },
                 { id: "usuarios", label: "Usuarios", icon: Users },
                 { id: "configuracion", label: "Configuración", icon: Settings },
               ].map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
+                  onClick={() => {
+                    setActiveTab(item.id as any);
+                    setSidebarOpen(window.innerWidth >= 768);
+                    setOverviewModal(null);
+                    setOverviewDetailReserva(null);
+                  }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-colors ${
                     activeTab === item.id
                       ? "bg-primary/15 border border-primary text-primary"
@@ -540,29 +590,50 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         )}
 
         {/* Contenido principal */}
-        <main className="flex-1 p-6 md:p-8">
+        <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8">
           {/* Pestaña de resumen */}
           {activeTab === "overview" && (
             <div>
-              <div className="mb-8">
-                <h2
-                  className="text-3xl font-semibold text-[#365b43] mb-2"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
-                >
-                  Panel General
-                </h2>
-                <p
-                  className="text-slate-700"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  Bienvenido al panel de administración de Natural Sound
-                </p>
+              <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2
+                    className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2"
+                    style={{ fontFamily: "'Playfair Display', serif" }}
+                  >
+                    Panel General
+                  </h2>
+                  <p
+                    className="text-slate-700"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    Bienvenido al panel de administración de Natural Sound
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <button
+                    onClick={() => loadData()}
+                    disabled={isRefreshing}
+                    className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded bg-white hover:bg-slate-50 text-[#46654f] transition-colors disabled:opacity-60"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+                    Actualizar
+                  </button>
+                  {lastUpdated && (
+                    <span
+                      className="text-xs text-slate-400"
+                      style={{ fontFamily: "'DM Mono', monospace" }}
+                    >
+                      {lastUpdated.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Cuadrícula de estadísticas */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
                 {stats.map((stat) => (
-                  <div key={stat.label} className="bg-white border border-slate-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div key={stat.label} onClick={() => setOverviewModal({ type: stat.modalType, filtroAlojamiento: "" })} className="bg-white border border-slate-200 rounded-lg p-6 hover:shadow-md hover:border-primary/40 transition-all cursor-pointer">
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <p
@@ -590,112 +661,671 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 ))}
               </div>
 
-              {/* Próximas Reservas */}
-              <div className="bg-white border border-slate-200 rounded-lg p-6 mb-8">
-                <h3
-                  className="text-xl font-semibold text-slate-900 mb-4"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
-                >
-                  Próximas Reservas
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="text-left py-3 px-4 text-slate-800 font-semibold">Huésped</th>
-                        <th className="text-left py-3 px-4 text-slate-800 font-semibold">Alojamiento</th>
-                        <th className="text-left py-3 px-4 text-slate-800 font-semibold">Check-in</th>
-                        <th className="text-left py-3 px-4 text-slate-800 font-semibold">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reservasDisplay
-                        .filter(r => r.status === "Confirmada" && new Date(r.checkIn) >= new Date())
-                        .sort((a, b) => new Date(a.checkIn) - new Date(b.checkIn))
-                        .slice(0, 5)
-                        .map((r) => (
-                          <tr key={r.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                            <td className="py-3 px-4 font-medium text-[#284735]">{r.guest}</td>
-                            <td className="py-3 px-4 text-slate-700">{r.accommodation}</td>
-                            <td className="py-3 px-4 text-slate-700">{r.checkIn}</td>
-                            <td className="py-3 px-4">
-                              <span className={`px-3 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
-                                {r.status}
-                              </span>
-                            </td>
+              {/* Sub-pestañas: Próximas / Concluidas */}
+              <div className="bg-white border border-slate-200 rounded-lg mb-8">
+                {/* Encabezado con tabs */}
+                <div className="flex border-b border-slate-200">
+                  <button
+                    onClick={() => setOverviewSubTab("proximas")}
+                    className={`px-5 py-4 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                      overviewSubTab === "proximas"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-slate-500 hover:text-[#284735]"
+                    }`}
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    Próximas Reservas
+                  </button>
+                  <button
+                    onClick={() => setOverviewSubTab("concluidas")}
+                    className={`px-5 py-4 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                      overviewSubTab === "concluidas"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-slate-500 hover:text-[#284735]"
+                    }`}
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    Reservas Concluidas
+                  </button>
+                </div>
+
+                <div className="p-6 overflow-x-auto">
+                  {overviewSubTab === "proximas" && (() => {
+                    const hoy = new Date();
+                    hoy.setHours(0, 0, 0, 0);
+                    const proximas = reservasDisplay
+                      .filter(r => r.status !== "Cancelada" && new Date(r.checkIn) >= hoy)
+                      .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())
+                      .slice(0, 5);
+                    return (
+                      <table className="w-full text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                        <thead>
+                          <tr className="border-b border-slate-200">
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold">Huésped</th>
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold hidden sm:table-cell">Alojamiento</th>
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold">Check-in</th>
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold hidden md:table-cell">Check-out</th>
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold">Estado</th>
                           </tr>
-                        ))}
-                      {/* Si no hay próximas reservas */}
-                      {reservasDisplay.filter(r => r.status === "Confirmada" && new Date(r.checkIn) >= new Date()).length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="py-6 px-4 text-center text-slate-500">
-                            No hay próximas reservas confirmadas.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {proximas.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="py-6 px-4 text-center text-slate-500">
+                                No hay próximas reservas.
+                              </td>
+                            </tr>
+                          ) : proximas.map((r) => (
+                            <tr key={r.id} onClick={() => setOverviewDetailReserva(r)} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
+                              <td className="py-3 px-3 font-medium text-[#284735]">{r.guest}</td>
+                              <td className="py-3 px-3 text-slate-700 hidden sm:table-cell">{r.accommodation}</td>
+                              <td className="py-3 px-3 text-slate-700">{r.checkIn}</td>
+                              <td className="py-3 px-3 text-slate-700 hidden md:table-cell">{r.checkOut}</td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
+                                  {r.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  })()}
+
+                  {overviewSubTab === "concluidas" && (() => {
+                    const hoy = new Date();
+                    hoy.setHours(0, 0, 0, 0);
+                    const concluidas = reservasDisplay
+                      .filter(r => new Date(r.checkOut) < hoy)
+                      .sort((a, b) => new Date(b.checkOut).getTime() - new Date(a.checkOut).getTime());
+                    return (
+                      <table className="w-full text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                        <thead>
+                          <tr className="border-b border-slate-200">
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold">Huésped</th>
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold hidden sm:table-cell">Alojamiento</th>
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold hidden md:table-cell">Check-in</th>
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold">Check-out</th>
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold hidden sm:table-cell">Valor Total</th>
+                            <th className="text-left py-3 px-3 text-slate-800 font-semibold">Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {concluidas.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="py-6 px-4 text-center text-slate-500">
+                                No hay reservas concluidas aún.
+                              </td>
+                            </tr>
+                          ) : concluidas.map((r) => (
+                            <tr key={r.id} onClick={() => setOverviewDetailReserva(r)} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
+                              <td className="py-3 px-3 font-medium text-[#284735]">{r.guest}</td>
+                              <td className="py-3 px-3 text-slate-700 hidden sm:table-cell">{r.accommodation}</td>
+                              <td className="py-3 px-3 text-slate-700 hidden md:table-cell">{r.checkIn}</td>
+                              <td className="py-3 px-3 text-slate-700">{r.checkOut}</td>
+                              <td className="py-3 px-3 hidden sm:table-cell">
+                                <p className="font-medium text-[#284735] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
+                                <span className="text-xs text-green-600 font-medium">✓ Completado</span>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
+                                  {r.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  })()}
                 </div>
               </div>
+
+              {/* Modal detalle de reserva individual — desde Panel General */}
+              {overviewDetailReserva && (
+                <div
+                  className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4"
+                  onClick={() => setOverviewDetailReserva(null)}
+                >
+                  <div
+                    className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="flex items-start justify-between p-6 border-b border-slate-200">
+                      <div>
+                        <h3 className="text-xl font-semibold text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                          Detalle de Reserva
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          ID #{overviewDetailReserva.id}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-3 py-1 rounded-full text-xs border ${getStatusColor(overviewDetailReserva.status)}`}>
+                          {overviewDetailReserva.status}
+                        </span>
+                        <button onClick={() => setOverviewDetailReserva(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                          <X size={20} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="p-6 space-y-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Huésped Principal</p>
+                        <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Nombre</span><span className="font-medium text-[#284735]">{overviewDetailReserva.guest}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Cédula</span><span className="text-[#284735]">{overviewDetailReserva.document || "—"}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Email</span><span className="text-[#284735] break-all text-right max-w-[60%]">{overviewDetailReserva.email}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Personas</span><span className="text-[#284735]">{overviewDetailReserva.guests}</span></div>
+                        </div>
+                      </div>
+                      {overviewDetailReserva.additionalGuests?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Huéspedes Adicionales</p>
+                          <div className="space-y-2">
+                            {overviewDetailReserva.additionalGuests.map((h: any, i: number) => (
+                              <div key={i} className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
+                                <div className="flex justify-between"><span className="text-slate-500">Nombre</span><span className="text-[#284735] font-medium">{h.nombre}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-500">Cédula</span><span className="text-[#284735]">{h.cedula}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="text-[#284735] break-all text-right max-w-[60%]">{h.email}</span></div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Alojamiento y Fechas</p>
+                        <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Alojamiento</span><span className="font-medium text-[#284735]">{overviewDetailReserva.accommodation}</span></div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">{overviewDetailReserva.accommodation === "Día de Sol" ? "Fecha" : "Check-in"}</span>
+                            <span className="text-[#284735]">{overviewDetailReserva.checkIn}</span>
+                          </div>
+                          {overviewDetailReserva.accommodation !== "Día de Sol" && (
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Check-out</span><span className="text-[#284735]">{overviewDetailReserva.checkOut}</span></div>
+                          )}
+                          {overviewDetailReserva.additionalService && overviewDetailReserva.additionalService !== "N/A" && (
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#284735]">{overviewDetailReserva.additionalService}</span></div>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Resumen Financiero</p>
+                        <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Valor alojamiento</span><span className="text-[#284735]">{formatCurrency(overviewDetailReserva.accommodationValue)}</span></div>
+                          {overviewDetailReserva.additionalServiceValue > 0 && (
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#284735]">{formatCurrency(overviewDetailReserva.additionalServiceValue)}</span></div>
+                          )}
+                          {overviewDetailReserva.deposit > 0 && (
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Abono</span><span className="text-green-600">− {formatCurrency(overviewDetailReserva.deposit)}</span></div>
+                          )}
+                          <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2 mt-1">
+                            <span className="text-[#284735]">Total</span>
+                            <span className="text-[#284735]">{formatCurrency(overviewDetailReserva.fullValue)}</span>
+                          </div>
+                          {overviewDetailReserva.checkOut < new Date().toISOString().slice(0, 10) && (
+                            <div className="mt-3 flex items-center gap-2 py-2.5 px-3 bg-green-50 border border-green-200 rounded-lg">
+                              <span className="text-green-600 font-bold text-base leading-none">✓</span>
+                              <span className="text-sm font-medium text-green-700">Pago completado</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-6 pb-6 flex gap-3">
+                      <button
+                        onClick={() => { setOverviewDetailReserva(null); setOverviewModal(null); setActiveTab("reservas"); handleOpenReservaModal(overviewDetailReserva); }}
+                        className="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 transition-colors"
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        Editar Reserva
+                      </button>
+                      <button
+                        onClick={() => setOverviewDetailReserva(null)}
+                        className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal interactivo Panel General — Reservas / Ingresos / Ocupación */}
+              {overviewModal && (() => {
+                const filtroAlo = overviewModal.filtroAlojamiento;
+                const filtroEst = overviewModal.filtroEstado || "";
+                let modalReservas = reservasDisplay;
+                if (filtroAlo) modalReservas = modalReservas.filter(r => r.accommodation === filtroAlo);
+                if (filtroEst) modalReservas = modalReservas.filter(r => r.status === filtroEst);
+                const modalTitles = { reservas: "Reservas Totales", ingresos: "Resumen de Ingresos", ocupacion: "Ocupación General" };
+                return (
+                  <div
+                    className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+                    onClick={() => setOverviewModal(null)}
+                  >
+                    <div
+                      className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {/* Cabecera */}
+                      <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                        <h3 className="text-xl font-semibold text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                          {modalTitles[overviewModal.type]}
+                        </h3>
+                        <button onClick={() => setOverviewModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                          <X size={20} />
+                        </button>
+                      </div>
+
+                      {/* Filtros */}
+                      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex flex-wrap gap-4 items-end">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs text-slate-500 font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>Alojamiento</label>
+                          <select
+                            value={filtroAlo}
+                            onChange={e => setOverviewModal(m => m ? { ...m, filtroAlojamiento: e.target.value } : null)}
+                            className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#284735] bg-white focus:outline-none focus:border-primary transition-colors"
+                            style={{ fontFamily: "'DM Sans', sans-serif" }}
+                          >
+                            <option value="">Todos los alojamientos</option>
+                            {alojamientos.map(a => <option key={a.id} value={a.nombre}>{a.nombre}</option>)}
+                          </select>
+                        </div>
+                        {overviewModal.type === "reservas" && (
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs text-slate-500 font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>Estado</label>
+                            <select
+                              value={filtroEst}
+                              onChange={e => setOverviewModal(m => m ? { ...m, filtroEstado: e.target.value } : null)}
+                              className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#284735] bg-white focus:outline-none focus:border-primary transition-colors"
+                              style={{ fontFamily: "'DM Sans', sans-serif" }}
+                            >
+                              <option value="">Todos los estados</option>
+                              <option value="Pendiente">Pendiente</option>
+                              <option value="Confirmada">Confirmada</option>
+                              <option value="Cancelada">Cancelada</option>
+                            </select>
+                          </div>
+                        )}
+                        {(filtroAlo || filtroEst) && (
+                          <button
+                            onClick={() => setOverviewModal(m => m ? { ...m, filtroAlojamiento: "", filtroEstado: "" } : null)}
+                            className="text-xs text-red-500 hover:text-red-700 underline self-end pb-1"
+                            style={{ fontFamily: "'DM Sans', sans-serif" }}
+                          >
+                            Limpiar filtros
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Contenido */}
+                      <div className="p-6" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+
+                        {/* ── RESERVAS ── */}
+                        {overviewModal.type === "reservas" && (
+                          <>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                              {[
+                                { label: "Total", value: modalReservas.length, color: "text-slate-900" },
+                                { label: "Pendientes", value: modalReservas.filter(r => r.status === "Pendiente").length, color: "text-yellow-600" },
+                                { label: "Confirmadas", value: modalReservas.filter(r => r.status === "Confirmada").length, color: "text-green-600" },
+                                { label: "Canceladas", value: modalReservas.filter(r => r.status === "Cancelada").length, color: "text-red-600" },
+                              ].map(s => (
+                                <div key={s.label} className="bg-slate-50 rounded-lg p-3 text-center">
+                                  <p className={`text-xl font-bold ${s.color}`} style={{ fontFamily: "'Playfair Display', serif" }}>{s.value}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="overflow-x-auto rounded-lg border border-slate-200">
+                              <table className="w-full text-sm">
+                                <thead className="bg-slate-50 border-b border-slate-200">
+                                  <tr>
+                                    <th className="text-left py-3 px-4 text-slate-700 font-semibold">Huésped</th>
+                                    <th className="text-left py-3 px-4 text-slate-700 font-semibold hidden sm:table-cell">Alojamiento</th>
+                                    <th className="text-left py-3 px-4 text-slate-700 font-semibold">Check-in</th>
+                                    <th className="text-left py-3 px-4 text-slate-700 font-semibold hidden sm:table-cell">Check-out</th>
+                                    <th className="text-left py-3 px-4 text-slate-700 font-semibold">Estado</th>
+                                    <th className="text-left py-3 px-4 text-slate-700 font-semibold hidden md:table-cell">Valor</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {modalReservas.length === 0 ? (
+                                    <tr><td colSpan={6} className="py-6 text-center text-slate-400">Sin reservas</td></tr>
+                                  ) : modalReservas.map(r => (
+                                    <tr key={r.id} onClick={() => setOverviewDetailReserva(r)} className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                                      <td className="py-3 px-4 font-medium text-[#284735]">{r.guest}</td>
+                                      <td className="py-3 px-4 text-slate-600 hidden sm:table-cell">{r.accommodation}</td>
+                                      <td className="py-3 px-4 text-slate-600">{r.checkIn}</td>
+                                      <td className="py-3 px-4 text-slate-600 hidden sm:table-cell">{r.checkOut}</td>
+                                      <td className="py-3 px-4">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs border ${getStatusColor(r.status)}`}>{r.status}</span>
+                                      </td>
+                                      <td className="py-3 px-4 text-[#284735] font-medium hidden md:table-cell whitespace-nowrap">{formatCurrency(r.fullValue)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </>
+                        )}
+
+                        {/* ── INGRESOS ── */}
+                        {overviewModal.type === "ingresos" && (() => {
+                          const confirmadas = modalReservas.filter(r => r.status === "Confirmada");
+                          const totalIngresos = confirmadas.reduce((acc, r) => acc + r.fullValue, 0);
+                          const totalAbonos = confirmadas.reduce((acc, r) => acc + r.deposit, 0);
+                          return (
+                            <>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                  <p className="text-xs text-slate-500 mb-1">Ingresos totales</p>
+                                  <p className="text-xl font-bold text-[#284735]" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalIngresos)}</p>
+                                </div>
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                  <p className="text-xs text-slate-500 mb-1">Abonos recibidos</p>
+                                  <p className="text-xl font-bold text-green-600" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalAbonos)}</p>
+                                </div>
+                                <div className="bg-slate-50 rounded-lg p-4 col-span-2 sm:col-span-1">
+                                  <p className="text-xs text-slate-500 mb-1">Reservas confirmadas</p>
+                                  <p className="text-xl font-bold text-[#284735]" style={{ fontFamily: "'Playfair Display', serif" }}>{confirmadas.length}</p>
+                                </div>
+                              </div>
+                              {!filtroAlo ? (
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3" style={{ fontFamily: "'DM Mono', monospace" }}>Por alojamiento</p>
+                                  <div className="space-y-2">
+                                    {alojamientos.map(a => {
+                                      const aRes = reservasDisplay.filter(r => r.accommodation === a.nombre && r.status === "Confirmada");
+                                      const aTotal = aRes.reduce((acc, r) => acc + r.fullValue, 0);
+                                      return (
+                                        <div
+                                          key={a.id}
+                                          onClick={() => setOverviewModal(m => m ? { ...m, filtroAlojamiento: a.nombre } : null)}
+                                          className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                                        >
+                                          <div>
+                                            <p className="text-sm font-medium text-[#284735]">{a.nombre}</p>
+                                            <p className="text-xs text-slate-500">{aRes.length} reserva{aRes.length !== 1 ? "s" : ""} confirmada{aRes.length !== 1 ? "s" : ""}</p>
+                                          </div>
+                                          <p className="text-sm font-semibold text-[#284735] whitespace-nowrap">{formatCurrency(aTotal)}</p>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3" style={{ fontFamily: "'DM Mono', monospace" }}>Detalle — {filtroAlo}</p>
+                                  <div className="space-y-2">
+                                    {confirmadas.length === 0 ? (
+                                      <p className="text-center text-slate-400 text-sm py-4">Sin reservas confirmadas para este alojamiento</p>
+                                    ) : confirmadas.map(r => (
+                                      <div key={r.id} onClick={() => setOverviewDetailReserva(r)} className="p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                                        <div className="flex justify-between items-start">
+                                          <div>
+                                            <p className="text-sm font-medium text-[#284735]">{r.guest}</p>
+                                            <p className="text-xs text-slate-500">{r.checkIn}{r.accommodation !== "Día de Sol" ? ` → ${r.checkOut}` : ""}</p>
+                                          </div>
+                                          <p className="text-sm font-semibold text-[#284735] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+
+                        {/* ── OCUPACIÓN ── */}
+                        {overviewModal.type === "ocupacion" && (() => {
+                          const hoyOcup = new Date();
+                          const yearOcup = hoyOcup.getFullYear();
+                          const monthOcup = hoyOcup.getMonth();
+                          const daysInMonthOcup = new Date(yearOcup, monthOcup + 1, 0).getDate();
+                          const monthNamesOcup = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+                          const alosToShow = filtroAlo ? alojamientos.filter(a => a.nombre === filtroAlo) : alojamientos;
+                          return (
+                            <>
+                              <p className="text-xs text-slate-500 mb-5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                                {monthNamesOcup[monthOcup]} {yearOcup} — {daysInMonthOcup} días disponibles por alojamiento
+                              </p>
+                              <div className="space-y-3">
+                                {alosToShow.map(a => {
+                                  const aRes = reservasDisplay.filter(r => r.accommodation === a.nombre && r.status !== "Cancelada");
+                                  const noches = aRes.reduce((acc, r) => {
+                                    const ci = new Date(r.checkIn + "T00:00:00");
+                                    const co = new Date(r.checkOut + "T00:00:00");
+                                    const mesInicio = new Date(yearOcup, monthOcup, 1);
+                                    const mesFin = new Date(yearOcup, monthOcup + 1, 0);
+                                    const solapInicio = ci < mesInicio ? mesInicio : ci;
+                                    const solapFin = co > mesFin ? mesFin : co;
+                                    const n = (solapFin.getTime() - solapInicio.getTime()) / (1000 * 60 * 60 * 24);
+                                    return acc + (n > 0 ? n : 0);
+                                  }, 0);
+                                  const pct = Math.min(100, Math.round((noches / daysInMonthOcup) * 100));
+                                  const barColor = pct > 80 ? "bg-red-500" : pct > 50 ? "bg-yellow-500" : pct > 0 ? "bg-green-500" : "bg-slate-300";
+                                  return (
+                                    <div key={a.id} className="bg-slate-50 rounded-lg p-4">
+                                      <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                          <p className="text-sm font-medium text-[#284735]">{a.nombre}</p>
+                                          <p className="text-xs text-slate-500">{a.tipo} · {aRes.length} reserva{aRes.length !== 1 ? "s" : ""} activa{aRes.length !== 1 ? "s" : ""}</p>
+                                        </div>
+                                        <span className="text-xl font-bold text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>{pct}%</span>
+                                      </div>
+                                      <div className="w-full bg-slate-200 rounded-full h-2 mb-1">
+                                        <div className={`h-2 rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                                      </div>
+                                      <p className="text-xs text-slate-400">{Math.round(noches)} noches reservadas de {daysInMonthOcup} posibles este mes</p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          );
+                        })()}
+
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
           {/* Reservas Tab */}
-          {activeTab === "reservas" && (
+          {activeTab === "reservas" && (() => {
+            // Aplicar búsqueda y filtros
+            let reservasFiltradas = reservasDisplay;
+            if (searchQuery.trim()) {
+              const q = searchQuery.toLowerCase();
+              reservasFiltradas = reservasFiltradas.filter(r =>
+                r.guest.toLowerCase().includes(q) ||
+                r.accommodation.toLowerCase().includes(q)
+              );
+            }
+            if (filtroAlojamiento) {
+              reservasFiltradas = reservasFiltradas.filter(r => r.accommodation === filtroAlojamiento);
+            }
+            if (filtroEstado) {
+              reservasFiltradas = reservasFiltradas.filter(r => r.status === filtroEstado);
+            }
+            if (ordenarPorFecha) {
+              reservasFiltradas = [...reservasFiltradas].sort(
+                (a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime()
+              );
+            }
+
+            const hayFiltrosActivos = searchQuery || filtroAlojamiento || filtroEstado || ordenarPorFecha;
+
+            return (
             <div>
-              <div className="mb-8 flex items-center justify-between">
+              {/* Encabezado con acciones */}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2
-                    className="text-3xl font-semibold text-[#365b43] mb-2"
+                    className="text-xl md:text-3xl font-semibold text-[#365b43] mb-1"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
                     Gestión de Reservas
                   </h2>
-                  <p
-                    className="text-slate-700"
-                    style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  >
-                    {reservasDisplay.length} reservas totales
+                  <p className="text-slate-700 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    {reservasFiltradas.length} de {reservasDisplay.length} reservas
                   </p>
                 </div>
-                <button
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
-                  onClick={() => handleOpenReservaModal()}
-                >
-                  <Plus size={18} /> Nueva Reserva
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Buscador */}
+                  <button
+                    onClick={() => { setShowSearch(s => !s); if (showSearch) setSearchQuery(""); }}
+                    title="Buscar reservas"
+                    className={`p-2 rounded border transition-colors ${showSearch ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200 hover:border-primary hover:text-primary"}`}
+                  >
+                    <Search size={18} />
+                  </button>
+                  {/* Filtros */}
+                  <button
+                    onClick={() => setShowFilters(f => !f)}
+                    title="Filtrar reservas"
+                    className={`p-2 rounded border transition-colors relative ${showFilters || (filtroAlojamiento || filtroEstado || ordenarPorFecha) ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200 hover:border-primary hover:text-primary"}`}
+                  >
+                    <SlidersHorizontal size={18} />
+                    {(filtroAlojamiento || filtroEstado || ordenarPorFecha) && !showFilters && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                    )}
+                  </button>
+                  {/* Nueva reserva */}
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors text-sm"
+                    onClick={() => handleOpenReservaModal()}
+                  >
+                    <Plus size={16} /> Nueva Reserva
+                  </button>
+                </div>
               </div>
 
+              {/* Barra de búsqueda */}
+              {showSearch && (
+                <div className="mb-4 relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Buscar por huésped o alojamiento..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm text-[#284735] placeholder:text-slate-400 focus:outline-none focus:border-primary transition-colors bg-white"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Panel de filtros */}
+              {showFilters && (
+                <div className="mb-4 p-4 bg-white border border-slate-200 rounded-lg flex flex-wrap gap-4 items-end">
+                  {/* Ordenar por fecha */}
+                  <label className="flex items-center gap-2 cursor-pointer select-none" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    <input
+                      type="checkbox"
+                      checked={ordenarPorFecha}
+                      onChange={e => setOrdenarPorFecha(e.target.checked)}
+                      className="w-4 h-4 accent-primary"
+                    />
+                    <span className="text-sm text-[#284735]">Fecha más cercana</span>
+                  </label>
+
+                  {/* Filtro por alojamiento */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-slate-500 font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      Alojamiento
+                    </label>
+                    <select
+                      value={filtroAlojamiento}
+                      onChange={e => setFiltroAlojamiento(e.target.value)}
+                      className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#284735] focus:outline-none focus:border-primary transition-colors bg-white"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <option value="">Todos</option>
+                      {alojamientos.map(a => (
+                        <option key={a.id} value={a.nombre}>{a.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Filtro por estado */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-slate-500 font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      Estado
+                    </label>
+                    <select
+                      value={filtroEstado}
+                      onChange={e => setFiltroEstado(e.target.value)}
+                      className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#284735] focus:outline-none focus:border-primary transition-colors bg-white"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <option value="">Todos</option>
+                      <option value="Pendiente">Pendiente</option>
+                      <option value="Confirmada">Confirmada</option>
+                      <option value="Cancelada">Cancelada</option>
+                    </select>
+                  </div>
+
+                  {/* Limpiar filtros */}
+                  {hayFiltrosActivos && (
+                    <button
+                      onClick={() => { setFiltroAlojamiento(""); setFiltroEstado(""); setOrdenarPorFecha(false); setSearchQuery(""); }}
+                      className="text-xs text-red-500 hover:text-red-700 underline self-end pb-1"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Tabla */}
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
                         <th className="text-left py-4 px-6 text-slate-800 font-semibold">Huésped</th>
-                        <th className="text-left py-4 px-6 text-slate-800 font-semibold">Email</th>
+                        <th className="text-left py-4 px-6 text-slate-800 font-semibold hidden md:table-cell">Email</th>
                         <th className="text-left py-4 px-6 text-slate-800 font-semibold">Alojamiento</th>
-                        <th className="text-left py-4 px-6 text-slate-800 font-semibold">Fechas</th>
-                        <th className="text-left py-4 px-6 text-slate-800 font-semibold">Personas</th>
-                        <th className="text-left py-4 px-6 text-slate-800 font-semibold">Valor total</th>
-                        <th className="text-left py-4 px-6 text-slate-800 font-semibold">Restante</th>
+                        <th className="text-left py-4 px-6 text-slate-800 font-semibold hidden sm:table-cell">Fechas</th>
+                        <th className="text-left py-4 px-6 text-slate-800 font-semibold hidden lg:table-cell">Personas</th>
+                        <th className="text-left py-4 px-6 text-slate-800 font-semibold hidden sm:table-cell">Valor total</th>
+                        <th className="text-left py-4 px-6 text-slate-800 font-semibold hidden md:table-cell">Restante</th>
                         <th className="text-left py-4 px-6 text-slate-800 font-semibold">Estado</th>
                         <th className="text-left py-4 px-6 text-slate-800 font-semibold">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {reservasDisplay.map((r) => (
+                      {reservasFiltradas.map((r) => (
                         <tr key={r.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                           <td className="py-4 px-6 font-medium text-[#284735]">{r.guest}</td>
-                          <td className="py-4 px-6 text-slate-700">{r.email}</td>
+                          <td className="py-4 px-6 text-slate-700 hidden md:table-cell">{r.email}</td>
                           <td className="py-4 px-6 text-slate-700">{r.accommodation}</td>
-                          <td className="py-4 px-6 text-slate-700 text-sm">
+                          <td className="py-4 px-6 text-slate-700 text-sm hidden sm:table-cell">
                             {r.checkIn} → {r.checkOut}
                           </td>
-                          <td className="py-4 px-6 text-[#284735]">{r.guests}</td>
-                          <td className="py-4 px-6 text-[#284735] font-medium whitespace-nowrap">
+                          <td className="py-4 px-6 text-[#284735] hidden lg:table-cell">{r.guests}</td>
+                          <td className="py-4 px-6 text-[#284735] font-medium whitespace-nowrap hidden sm:table-cell">
                             {formatCurrency(r.fullValue)}
                           </td>
-                          <td className="py-4 px-6 text-[#284735] font-medium whitespace-nowrap">
+                          <td className="py-4 px-6 text-[#284735] font-medium whitespace-nowrap hidden md:table-cell">
                             {formatCurrency(r.remainingValue)}
                           </td>
                           <td className="py-4 px-6">
@@ -721,10 +1351,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           </td>
                         </tr>
                       ))}
-                      {!isLoading && reservasDisplay.length === 0 && (
+                      {!isLoading && reservasFiltradas.length === 0 && (
                         <tr>
                           <td colSpan={9} className="py-10 px-6 text-center text-slate-500">
-                            No hay reservas registradas. Crea la primera con "Nueva Reserva".
+                            {hayFiltrosActivos
+                              ? "Ninguna reserva coincide con los filtros aplicados."
+                              : "No hay reservas registradas. Crea la primera con \"Nueva Reserva\"."}
                           </td>
                         </tr>
                       )}
@@ -735,8 +1367,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
               {/* Modal para crear/editar reserva */}
               {showReservaModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-lg p-8 w-full max-w-xl max-h-[92vh] overflow-y-auto shadow-lg relative text-[#284735]">
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-xl max-h-[92vh] overflow-y-auto shadow-lg relative text-[#284735]">
                     <button
                       className="absolute top-4 right-4 text-[#728875] hover:text-[#284735] transition-colors"
                       onClick={handleCloseReservaModal}
@@ -816,14 +1448,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <select
                           className="w-full px-3 py-2 border rounded text-[#284735]"
                           value={reservaForm.hospedaje}
-                          onChange={e => {
-                            const alojamiento = alojamientos.find(item => item.nombre === e.target.value);
-                            setReservaForm(f => ({
-                              ...f,
-                              hospedaje: e.target.value,
-                              valor_alojamiento: Number(alojamiento?.precio_noche || 0),
-                            }));
-                          }}
+                          onChange={e => setReservaForm(f => ({
+                            ...f,
+                            hospedaje: e.target.value,
+                            check_out: e.target.value === "Día de Sol" ? f.check_in : f.check_out,
+                          }))}
                           required
                         >
                           <option value="">Selecciona...</option>
@@ -834,15 +1463,22 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       </div>
                       <div className="flex gap-2">
                         <div className="flex-1">
-                          <label className="block text-sm mb-1 text-[#46654f]">Check-in</label>
+                          <label className="block text-sm mb-1 text-[#46654f]">
+                            {reservaForm.hospedaje === "Día de Sol" ? "Fecha" : "Check-in"}
+                          </label>
                           <input
                             type="date"
                             className="w-full px-3 py-2 border rounded text-[#284735]"
                             value={reservaForm.check_in}
-                            onChange={e => setReservaForm(f => ({ ...f, check_in: e.target.value }))}
+                            onChange={e => setReservaForm(f => ({
+                              ...f,
+                              check_in: e.target.value,
+                              check_out: f.hospedaje === "Día de Sol" ? e.target.value : f.check_out,
+                            }))}
                             required
                           />
                         </div>
+                        {reservaForm.hospedaje !== "Día de Sol" && (
                         <div className="flex-1">
                           <label className="block text-sm mb-1 text-[#46654f]">Check-out</label>
                           <input
@@ -853,6 +1489,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             required
                           />
                         </div>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm mb-1 text-[#46654f]">Número de personas</label>
@@ -885,43 +1522,59 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       </div>
                       <div>
                         <label className="block text-sm mb-1 text-[#46654f]">Valor del alojamiento</label>
-                        <input
-                          type="number"
-                          min={0}
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
-                          value={reservaForm.valor_alojamiento}
-                          onChange={e => setReservaForm(f => ({ ...f, valor_alojamiento: e.target.value }))}
-                          required
-                        />
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
+                            placeholder="0"
+                            value={displayCOP(reservaForm.valor_alojamiento)}
+                            onFocus={e => { if (Number(reservaForm.valor_alojamiento) !== 0) e.target.select(); }}
+                            onChange={e => setReservaForm(f => ({ ...f, valor_alojamiento: parseCOP(e.target.value) }))}
+                          />
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm mb-1 text-[#46654f]">Valor del servicio adicional</label>
-                        <input
-                          type="number"
-                          min={0}
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
-                          value={reservaForm.valor_servicio_adicional}
-                          onChange={e => setReservaForm(f => ({ ...f, valor_servicio_adicional: e.target.value }))}
-                          required
-                        />
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
+                            placeholder="0"
+                            value={displayCOP(reservaForm.valor_servicio_adicional)}
+                            onFocus={e => { if (Number(reservaForm.valor_servicio_adicional) !== 0) e.target.select(); }}
+                            onChange={e => setReservaForm(f => ({ ...f, valor_servicio_adicional: parseCOP(e.target.value) }))}
+                          />
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm mb-1 text-[#46654f]">Abono</label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={valorAlojamiento + valorServicioAdicional}
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
-                          value={reservaForm.abono}
-                          onChange={e => setReservaForm(f => ({ ...f, abono: e.target.value }))}
-                          required
-                        />
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
+                            placeholder="0"
+                            value={displayCOP(reservaForm.abono)}
+                            onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
+                            onChange={e => {
+                              const val = parseCOP(e.target.value);
+                              if (val <= valorAlojamiento + valorServicioAdicional) {
+                                setReservaForm(f => ({ ...f, abono: val }));
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
                       <div className="rounded-md bg-[#e5eee7] p-4">
-                        <label className="block text-sm mb-1 text-[#46654f]">Total</label>
-                        <p className="text-xl font-semibold text-[#284735]">{totalReserva}</p>
+                        <label className="block text-sm mb-1 text-[#46654f]">Total a pagar</label>
+                        <p className="text-xl font-semibold text-[#284735]">{formatCurrency(totalReserva)}</p>
                         <p className="text-xs text-[#55735d] mt-1">
-                          Valor alojamiento + servicio adicional - abono
+                          Valor alojamiento + servicio adicional − abono
                         </p>
                       </div>
                       <div>
@@ -994,15 +1647,606 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </div>
               )}
             </div>
-          )}
+          );
+          })()}
+
+          {/* Historial Tab */}
+          {activeTab === "historial" && (() => {
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const historial = reservasDisplay
+              .filter(r => new Date(r.checkOut) < hoy)
+              .sort((a, b) => new Date(b.checkOut).getTime() - new Date(a.checkOut).getTime());
+
+            return (
+              <div>
+                <div className="mb-6 md:mb-8">
+                  <h2
+                    className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2"
+                    style={{ fontFamily: "'Playfair Display', serif" }}
+                  >
+                    Historial de Reservas
+                  </h2>
+                  <p className="text-slate-700" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    {historial.length} reserva{historial.length !== 1 ? "s" : ""} concluida{historial.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+
+                {/* Resumen de ingresos del historial */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                  {[
+                    {
+                      label: "Reservas concluidas",
+                      value: historial.length.toString(),
+                      icon: History,
+                    },
+                    {
+                      label: "Ingresos totales",
+                      value: formatCurrency(historial.reduce((acc, r) => acc + (r.fullValue || 0), 0)),
+                      icon: BarChart3,
+                    },
+                    {
+                      label: "Confirmadas",
+                      value: historial.filter(r => r.status === "Confirmada").length.toString(),
+                      icon: Calendar,
+                    },
+                  ].map(stat => (
+                    <div key={stat.label} className="bg-white border border-slate-200 rounded-lg p-5">
+                      <div className="flex items-start justify-between mb-2">
+                        <p className="text-slate-600 text-sm" style={{ fontFamily: "'DM Mono', monospace" }}>{stat.label}</p>
+                        <stat.icon size={20} className="text-primary/50" />
+                      </div>
+                      <p className="text-2xl font-bold text-slate-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        {stat.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="text-left py-4 px-4 text-slate-800 font-semibold">Huésped</th>
+                          <th className="text-left py-4 px-4 text-slate-800 font-semibold hidden sm:table-cell">Alojamiento</th>
+                          <th className="text-left py-4 px-4 text-slate-800 font-semibold hidden md:table-cell">Check-in</th>
+                          <th className="text-left py-4 px-4 text-slate-800 font-semibold">Check-out</th>
+                          <th className="text-left py-4 px-4 text-slate-800 font-semibold hidden sm:table-cell">Personas</th>
+                          <th className="text-left py-4 px-4 text-slate-800 font-semibold hidden lg:table-cell">Servicio</th>
+                          <th className="text-left py-4 px-4 text-slate-800 font-semibold hidden sm:table-cell">Valor total</th>
+                          <th className="text-left py-4 px-4 text-slate-800 font-semibold">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historial.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="py-10 px-4 text-center text-slate-500">
+                              No hay reservas concluidas aún.
+                            </td>
+                          </tr>
+                        ) : historial.map(r => (
+                          <tr
+                            key={r.id}
+                            onClick={() => setHistorialReserva(r)}
+                            className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
+                          >
+                            <td className="py-4 px-4 font-medium text-[#284735]">
+                              <div>{r.guest}</div>
+                              <div className="text-xs text-slate-500 sm:hidden">{r.accommodation}</div>
+                            </td>
+                            <td className="py-4 px-4 text-slate-700 hidden sm:table-cell">{r.accommodation}</td>
+                            <td className="py-4 px-4 text-slate-700 hidden md:table-cell">{r.checkIn}</td>
+                            <td className="py-4 px-4 text-slate-700">{r.checkOut}</td>
+                            <td className="py-4 px-4 text-[#284735] hidden sm:table-cell">{r.guests}</td>
+                            <td className="py-4 px-4 text-slate-600 hidden lg:table-cell">{r.additionalService}</td>
+                            <td className="py-4 px-4 hidden sm:table-cell">
+                              <p className="font-medium text-[#284735] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
+                              <span className="text-xs text-green-600 font-medium">✓ Completado</span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
+                                {r.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              {/* Modal detalle reserva concluida */}
+              {historialReserva && (
+                <div
+                  className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+                  onClick={() => setHistorialReserva(null)}
+                >
+                  <div
+                    className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {/* Cabecera */}
+                    <div className="flex items-start justify-between p-6 border-b border-slate-200">
+                      <div>
+                        <h3 className="text-xl font-semibold text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                          Detalle de Reserva
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          ID #{historialReserva.id}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-3 py-1 rounded-full text-xs border ${getStatusColor(historialReserva.status)}`}>
+                          {historialReserva.status}
+                        </span>
+                        <button onClick={() => setHistorialReserva(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                          <X size={20} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-6 space-y-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      {/* Huésped principal */}
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          Huésped Principal
+                        </p>
+                        <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Nombre</span>
+                            <span className="font-medium text-[#284735]">{historialReserva.guest}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Cédula</span>
+                            <span className="text-[#284735]">{historialReserva.document || "—"}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Email</span>
+                            <span className="text-[#284735] break-all text-right max-w-[60%]">{historialReserva.email}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Personas</span>
+                            <span className="text-[#284735]">{historialReserva.guests}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Huéspedes adicionales */}
+                      {historialReserva.additionalGuests?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
+                            Huéspedes Adicionales
+                          </p>
+                          <div className="space-y-2">
+                            {historialReserva.additionalGuests.map((h: any, i: number) => (
+                              <div key={i} className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Nombre</span>
+                                  <span className="text-[#284735] font-medium">{h.nombre}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Cédula</span>
+                                  <span className="text-[#284735]">{h.cedula}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Email</span>
+                                  <span className="text-[#284735] break-all text-right max-w-[60%]">{h.email}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Alojamiento y fechas */}
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          Alojamiento y Fechas
+                        </p>
+                        <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Alojamiento</span>
+                            <span className="font-medium text-[#284735]">{historialReserva.accommodation}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Check-in</span>
+                            <span className="text-[#284735]">{historialReserva.checkIn}</span>
+                          </div>
+                          {historialReserva.accommodation !== "Día de Sol" && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Check-out</span>
+                              <span className="text-[#284735]">{historialReserva.checkOut}</span>
+                            </div>
+                          )}
+                          {historialReserva.additionalService && historialReserva.additionalService !== "N/A" && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Servicio adicional</span>
+                              <span className="text-[#284735]">{historialReserva.additionalService}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Resumen financiero */}
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          Resumen Financiero
+                        </p>
+                        <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Valor alojamiento</span>
+                            <span className="text-[#284735]">{formatCurrency(historialReserva.accommodationValue)}</span>
+                          </div>
+                          {historialReserva.additionalServiceValue > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Servicio adicional</span>
+                              <span className="text-[#284735]">{formatCurrency(historialReserva.additionalServiceValue)}</span>
+                            </div>
+                          )}
+                          {historialReserva.deposit > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Abono</span>
+                              <span className="text-green-600">− {formatCurrency(historialReserva.deposit)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2 mt-1">
+                            <span className="text-[#284735]">Total</span>
+                            <span className="text-[#284735]">{formatCurrency(historialReserva.fullValue)}</span>
+                          </div>
+                          <div className="mt-3 flex items-center gap-2 py-2.5 px-3 bg-green-50 border border-green-200 rounded-lg">
+                            <span className="text-green-600 font-bold text-base leading-none">✓</span>
+                            <span className="text-sm font-medium text-green-700">Pago completado</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pie del modal */}
+                    <div className="px-6 pb-6">
+                      <button
+                        onClick={() => setHistorialReserva(null)}
+                        className="w-full py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            );
+          })()}
+
+          {/* Calendario Tab */}
+          {activeTab === "calendario" && (() => {
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+
+            const { year, month } = calMonth;
+            const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // lunes=0
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const monthNames = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+            const dayNames = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+
+            const reservasActivas = calFiltroAlojamiento
+              ? reservasDisplay.filter(r => r.accommodation === calFiltroAlojamiento && r.status !== "Cancelada")
+              : reservasDisplay.filter(r => r.status !== "Cancelada");
+
+            const calAloData = calFiltroAlojamiento ? alojamientos.find(a => a.nombre === calFiltroAlojamiento) : null;
+            const calLimite: number = calAloData?.limite_reservas ?? 1;
+
+            const getDayReservations = (day: number) => {
+              const date = new Date(year, month, day);
+              date.setHours(0, 0, 0, 0);
+              return reservasActivas.filter(r => {
+                const ci = new Date(r.checkIn); ci.setHours(0, 0, 0, 0);
+                const co = new Date(r.checkOut); co.setHours(0, 0, 0, 0);
+                return date >= ci && date < co;
+              });
+            };
+
+            const totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+            const cells = Array.from({ length: totalCells }, (_, i) => {
+              const d = i - firstDow + 1;
+              return d >= 1 && d <= daysInMonth ? d : null;
+            });
+
+            const reservasMes = reservasActivas
+              .filter(r => {
+                const ci = new Date(r.checkIn);
+                const co = new Date(r.checkOut);
+                return ci <= new Date(year, month + 1, 0) && co >= new Date(year, month, 1);
+              })
+              .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
+
+            return (
+              <div>
+                {/* Encabezado */}
+                <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      Calendario de Disponibilidad
+                    </h2>
+                    <p className="text-slate-700 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      Fechas disponibles y reservadas por alojamiento
+                    </p>
+                  </div>
+                  <select
+                    value={calFiltroAlojamiento}
+                    onChange={e => setCalFiltroAlojamiento(e.target.value)}
+                    className="px-3 py-2 border border-slate-200 rounded text-sm text-[#284735] focus:outline-none focus:border-primary bg-white"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    <option value="">Todos los alojamientos</option>
+                    {alojamientos.map(a => (
+                      <option key={a.id} value={a.nombre}>{a.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Leyenda */}
+                <div className="flex flex-wrap gap-4 mb-4 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  {[
+                    { color: "bg-green-100 border-green-300", label: "Disponible" },
+                    ...(calLimite > 1 ? [{ color: "bg-amber-100 border-amber-300", label: "Parcialmente ocupado" }] : []),
+                    { color: "bg-red-100 border-red-300", label: calLimite > 1 ? "Sin disponibilidad" : "Reservado" },
+                    { color: "bg-primary/10 border-primary border-2", label: "Hoy" },
+                    { color: "bg-slate-100 border-slate-200", label: "Pasado" },
+                  ].map(l => (
+                    <div key={l.label} className="flex items-center gap-1.5">
+                      <div className={`w-3.5 h-3.5 rounded border ${l.color}`} />
+                      <span className="text-slate-500">{l.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tarjeta del calendario */}
+                <div className="bg-white border border-slate-200 rounded-lg p-4 md:p-6">
+                  {/* Navegación mes */}
+                  <div className="flex items-center justify-between mb-5">
+                    <button
+                      onClick={() => setCalMonth(m => { const d = new Date(m.year, m.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                      className="p-2 rounded hover:bg-slate-100 text-slate-600 hover:text-[#284735] transition-colors"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <h3 className="text-base md:text-lg font-semibold text-[#365b43] capitalize" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      {monthNames[month]} {year}
+                    </h3>
+                    <button
+                      onClick={() => setCalMonth(m => { const d = new Date(m.year, m.month + 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                      className="p-2 rounded hover:bg-slate-100 text-slate-600 hover:text-[#284735] transition-colors"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+
+                  {/* Cabecera días */}
+                  <div className="grid grid-cols-7 gap-1 mb-1">
+                    {dayNames.map(d => (
+                      <div key={d} className="text-center text-xs font-medium text-slate-400 py-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+                        {d}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Celdas del mes */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {cells.map((day, i) => {
+                      if (!day) return <div key={`empty-${i}`} className="min-h-[52px]" />;
+                      const date = new Date(year, month, day);
+                      date.setHours(0, 0, 0, 0);
+                      const isToday = date.getTime() === hoy.getTime();
+                      const isPast = date < hoy;
+                      const dayRes = getDayReservations(day);
+                      const isFullyBooked = dayRes.length >= calLimite;
+                      const isPartiallyBooked = dayRes.length > 0 && !isFullyBooked;
+
+                      const base = "rounded-lg p-1 min-h-[52px] border text-xs transition-all text-left w-full ";
+                      const color = isToday
+                        ? "border-primary border-2 bg-primary/10 hover:bg-primary/20"
+                        : isPast
+                          ? "bg-slate-50 border-slate-100 hover:bg-slate-100 cursor-default"
+                          : isFullyBooked
+                            ? "bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer"
+                            : isPartiallyBooked
+                              ? "bg-amber-50 border-amber-200 hover:bg-amber-100 cursor-pointer"
+                              : "bg-green-50 border-green-200 hover:bg-green-100 cursor-pointer";
+
+                      const numColor = isToday ? "text-primary" : isPast ? "text-slate-400" : isFullyBooked ? "text-red-600" : isPartiallyBooked ? "text-amber-600" : "text-green-700";
+
+                      return (
+                        <button
+                          key={day}
+                          className={base + color}
+                          onClick={() => setCalSelectedDay({ year, month, day })}
+                          title={
+                            isPast ? `${day}/${month + 1}/${year}`
+                            : isFullyBooked ? `Sin disponibilidad (${dayRes.length}/${calLimite})`
+                            : isPartiallyBooked ? `${dayRes.length}/${calLimite} ocupados — crear reserva`
+                            : "Crear reserva"
+                          }
+                        >
+                          <div className={`text-right font-semibold mb-0.5 ${numColor}`}>{day}</div>
+                          {dayRes.length > 0 && (
+                            <div className="space-y-0.5">
+                              {dayRes.slice(0, 2).map(r => (
+                                <div
+                                  key={r.id}
+                                  className={`truncate text-[10px] leading-tight rounded px-1 py-0.5 ${isPast ? "bg-slate-200 text-slate-500" : isFullyBooked ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}
+                                  title={`${r.guest} · ${r.accommodation}`}
+                                >
+                                  {calFiltroAlojamiento ? r.guest : r.accommodation}
+                                </div>
+                              ))}
+                              {dayRes.length > 2 && (
+                                <div className={`text-[10px] ${isPast ? "text-slate-400" : isFullyBooked ? "text-red-500" : "text-amber-500"}`}>+{dayRes.length - 2} más</div>
+                              )}
+                              {isPartiallyBooked && calLimite > 1 && (
+                                <div className="text-[10px] text-amber-600 font-medium">{dayRes.length}/{calLimite}</div>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Lista de reservas del mes */}
+                {reservasMes.length > 0 && (
+                  <div className="mt-6 bg-white border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-[#365b43]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                        Reservas en {monthNames[month]}
+                      </p>
+                      <span className="text-xs text-slate-500" style={{ fontFamily: "'DM Mono', monospace" }}>
+                        {reservasMes.length} reserva{reservasMes.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {reservasMes.map(r => (
+                        <button
+                          key={r.id}
+                          onClick={() => handleOpenReservaModal(r)}
+                          className="w-full px-4 py-3 flex flex-wrap items-center gap-3 text-sm hover:bg-slate-50 transition-colors text-left"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-[#284735] truncate" style={{ fontFamily: "'DM Sans', sans-serif" }}>{r.guest}</p>
+                            <p className="text-slate-500 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{r.accommodation}</p>
+                          </div>
+                          <div className="text-slate-500 text-xs whitespace-nowrap" style={{ fontFamily: "'DM Mono', monospace" }}>
+                            {r.checkIn} → {r.checkOut}
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
+                            {r.status}
+                          </span>
+                          <Edit2 size={14} className="text-blue-500 shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {reservasMes.length === 0 && (
+                  <div className="mt-6 py-8 text-center text-slate-400 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    No hay reservas en {monthNames[month]} {year}.
+                  </div>
+                )}
+
+                {/* Modal de detalle del día seleccionado */}
+                {calSelectedDay && (() => {
+                  const { year: sy, month: sm, day: sd } = calSelectedDay;
+                  const selDate = new Date(sy, sm, sd);
+                  selDate.setHours(0, 0, 0, 0);
+                  const isPastDay = selDate < hoy;
+                  const selDateStr = `${sy}-${String(sm + 1).padStart(2, "0")}-${String(sd).padStart(2, "0")}`;
+                  const selRes = reservasActivas.filter(r => {
+                    const ci = new Date(r.checkIn); ci.setHours(0, 0, 0, 0);
+                    const co = new Date(r.checkOut); co.setHours(0, 0, 0, 0);
+                    return selDate >= ci && selDate < co;
+                  });
+
+                  return (
+                    <div
+                      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+                      onClick={() => setCalSelectedDay(null)}
+                    >
+                      <div
+                        className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {/* Cabecera del popup */}
+                        <div className="flex items-start justify-between mb-5">
+                          <div>
+                            <h3
+                              className="text-lg font-semibold text-[#365b43]"
+                              style={{ fontFamily: "'Playfair Display', serif" }}
+                            >
+                              {sd} de {monthNames[sm]} {sy}
+                            </h3>
+                            <p
+                              className="text-sm text-slate-500 mt-0.5"
+                              style={{ fontFamily: "'DM Mono', monospace" }}
+                            >
+                              {selRes.length === 0
+                                ? isPastDay ? "Sin reservas" : "Fecha disponible"
+                                : `${selRes.length} reserva${selRes.length !== 1 ? "s" : ""} activa${selRes.length !== 1 ? "s" : ""}`}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setCalSelectedDay(null)}
+                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
+
+                        {/* Lista de reservas del día */}
+                        {selRes.length > 0 && (
+                          <div className="space-y-2 mb-5">
+                            {selRes.map(r => (
+                              <div
+                                key={r.id}
+                                className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:border-slate-300 transition-colors"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-[#284735] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                                    {r.guest}
+                                  </p>
+                                  <p className="text-xs text-slate-500 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                                    {r.accommodation}
+                                  </p>
+                                  <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                                    {r.checkIn} → {r.checkOut}
+                                  </p>
+                                  <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-xs border ${getStatusColor(r.status)}`}>
+                                    {r.status}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    setCalSelectedDay(null);
+                                    handleOpenReservaModal(r);
+                                  }}
+                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors shrink-0"
+                                  title="Editar reserva"
+                                >
+                                  <Edit2 size={15} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Botón nueva reserva siempre disponible */}
+                        <button
+                          onClick={() => {
+                            setCalSelectedDay(null);
+                            handleOpenReservaModal(undefined, selDateStr);
+                          }}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                          style={{ fontFamily: "'DM Sans', sans-serif" }}
+                        >
+                          <Plus size={16} />
+                          Nueva reserva para este día
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })()}
 
           {/* Usuarios Tab */}
           {activeTab === "usuarios" && (
             <div>
-              <div className="mb-8 flex items-center justify-between">
+              <div className="mb-6 md:mb-8 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2
-                    className="text-3xl font-semibold text-[#365b43] mb-2"
+                    className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
                     Gestión de Usuarios
@@ -1083,8 +2327,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               </div>
 
               {showUsuarioModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg relative text-[#284735]">
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-md max-h-[92vh] overflow-y-auto shadow-lg relative text-[#284735]">
                     <button
                       className="absolute top-4 right-4 text-[#728875] hover:text-[#284735] transition-colors"
                       onClick={handleCloseUsuarioModal}
@@ -1175,98 +2419,141 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           {activeTab === "configuracion" && (
             <div>
               <div className="mb-8">
-                <h2
-                  className="text-3xl font-semibold text-[#365b43] mb-2"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
-                >
+                <h2 className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
                   Configuración
                 </h2>
-                <p
-                  className="text-slate-700"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
-                >
+                <p className="text-slate-700" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                   Personaliza tu cuenta y preferencias
                 </p>
               </div>
 
               <div className="grid md:grid-cols-2 gap-8">
-                {/* Información personal */}
+                {/* Información personal editable */}
                 <div className="bg-white border border-slate-200 rounded-lg p-6">
-                  <h3
-                    className="text-xl font-semibold text-slate-900 mb-6"
-                    style={{ fontFamily: "'Playfair Display', serif" }}
-                  >
+                  <h3 className="text-xl font-semibold text-slate-900 mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>
                     Información Personal
                   </h3>
-                  <div className="space-y-4">
+                  <form
+                    className="space-y-4"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setConfigLoading(true);
+                      setConfigMessage("");
+                      try {
+                        await usuariosAPI.updatePerfil(perfilForm);
+                        setConfigMessage("Perfil actualizado correctamente");
+                      } catch (err: any) {
+                        setConfigMessage(err.message || "Error al guardar");
+                      } finally {
+                        setConfigLoading(false);
+                        setTimeout(() => setConfigMessage(""), 3000);
+                      }
+                    }}
+                  >
                     <div>
-                      <label
-                        className="block text-sm text-slate-600 mb-2"
-                        style={{ fontFamily: "'DM Mono', monospace" }}
-                      >
-                        Nombre
-                      </label>
+                      <label className="block text-sm text-slate-600 mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Nombre</label>
                       <input
                         type="text"
-                        value={user?.name || ""}
-                        disabled
-                        className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded text-[#284735]"
+                        value={perfilForm.nombre}
+                        onChange={e => setPerfilForm(f => ({ ...f, nombre: e.target.value }))}
+                        className="w-full px-4 py-2 border border-slate-200 rounded text-[#284735] focus:outline-none focus:border-primary transition-colors"
+                        required
                       />
                     </div>
                     <div>
-                      <label
-                        className="block text-sm text-slate-600 mb-2"
-                        style={{ fontFamily: "'DM Mono', monospace" }}
-                      >
-                        Email
-                      </label>
+                      <label className="block text-sm text-slate-600 mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Email</label>
                       <input
                         type="email"
-                        value={user?.email || ""}
-                        disabled
-                        className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded text-[#284735]"
+                        value={perfilForm.email}
+                        onChange={e => setPerfilForm(f => ({ ...f, email: e.target.value }))}
+                        className="w-full px-4 py-2 border border-slate-200 rounded text-[#284735] focus:outline-none focus:border-primary transition-colors"
+                        required
                       />
                     </div>
-                  </div>
+                    <button
+                      type="submit"
+                      disabled={configLoading}
+                      className="w-full py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      {configLoading ? "Guardando..." : "Guardar Cambios"}
+                    </button>
+                    {configMessage && (
+                      <p className={`text-sm text-center ${configMessage.includes("Error") ? "text-red-500" : "text-green-600"}`}>
+                        {configMessage}
+                      </p>
+                    )}
+                  </form>
                 </div>
 
-                {/* Preferencias */}
+                {/* Preferencias guardadas en BD */}
                 <div className="bg-white border border-slate-200 rounded-lg p-6">
-                  <h3
-                    className="text-xl font-semibold text-slate-900 mb-6"
-                    style={{ fontFamily: "'Playfair Display', serif" }}
-                  >
+                  <h3 className="text-xl font-semibold text-slate-900 mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>
                     Preferencias
                   </h3>
-                  <div className="space-y-4">
+                  <form
+                    className="space-y-4"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setConfigLoading(true);
+                      setConfigMessage("");
+                      try {
+                        await usuariosAPI.updateConfig(user!.id, {
+                          recibir_notificaciones: config.recibir_notificaciones ? 1 : 0,
+                          notificaciones_reservas: config.notificaciones_reservas ? 1 : 0,
+                          compartir_datos: config.compartir_datos ? 1 : 0,
+                        });
+                        setConfigMessage("Preferencias guardadas correctamente");
+                      } catch (err: any) {
+                        setConfigMessage(err.message || "Error al guardar");
+                      } finally {
+                        setConfigLoading(false);
+                        setTimeout(() => setConfigMessage(""), 3000);
+                      }
+                    }}
+                  >
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded" />
-                      <span
-                        className="text-[#284735] text-sm"
-                        style={{ fontFamily: "'DM Sans', sans-serif" }}
-                      >
+                      <input
+                        type="checkbox"
+                        checked={config.recibir_notificaciones}
+                        onChange={e => setConfig(c => ({ ...c, recibir_notificaciones: e.target.checked }))}
+                        className="w-4 h-4 rounded"
+                      />
+                      <span className="text-[#284735] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         Recibir notificaciones por email
                       </span>
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="w-4 h-4 rounded" />
-                      <span
-                        className="text-[#284735] text-sm"
-                        style={{ fontFamily: "'DM Sans', sans-serif" }}
-                      >
+                      <input
+                        type="checkbox"
+                        checked={config.notificaciones_reservas}
+                        onChange={e => setConfig(c => ({ ...c, notificaciones_reservas: e.target.checked }))}
+                        className="w-4 h-4 rounded"
+                      />
+                      <span className="text-[#284735] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         Actualizar sobre nuevas reservas
                       </span>
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="w-4 h-4 rounded" />
-                      <span
-                        className="text-[#284735] text-sm"
-                        style={{ fontFamily: "'DM Sans', sans-serif" }}
-                      >
+                      <input
+                        type="checkbox"
+                        checked={config.compartir_datos}
+                        onChange={e => setConfig(c => ({ ...c, compartir_datos: e.target.checked }))}
+                        className="w-4 h-4 rounded"
+                      />
+                      <span className="text-[#284735] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         Compartir datos para análisis
                       </span>
                     </label>
-                  </div>
+                    <button
+                      type="submit"
+                      disabled={configLoading}
+                      className="w-full py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm mt-2"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      {configLoading ? "Guardando..." : "Guardar Preferencias"}
+                    </button>
+                  </form>
                 </div>
               </div>
             </div>

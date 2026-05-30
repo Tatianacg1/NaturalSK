@@ -1,0 +1,2 @@
+Error al obtener configuración: TypeError: Assignment to constant variable.
+    at file:///C:/Users/Tati/OneDrive%20-%20Tecnologico%20de%20Antioquia%20Institucion%20Universitaria/Escritorio/Naturalsound/server/src/routes/usuarios.js:121:14

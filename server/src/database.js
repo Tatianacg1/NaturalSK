@@ -92,6 +92,7 @@ const initializeDatabase = async () => {
         valor_servicio_adicional REAL DEFAULT 0,
         abono REAL DEFAULT 0,
         total REAL DEFAULT 0,
+        numero_habitacion INTEGER,
         fecha_creacion TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
       )
@@ -121,34 +122,42 @@ const initializeDatabase = async () => {
       await run('ALTER TABLE reservas ADD COLUMN total REAL DEFAULT 0');
     }
 
-    // Impedir reservas activas superpuestas del mismo alojamiento, incluso ante solicitudes simultaneas.
+    // Impedir reservas que superen el límite de unidades del alojamiento.
+    await run('DROP TRIGGER IF EXISTS prevenir_reservas_solapadas_insert');
     await run(`
-      CREATE TRIGGER IF NOT EXISTS prevenir_reservas_solapadas_insert
+      CREATE TRIGGER prevenir_reservas_solapadas_insert
       BEFORE INSERT ON reservas
       WHEN NEW.estado <> 'Cancelada'
-        AND EXISTS (
-          SELECT 1 FROM reservas
+        AND NEW.hospedaje <> 'Día de Sol'
+        AND (
+          SELECT COUNT(*) FROM reservas
           WHERE hospedaje = NEW.hospedaje
             AND estado <> 'Cancelada'
             AND check_in < NEW.check_out
             AND check_out > NEW.check_in
+        ) >= (
+          SELECT COALESCE(limite_reservas, 1) FROM alojamientos WHERE nombre = NEW.hospedaje
         )
       BEGIN
         SELECT RAISE(ABORT, 'El alojamiento ya tiene una reserva para las fechas seleccionadas');
       END
     `);
 
+    await run('DROP TRIGGER IF EXISTS prevenir_reservas_solapadas_update');
     await run(`
-      CREATE TRIGGER IF NOT EXISTS prevenir_reservas_solapadas_update
+      CREATE TRIGGER prevenir_reservas_solapadas_update
       BEFORE UPDATE ON reservas
       WHEN NEW.estado <> 'Cancelada'
-        AND EXISTS (
-          SELECT 1 FROM reservas
+        AND NEW.hospedaje <> 'Día de Sol'
+        AND (
+          SELECT COUNT(*) FROM reservas
           WHERE hospedaje = NEW.hospedaje
             AND estado <> 'Cancelada'
             AND id <> NEW.id
             AND check_in < NEW.check_out
             AND check_out > NEW.check_in
+        ) >= (
+          SELECT COALESCE(limite_reservas, 1) FROM alojamientos WHERE nombre = NEW.hospedaje
         )
       BEGIN
         SELECT RAISE(ABORT, 'El alojamiento ya tiene una reserva para las fechas seleccionadas');
@@ -180,9 +189,18 @@ const initializeDatabase = async () => {
         imagen_url TEXT,
         precio_noche REAL,
         capacidad INTEGER,
-        disponible INTEGER DEFAULT 1
+        disponible INTEGER DEFAULT 1,
+        limite_reservas INTEGER DEFAULT 1
       )
     `);
+
+    // Agregar limite_reservas a bases existentes y ajustar valores
+    const columnasAlo = await all('PRAGMA table_info(alojamientos)');
+    if (!columnasAlo.some(c => c.name === 'limite_reservas')) {
+      await run('ALTER TABLE alojamientos ADD COLUMN limite_reservas INTEGER DEFAULT 1');
+    }
+    await run("UPDATE alojamientos SET limite_reservas = 4 WHERE nombre = 'Habitación Pareja'");
+    await run("UPDATE alojamientos SET limite_reservas = 1 WHERE nombre = 'Habitación Cuadruple'");
 
     // Insertar alojamientos de demostración si no existen
     const alojamientosCount = await get('SELECT COUNT(*) as count FROM alojamientos');
@@ -221,12 +239,29 @@ const initializeDatabase = async () => {
           capacidad: 6
         },
         {
+          nombre: 'Glamping Turquesa',
+          tipo: 'Glamping',
+          descripcion: 'Una experiencia única entre la naturaleza con vistas al río',
+          caracteristicas: 'Jacuzzi privado, Cama King, Desayuno incluido, Chimenea',
+          precio_noche: 300,
+          capacidad: 2
+        },
+        {
+          nombre: 'Día de Sol',
+          tipo: 'Día de Sol',
+          descripcion: 'Disfruta del parque durante el día con acceso a todas las zonas comunes',
+          caracteristicas: 'Acceso a piscina, Zonas verdes, Restaurante, Parqueadero',
+          precio_noche: 80,
+          capacidad: 20
+        },
+        {
           nombre: 'Habitación Pareja',
           tipo: 'Habitación',
           descripcion: 'Una acogedora habitación diseñada para disfrutar en pareja',
           caracteristicas: 'Balcón privado, Desayuno incluido, TV, WiFi',
           precio_noche: 150,
-          capacidad: 2
+          capacidad: 2,
+          limite_reservas: 4
         },
         {
           nombre: 'Habitación Cuadruple',
@@ -234,14 +269,15 @@ const initializeDatabase = async () => {
           descripcion: 'La opción perfecta para compartir en familia o con amigos',
           caracteristicas: 'Balcón privado, Mayor capacidad, TV, WiFi',
           precio_noche: 200,
-          capacidad: 4
+          capacidad: 4,
+          limite_reservas: 1
         }
       ];
 
       for (const alojamiento of alojamientos) {
         await run(
-          'INSERT INTO alojamientos (nombre, tipo, descripcion, caracteristicas, precio_noche, capacidad) VALUES (?, ?, ?, ?, ?, ?)',
-          [alojamiento.nombre, alojamiento.tipo, alojamiento.descripcion, alojamiento.caracteristicas, alojamiento.precio_noche, alojamiento.capacidad]
+          'INSERT INTO alojamientos (nombre, tipo, descripcion, caracteristicas, precio_noche, capacidad, limite_reservas) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [alojamiento.nombre, alojamiento.tipo, alojamiento.descripcion, alojamiento.caracteristicas, alojamiento.precio_noche, alojamiento.capacidad, alojamiento.limite_reservas || 1]
         );
       }
       console.log('Alojamientos de demostración insertados');

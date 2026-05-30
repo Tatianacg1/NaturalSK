@@ -26,20 +26,23 @@ const validarHuespedes = (numeroHuespedes, cedulaHuesped, huespedesAdicionales =
   return null;
 };
 
-const validarFechas = (checkIn, checkOut) => {
+const validarFechas = (checkIn, checkOut, hospedaje = '') => {
   if (Number.isNaN(Date.parse(checkIn)) || Number.isNaN(Date.parse(checkOut))) {
     return 'Ingresa fechas válidas para la reserva';
   }
-  if (checkIn >= checkOut) {
+  if (hospedaje !== 'Día de Sol' && checkIn >= checkOut) {
     return 'La fecha de salida debe ser posterior a la fecha de ingreso';
   }
   return null;
 };
 
 const buscarCruceDeReserva = async (hospedaje, checkIn, checkOut, reservaId = null) => {
+  const alojamiento = await get('SELECT COALESCE(limite_reservas, 1) as limite FROM alojamientos WHERE nombre = ?', [hospedaje]);
+  const limite = alojamiento?.limite ?? 1;
+
   const parametros = [hospedaje, checkOut, checkIn];
   let consulta = `
-    SELECT id FROM reservas
+    SELECT COUNT(*) as count FROM reservas
     WHERE hospedaje = ?
       AND estado <> 'Cancelada'
       AND check_in < ?
@@ -51,7 +54,8 @@ const buscarCruceDeReserva = async (hospedaje, checkIn, checkOut, reservaId = nu
     parametros.push(reservaId);
   }
 
-  return get(`${consulta} LIMIT 1`, parametros);
+  const resultado = await get(consulta, parametros);
+  return resultado && resultado.count >= limite ? { count: resultado.count } : null;
 };
 
 const calcularValoresReserva = async (hospedaje, valorAlojamiento, valorServicioAdicional = 0, abono = 0) => {
@@ -117,7 +121,7 @@ router.post('/', verificarToken, async (req, res) => {
       return res.status(400).json({ error: errorHuespedes });
     }
 
-    const errorFechas = validarFechas(check_in, check_out);
+    const errorFechas = validarFechas(check_in, check_out, hospedaje);
     if (errorFechas) {
       return res.status(400).json({ error: errorFechas });
     }
@@ -249,7 +253,7 @@ router.put('/:id', verificarToken, async (req, res) => {
       servicio_adicional: servicio_adicional || reserva.servicio_adicional || 'N/A'
     };
 
-    const errorFechas = validarFechas(reservaActualizada.check_in, reservaActualizada.check_out);
+    const errorFechas = validarFechas(reservaActualizada.check_in, reservaActualizada.check_out, reservaActualizada.hospedaje);
     if (errorFechas) {
       return res.status(400).json({ error: errorFechas });
     }
