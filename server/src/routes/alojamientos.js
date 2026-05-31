@@ -4,6 +4,18 @@ import { verificarToken } from './auth.js';
 
 const router = express.Router();
 
+const PREFIJOS_TIPO = { 'Glamping': 'GLM', 'Habitación': 'HAB', 'Día de Sol': 'SOL' };
+
+const generarCodigoAlojamiento = async (tipo) => {
+  const prefijo = PREFIJOS_TIPO[tipo] || 'ALO';
+  const ultimo = await get(
+    `SELECT codigo FROM alojamientos WHERE codigo LIKE ? ORDER BY codigo DESC LIMIT 1`,
+    [`${prefijo}-%`]
+  );
+  const siguiente = ultimo?.codigo ? parseInt(ultimo.codigo.split('-')[1], 10) + 1 : 1;
+  return `${prefijo}-${String(siguiente).padStart(3, '0')}`;
+};
+
 // Obtener todos los alojamientos
 router.get('/', async (req, res) => {
   try {
@@ -52,9 +64,13 @@ router.post('/', verificarToken, async (req, res) => {
       [nombre, tipo, descripcion, caracteristicas, imagen_url, precio_noche, capacidad]
     );
 
-    res.json({ 
+    const codigo = await generarCodigoAlojamiento(tipo);
+    await run('UPDATE alojamientos SET codigo = ? WHERE id = ?', [codigo, resultado.lastID]);
+
+    res.json({
       mensaje: 'Alojamiento creado correctamente',
-      id: resultado.lastID
+      id: resultado.lastID,
+      codigo
     });
   } catch (error) {
     console.error('Error al crear alojamiento:', error);

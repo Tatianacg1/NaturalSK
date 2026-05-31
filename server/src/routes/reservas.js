@@ -1,4 +1,5 @@
 import express from 'express';
+import { randomUUID } from 'crypto';
 import { get, all, run } from '../database.js';
 import { verificarToken } from './auth.js';
 import { enviarEmailConfirmacion, enviarWhatsAppMeta, generarMensajeWhatsApp } from '../notifications.js';
@@ -10,7 +11,8 @@ const mapReserva = (reserva) => ({
   ...reserva,
   huespedes_adicionales: reserva.huespedes_adicionales
     ? JSON.parse(reserva.huespedes_adicionales)
-    : []
+    : [],
+  datos_completados: !!reserva.datos_completados,
 });
 
 const validarHuespedes = (numeroHuespedes, cedulaHuesped, huespedesAdicionales = []) => {
@@ -93,7 +95,8 @@ const calcularValoresReserva = async (hospedaje, valorAlojamiento, valorServicio
   };
 };
 
-// Crear nueva reserva
+// Crear nueva reserva — solo hospedaje, check_in y check_out son obligatorios.
+// Se genera un token público para que el huésped complete sus datos via enlace.
 router.post('/', verificarToken, async (req, res) => {
   try {
     const {
@@ -101,10 +104,10 @@ router.post('/', verificarToken, async (req, res) => {
       tipo_hospedaje,
       check_in,
       check_out,
-      numero_huespedes,
-      email_huesped,
-      nombre_huesped,
-      cedula_huesped,
+      numero_huespedes = 1,
+      email_huesped = '',
+      nombre_huesped = '',
+      cedula_huesped = '',
       telefono_huesped = '',
       huespedes_adicionales = [],
       servicio_adicional = 'N/A',
@@ -114,13 +117,16 @@ router.post('/', verificarToken, async (req, res) => {
       estado = 'Pendiente'
     } = req.body;
 
-    if (!hospedaje || !check_in || !check_out || !numero_huespedes || !email_huesped || !nombre_huesped) {
-      return res.status(400).json({ error: 'Completa todos los campos' });
+    if (!hospedaje || !check_in || !check_out) {
+      return res.status(400).json({ error: 'Hospedaje, check-in y check-out son obligatorios' });
     }
 
-    const errorHuespedes = validarHuespedes(numero_huespedes, cedula_huesped, huespedes_adicionales);
-    if (errorHuespedes) {
-      return res.status(400).json({ error: errorHuespedes });
+    // Solo validar huéspedes adicionales cuando el admin ya ingresó los datos del principal
+    if (nombre_huesped && cedula_huesped) {
+      const errorHuespedes = validarHuespedes(numero_huespedes, cedula_huesped, huespedes_adicionales);
+      if (errorHuespedes) {
+        return res.status(400).json({ error: errorHuespedes });
+      }
     }
 
     const errorFechas = validarFechas(check_in, check_out, hospedaje);
@@ -129,9 +135,7 @@ router.post('/', verificarToken, async (req, res) => {
     }
 
     if (estado !== 'Cancelada' && await buscarCruceDeReserva(hospedaje, check_in, check_out)) {
-      return res.status(409).json({
-        error: mensajeSinDisponibilidad
-      });
+      return res.status(409).json({ error: mensajeSinDisponibilidad });
     }
 
     const valores = await calcularValoresReserva(hospedaje, valor_alojamiento, valor_servicio_adicional, abono);
@@ -139,24 +143,37 @@ router.post('/', verificarToken, async (req, res) => {
       return res.status(400).json({ error: valores.error });
     }
 
+    const token_publico = randomUUID();
+    const datosCompletos = !!(nombre_huesped && cedula_huesped && email_huesped);
+
     const resultado = await run(
-      'INSERT INTO reservas (usuario_id, hospedaje, tipo_hospedaje, check_in, check_out, numero_huespedes, estado, email_huesped, nombre_huesped, cedula_huesped, telefono_huesped, huespedes_adicionales, servicio_adicional, valor_alojamiento, valor_servicio_adicional, abono, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.usuario.id, hospedaje, tipo_hospedaje, check_in, check_out, numero_huespedes, estado, email_huesped, nombre_huesped, cedula_huesped, telefono_huesped, JSON.stringify(huespedes_adicionales), servicio_adicional, valores.valor_alojamiento, valores.valor_servicio_adicional, valores.abono, valores.total]
+      `INSERT INTO reservas
+        (usuario_id, hospedaje, tipo_hospedaje, check_in, check_out, numero_huespedes, estado,
+         email_huesped, nombre_huesped, cedula_huesped, telefono_huesped, huespedes_adicionales,
+         servicio_adicional, valor_alojamiento, valor_servicio_adicional, abono, total,
+         token_publico, datos_completados)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.usuario.id, hospedaje, tipo_hospedaje || 'Glamping', check_in, check_out,
+        numero_huespedes, estado, email_huesped, nombre_huesped, cedula_huesped, telefono_huesped,
+        JSON.stringify(huespedes_adicionales), servicio_adicional,
+        valores.valor_alojamiento, valores.valor_servicio_adicional, valores.abono, valores.total,
+        token_publico, datosCompletos ? 1 : 0
+      ]
     );
 
-    const reservaCreada = {
-      id: resultado.lastID, hospedaje, check_in, check_out, numero_huespedes,
-      estado, email_huesped, nombre_huesped, telefono_huesped,
-      servicio_adicional, valor_alojamiento: valores.valor_alojamiento,
-      valor_servicio_adicional: valores.valor_servicio_adicional,
-      abono: valores.abono, total: valores.total
-    };
-
-    if (estado === 'Confirmada') {
+    if (estado === 'Confirmada' && datosCompletos) {
+      const reservaCreada = {
+        id: resultado.lastID, hospedaje, check_in, check_out, numero_huespedes,
+        estado, email_huesped, nombre_huesped, telefono_huesped,
+        servicio_adicional, valor_alojamiento: valores.valor_alojamiento,
+        valor_servicio_adicional: valores.valor_servicio_adicional,
+        abono: valores.abono, total: valores.total
+      };
       await enviarEmailConfirmacion(reservaCreada);
     }
 
-    res.json({ mensaje: 'Reserva creada correctamente', id: resultado.lastID });
+    res.json({ mensaje: 'Reserva creada correctamente', id: resultado.lastID, token_publico });
   } catch (error) {
     if (error.message?.includes(mensajeSinDisponibilidad)) {
       return res.status(409).json({ error: mensajeSinDisponibilidad });
@@ -166,21 +183,130 @@ router.post('/', verificarToken, async (req, res) => {
   }
 });
 
-// Obtener todas las reservas (admin)
-router.get('/', verificarToken, async (req, res) => {
+// ─── Rutas públicas (sin autenticación) ───────────────────────────────────────
+
+// Consultar datos bloqueados de una reserva por token (para que el huésped vea el enlace)
+router.get('/publica/:token', async (req, res) => {
   try {
-    // Verificar si es admin
-    const usuario = await get('SELECT rol FROM usuarios WHERE id = ?', [req.usuario.id]);
-    
-    let reservas;
-    if (usuario.rol === 'admin') {
-      // Admin ve todas las reservas
-      reservas = await all('SELECT * FROM reservas ORDER BY fecha_creacion DESC');
-    } else {
-      // Usuario solo ve sus reservas
-      reservas = await all('SELECT * FROM reservas WHERE usuario_id = ? ORDER BY fecha_creacion DESC', [req.usuario.id]);
+    const reserva = await get(
+      `SELECT r.id, r.hospedaje, r.tipo_hospedaje, r.check_in, r.check_out,
+              r.usuario_id, r.datos_completados, r.estado,
+              r.valor_alojamiento, r.valor_servicio_adicional, r.abono, r.total,
+              u.nombre AS nombre_admin,
+              a.codigo AS codigo_alojamiento, a.tipo AS tipo_alo
+       FROM reservas r
+       LEFT JOIN usuarios u ON r.usuario_id = u.id
+       LEFT JOIN alojamientos a ON r.hospedaje = a.nombre
+       WHERE r.token_publico = ?`,
+      [req.params.token]
+    );
+
+    if (!reserva) {
+      return res.status(404).json({ error: 'El enlace no es válido o ha expirado' });
     }
 
+    res.json({
+      id: reserva.id,
+      hospedaje: reserva.hospedaje,
+      tipo_hospedaje: reserva.tipo_hospedaje || reserva.tipo_alo,
+      codigo_alojamiento: reserva.codigo_alojamiento,
+      check_in: reserva.check_in,
+      check_out: reserva.check_out,
+      usuario_id: reserva.usuario_id,
+      nombre_admin: reserva.nombre_admin,
+      valor_alojamiento: reserva.valor_alojamiento || 0,
+      valor_servicio_adicional: reserva.valor_servicio_adicional || 0,
+      abono: reserva.abono || 0,
+      total: reserva.total || 0,
+      datos_completados: !!reserva.datos_completados,
+      estado: reserva.estado,
+    });
+  } catch (error) {
+    console.error('Error al consultar reserva pública:', error);
+    res.status(500).json({ error: 'Error al consultar la reserva' });
+  }
+});
+
+// Completar datos del huésped en una reserva via token
+router.put('/publica/:token', async (req, res) => {
+  try {
+    const reserva = await get(
+      `SELECT id, datos_completados, hospedaje, tipo_hospedaje, check_in, check_out,
+              estado, valor_alojamiento, valor_servicio_adicional, abono, total, servicio_adicional
+       FROM reservas WHERE token_publico = ?`,
+      [req.params.token]
+    );
+
+    if (!reserva) {
+      return res.status(404).json({ error: 'El enlace no es válido o ha expirado' });
+    }
+    if (reserva.datos_completados) {
+      return res.status(400).json({ error: 'Esta reserva ya fue completada anteriormente' });
+    }
+
+    const {
+      nombre_huesped,
+      cedula_huesped,
+      email_huesped,
+      telefono_huesped = '',
+      numero_huespedes = 1,
+      huespedes_adicionales = [],
+      servicio_adicional = 'N/A',
+    } = req.body;
+
+    if (!nombre_huesped || !cedula_huesped || !email_huesped) {
+      return res.status(400).json({ error: 'Nombre, cédula y email son obligatorios' });
+    }
+
+    const errorHuespedes = validarHuespedes(numero_huespedes, cedula_huesped, huespedes_adicionales);
+    if (errorHuespedes) {
+      return res.status(400).json({ error: errorHuespedes });
+    }
+
+    await run(
+      `UPDATE reservas
+       SET nombre_huesped = ?, cedula_huesped = ?, email_huesped = ?, telefono_huesped = ?,
+           numero_huespedes = ?, huespedes_adicionales = ?, servicio_adicional = ?,
+           datos_completados = 1
+       WHERE token_publico = ?`,
+      [
+        nombre_huesped, cedula_huesped, email_huesped, telefono_huesped,
+        numero_huespedes, JSON.stringify(huespedes_adicionales), servicio_adicional,
+        req.params.token
+      ]
+    );
+
+    if (reserva.estado === 'Confirmada') {
+      await enviarEmailConfirmacion({
+        id: reserva.id,
+        hospedaje: reserva.hospedaje,
+        tipo_hospedaje: reserva.tipo_hospedaje,
+        check_in: reserva.check_in,
+        check_out: reserva.check_out,
+        estado: reserva.estado,
+        nombre_huesped,
+        email_huesped,
+        telefono_huesped,
+        numero_huespedes,
+        servicio_adicional,
+        valor_alojamiento: reserva.valor_alojamiento,
+        valor_servicio_adicional: reserva.valor_servicio_adicional,
+        abono: reserva.abono,
+        total: reserva.total,
+      });
+    }
+
+    res.json({ mensaje: 'Datos registrados correctamente. El equipo de Natural Sound te contactará pronto.' });
+  } catch (error) {
+    console.error('Error al completar reserva pública:', error);
+    res.status(500).json({ error: 'Error al guardar los datos' });
+  }
+});
+
+// Obtener todas las reservas (cualquier usuario autenticado)
+router.get('/', verificarToken, async (req, res) => {
+  try {
+    const reservas = await all('SELECT * FROM reservas ORDER BY fecha_creacion DESC');
     res.json(reservas.map(mapReserva));
   } catch (error) {
     console.error('Error al obtener reservas:', error);
@@ -195,12 +321,6 @@ router.get('/:id', verificarToken, async (req, res) => {
     
     if (!reserva) {
       return res.status(404).json({ error: 'Reserva no encontrada' });
-    }
-
-    // Verificar permisos (admin o propietario)
-    const usuario = await get('SELECT rol FROM usuarios WHERE id = ?', [req.usuario.id]);
-    if (usuario.rol !== 'admin' && reserva.usuario_id !== req.usuario.id) {
-      return res.status(403).json({ error: 'No tienes permiso para ver esta reserva' });
     }
 
     res.json(mapReserva(reserva));
@@ -234,12 +354,6 @@ router.put('/:id', verificarToken, async (req, res) => {
 
     if (!reserva) {
       return res.status(404).json({ error: 'Reserva no encontrada' });
-    }
-
-    // Verificar permisos
-    const usuario = await get('SELECT rol FROM usuarios WHERE id = ?', [req.usuario.id]);
-    if (usuario.rol !== 'admin' && reserva.usuario_id !== req.usuario.id) {
-      return res.status(403).json({ error: 'No tienes permiso para actualizar esta reserva' });
     }
 
     const datosAdicionales = huespedes_adicionales ?? JSON.parse(reserva.huespedes_adicionales || '[]');
@@ -338,8 +452,6 @@ router.put('/:id', verificarToken, async (req, res) => {
 // Reenviar correo de confirmación
 router.post('/:id/email', verificarToken, async (req, res) => {
   try {
-    const usuario = await get('SELECT rol FROM usuarios WHERE id = ?', [req.usuario.id]);
-    if (usuario.rol !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
 
     const reserva = await get('SELECT * FROM reservas WHERE id = ?', [req.params.id]);
     if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
@@ -358,11 +470,6 @@ router.post('/:id/email', verificarToken, async (req, res) => {
 // Enviar WhatsApp manualmente a un huésped
 router.post('/:id/whatsapp', verificarToken, async (req, res) => {
   try {
-    const usuario = await get('SELECT rol FROM usuarios WHERE id = ?', [req.usuario.id]);
-    if (usuario.rol !== 'admin') {
-      return res.status(403).json({ error: 'Acceso denegado' });
-    }
-
     const reserva = await get('SELECT * FROM reservas WHERE id = ?', [req.params.id]);
     if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
 
@@ -401,12 +508,6 @@ router.delete('/:id', verificarToken, async (req, res) => {
 
     if (!reserva) {
       return res.status(404).json({ error: 'Reserva no encontrada' });
-    }
-
-    // Verificar permisos
-    const usuario = await get('SELECT rol FROM usuarios WHERE id = ?', [req.usuario.id]);
-    if (usuario.rol !== 'admin' && reserva.usuario_id !== req.usuario.id) {
-      return res.status(403).json({ error: 'No tienes permiso para eliminar esta reserva' });
     }
 
     await run('DELETE FROM reservas WHERE id = ?', [req.params.id]);

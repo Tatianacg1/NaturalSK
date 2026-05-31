@@ -5,6 +5,16 @@ import { verificarToken } from './auth.js';
 
 const router = express.Router();
 
+const generarCodigoUsuario = async (rol) => {
+  const prefijo = rol === 'admin' ? 'ADM' : 'USR';
+  const ultimo = await get(
+    `SELECT codigo FROM usuarios WHERE codigo LIKE ? ORDER BY codigo DESC LIMIT 1`,
+    [`${prefijo}-%`]
+  );
+  const siguiente = ultimo?.codigo ? parseInt(ultimo.codigo.split('-')[1], 10) + 1 : 1;
+  return `${prefijo}-${String(siguiente).padStart(3, '0')}`;
+};
+
 const verificarAdmin = async (usuarioId) => {
   const usuario = await get('SELECT rol FROM usuarios WHERE id = ?', [usuarioId]);
   return usuario?.rol === 'admin';
@@ -19,7 +29,7 @@ router.get('/', verificarToken, async (req, res) => {
       return res.status(403).json({ error: 'Solo administradores pueden ver usuarios' });
     }
 
-    const usuarios = await all('SELECT id, nombre, email, rol, fecha_registro, activo FROM usuarios ORDER BY fecha_registro DESC');
+    const usuarios = await all('SELECT id, nombre, email, rol, codigo, fecha_registro, activo FROM usuarios ORDER BY fecha_registro DESC');
     res.json(usuarios);
   } catch (error) {
     console.error('Error al obtener usuarios:', error);
@@ -45,13 +55,17 @@ router.post('/', verificarToken, async (req, res) => {
     }
 
     const contrasenaHash = await bcryptjs.hash(contrasena, 10);
+    const rolNormalizado = rol === 'admin' ? 'admin' : 'user';
     const resultado = await run(
       'INSERT INTO usuarios (nombre, email, contraseña, rol, activo) VALUES (?, ?, ?, ?, ?)',
-      [nombre, email, contrasenaHash, rol === 'admin' ? 'admin' : 'user', activo ? 1 : 0]
+      [nombre, email, contrasenaHash, rolNormalizado, activo ? 1 : 0]
     );
     await run('INSERT INTO configuracion (usuario_id) VALUES (?)', [resultado.lastID]);
 
-    res.json({ mensaje: 'Usuario creado correctamente', id: resultado.lastID });
+    const codigo = await generarCodigoUsuario(rolNormalizado);
+    await run('UPDATE usuarios SET codigo = ? WHERE id = ?', [codigo, resultado.lastID]);
+
+    res.json({ mensaje: 'Usuario creado correctamente', id: resultado.lastID, codigo });
   } catch (error) {
     console.error('Error al crear usuario:', error);
     res.status(500).json({ error: 'Error al crear usuario' });

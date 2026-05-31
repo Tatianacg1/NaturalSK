@@ -1,8 +1,8 @@
 // Página del panel administrativo.
 // Muestra estadísticas, gestiona reservas, usuarios y configuración en un dashboard.
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send } from "lucide-react";
+import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
 
 interface AdminDashboardProps {
@@ -98,6 +98,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   });
   const [alojamientos, setAlojamientos] = useState<any[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
+  const [enlaceGenerado, setEnlaceGenerado] = useState<string | null>(null);
+  const [showEnlaceModal, setShowEnlaceModal] = useState(false);
+  const [enlaceCopiado, setEnlaceCopiado] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
   const [showUsuarioModal, setShowUsuarioModal] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<any>(null);
   const [usuarioForm, setUsuarioForm] = useState<UsuarioForm>({
@@ -137,6 +141,24 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [perfilForm, setPerfilForm] = useState({ nombre: "", email: "" });
   const [configMessage, setConfigMessage] = useState("");
   const [configLoading, setConfigLoading] = useState(false);
+
+  // Refs para sincronizar scroll horizontal superior e inferior en la tabla de reservas
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const mirrorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const syncMirrorWidth = () => {
+      if (tableScrollRef.current && mirrorRef.current) {
+        mirrorRef.current.style.width = `${tableScrollRef.current.scrollWidth}px`;
+      }
+    };
+    syncMirrorWidth();
+    const observer = new ResizeObserver(syncMirrorWidth);
+    if (tableScrollRef.current) observer.observe(tableScrollRef.current);
+    return () => observer.disconnect();
+  }, [reservas, activeTab]);
+
   const valorAlojamiento = Number(reservaForm.valor_alojamiento || 0);
   const valorServicioAdicional = Number(reservaForm.valor_servicio_adicional || 0);
   const abono = Number(reservaForm.abono || 0);
@@ -189,11 +211,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       fullValue: Number(reserva.valor_alojamiento || 0) + Number(reserva.valor_servicio_adicional || 0),
       remainingValue: Number(reserva.total || 0),
       additionalGuests,
+      tokenPublico: reserva.token_publico || null,
+      datosCompletados: !!reserva.datos_completados,
     };
   };
 
   const mapUsuario = (usuario: any) => ({
     id: usuario.id,
+    codigo: usuario.codigo || "—",
     name: usuario.nombre,
     email: usuario.email,
     role: usuario.rol,
@@ -308,6 +333,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setSuccessMessage("");
   };
 
+  const handleCloseEnlaceModal = () => {
+    setShowEnlaceModal(false);
+    setEnlaceGenerado(null);
+    setEnlaceCopiado(false);
+  };
+
   const handleCantidadHuespedesChange = (cantidad: number) => {
     const numero_huespedes = Math.max(1, cantidad || 1);
     setReservaForm(form => ({
@@ -364,10 +395,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         setSuccessMessage("Reserva actualizada correctamente");
         setTimeout(() => handleCloseReservaModal(), 1500);
       } else {
-        await reservasAPI.crearReserva(reservaPayload, token);
+        const resultado = await reservasAPI.crearReserva(reservaPayload, token);
         await reloadReservas();
-        setSuccessMessage("Reserva creada correctamente");
-        setTimeout(() => handleCloseReservaModal(), 1500);
+        handleCloseReservaModal();
+        if (resultado?.token_publico) {
+          setEnlaceGenerado(`${window.location.origin}/reservar/${resultado.token_publico}`);
+          setShowEnlaceModal(true);
+        }
       }
     } catch (error) {
       setSuccessMessage("");
@@ -459,12 +493,31 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const token = localStorage.getItem("authToken");
       if (!token) return;
       if (confirm("¿Estás seguro de que deseas cancelar esta reserva?")) {
-        await reservasAPI.cancelarReserva(reservaId, token);
-        setReservas(current => current.filter(reserva => reserva.id !== reservaId));
+        const reserva = reservas.find(r => r.id === reservaId);
+        if (!reserva) return;
+        await reservasAPI.editarReserva(reservaId, {
+          nombre_huesped: reserva.guest,
+          cedula_huesped: reserva.document,
+          email_huesped: reserva.email,
+          telefono_huesped: reserva.phone,
+          hospedaje: reserva.accommodation,
+          check_in: reserva.checkIn,
+          check_out: reserva.checkOut,
+          numero_huespedes: reserva.guests,
+          servicio_adicional: reserva.additionalService,
+          valor_alojamiento: reserva.accommodationValue,
+          valor_servicio_adicional: reserva.additionalServiceValue,
+          abono: reserva.deposit,
+          estado: "Cancelada",
+          huespedes_adicionales: reserva.additionalGuests,
+          usuario_id: user?.id,
+          tipo_hospedaje: "Glamping",
+        }, token);
+        setReservas(current =>
+          current.map(r => r.id === reservaId ? { ...r, status: "Cancelada" } : r)
+        );
         setSuccessMessage("Reserva cancelada correctamente");
-        setTimeout(() => {
-          setSuccessMessage("");
-        }, 1500);
+        setTimeout(() => setSuccessMessage(""), 1500);
       }
     } catch (error) {
       setSuccessMessage("");
@@ -538,8 +591,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const usuariosDisplay = usuarios;
 
   // Calcular estadísticas dinámicamente
+  const hoy = new Date().toISOString().slice(0, 10);
   const reservasConfirmadas = reservasDisplay.filter(r => r.status === "Confirmada");
-  const ingresosTotales = reservasConfirmadas.reduce((acc, r) => acc + (r.accommodationValue || 0) + (r.additionalServiceValue || 0), 0);
+  // Reservas cuyo checkout ya ocurrió generan ingreso total; las activas solo el abono recibido.
+  const ingresosTotales = reservasConfirmadas.reduce((acc, r) => {
+    const completada = r.checkOut <= hoy;
+    return acc + (completada ? r.fullValue : r.deposit);
+  }, 0);
   // Suponiendo que la ocupación es el porcentaje de reservas confirmadas sobre el total de alojamientos * días del mes actual
   const totalAlojamientos = alojamientos.length || 1;
   const diasMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
@@ -565,6 +623,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         return "bg-green-500/20 text-green-400 border-green-500/30";
       case "Pendiente":
         return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "Cancelada":
+        return "bg-red-500/20 text-red-400 border-red-500/30";
       default:
         return "bg-gray-500/20 text-gray-400 border-gray-500/30";
     }
@@ -654,7 +714,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 { id: "calendario", label: "Calendario", icon: CalendarDays },
                 { id: "reservas", label: "Reservas", icon: Calendar },
                 { id: "historial", label: "Historial", icon: History },
-                { id: "usuarios", label: "Usuarios", icon: Users },
+                ...(user?.role === "admin" ? [{ id: "usuarios", label: "Usuarios", icon: Users }] : []),
                 { id: "correos", label: "Correos", icon: Mail },
                 { id: "configuracion", label: "Configuración", icon: Settings },
               ].map((item) => (
@@ -1110,22 +1170,33 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         {/* ── INGRESOS ── */}
                         {overviewModal.type === "ingresos" && (() => {
                           const confirmadas = modalReservas.filter(r => r.status === "Confirmada");
-                          const totalIngresos = confirmadas.reduce((acc, r) => acc + r.fullValue, 0);
-                          const totalAbonos = confirmadas.reduce((acc, r) => acc + r.deposit, 0);
+                          const completadas = confirmadas.filter(r => r.checkOut <= hoy);
+                          const activas = confirmadas.filter(r => r.checkOut > hoy);
+                          const totalCompletadas = completadas.reduce((acc, r) => acc + r.fullValue, 0);
+                          const totalAbonos = activas.reduce((acc, r) => acc + r.deposit, 0);
+                          const totalIngresos = totalCompletadas + totalAbonos;
+                          const totalPorCobrar = activas.reduce((acc, r) => acc + r.remainingValue, 0);
                           return (
                             <>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                                <div className="bg-slate-50 rounded-lg p-4">
-                                  <p className="text-xs text-slate-500 mb-1">Ingresos totales</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                                <div className="bg-slate-50 rounded-lg p-4 col-span-2 sm:col-span-1">
+                                  <p className="text-xs text-slate-500 mb-1">Ingresos recibidos</p>
                                   <p className="text-xl font-bold text-[#284735]" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalIngresos)}</p>
                                 </div>
                                 <div className="bg-slate-50 rounded-lg p-4">
-                                  <p className="text-xs text-slate-500 mb-1">Abonos recibidos</p>
-                                  <p className="text-xl font-bold text-green-600" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalAbonos)}</p>
+                                  <p className="text-xs text-slate-500 mb-1">Completadas</p>
+                                  <p className="text-xl font-bold text-green-600" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalCompletadas)}</p>
+                                  <p className="text-xs text-slate-400 mt-0.5">{completadas.length} reserva{completadas.length !== 1 ? "s" : ""}</p>
                                 </div>
-                                <div className="bg-slate-50 rounded-lg p-4 col-span-2 sm:col-span-1">
-                                  <p className="text-xs text-slate-500 mb-1">Reservas confirmadas</p>
-                                  <p className="text-xl font-bold text-[#284735]" style={{ fontFamily: "'Playfair Display', serif" }}>{confirmadas.length}</p>
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                  <p className="text-xs text-slate-500 mb-1">Abonos activos</p>
+                                  <p className="text-xl font-bold text-amber-600" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalAbonos)}</p>
+                                  <p className="text-xs text-slate-400 mt-0.5">{activas.length} reserva{activas.length !== 1 ? "s" : ""}</p>
+                                </div>
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                  <p className="text-xs text-slate-500 mb-1">Por cobrar</p>
+                                  <p className="text-xl font-bold text-slate-500" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalPorCobrar)}</p>
+                                  <p className="text-xs text-slate-400 mt-0.5">saldo pendiente</p>
                                 </div>
                               </div>
                               {!filtroAlo ? (
@@ -1134,7 +1205,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                   <div className="space-y-2">
                                     {alojamientos.map(a => {
                                       const aRes = reservasDisplay.filter(r => r.accommodation === a.nombre && r.status === "Confirmada");
-                                      const aTotal = aRes.reduce((acc, r) => acc + r.fullValue, 0);
+                                      const aTotal = aRes.reduce((acc, r) => {
+                                        const completada = r.checkOut <= hoy;
+                                        return acc + (completada ? r.fullValue : r.deposit);
+                                      }, 0);
                                       return (
                                         <div
                                           key={a.id}
@@ -1240,7 +1314,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               const q = searchQuery.toLowerCase();
               reservasFiltradas = reservasFiltradas.filter(r =>
                 r.guest.toLowerCase().includes(q) ||
-                r.accommodation.toLowerCase().includes(q)
+                r.accommodation.toLowerCase().includes(q) ||
+                r.document.toLowerCase().includes(q)
               );
             }
             if (filtroAlojamiento) {
@@ -1309,7 +1384,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <input
                     autoFocus
                     type="text"
-                    placeholder="Buscar por huésped o alojamiento..."
+                    placeholder="Buscar por huésped, cédula o alojamiento..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm text-[#284735] placeholder:text-slate-400 focus:outline-none focus:border-primary transition-colors bg-white"
@@ -1391,7 +1466,27 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
               {/* Tabla */}
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Scrollbar espejo — parte superior */}
+                <div
+                  ref={topScrollRef}
+                  className="overflow-x-auto overflow-y-hidden border-b border-slate-100"
+                  style={{ height: 14 }}
+                  onScroll={() => {
+                    if (tableScrollRef.current && topScrollRef.current)
+                      tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+                  }}
+                >
+                  <div ref={mirrorRef} style={{ height: 1 }} />
+                </div>
+
+                <div
+                  ref={tableScrollRef}
+                  className="overflow-x-auto"
+                  onScroll={() => {
+                    if (topScrollRef.current && tableScrollRef.current)
+                      topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
+                  }}
+                >
                   <table className="w-full text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
@@ -1427,30 +1522,49 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               {r.status}
                             </span>
                           </td>
-                          <td className="py-4 px-6 flex gap-2">
-                            <button
-                              onClick={() => handleOpenReservaModal(r)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              title="Editar reserva"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            {r.phone && (
+                          <td className="py-4 px-6 whitespace-nowrap">
+                            <div className="flex items-center gap-1">
                               <button
-                                onClick={() => handleEnviarWhatsApp(r.id)}
-                                className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
-                                title="Enviar WhatsApp al huésped"
+                                onClick={() => handleOpenReservaModal(r)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Editar reserva"
                               >
-                                <MessageCircle size={16} />
+                                <Edit2 size={16} />
                               </button>
-                            )}
-                            <button
-                              onClick={() => handleCancelReserva(r.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Cancelar reserva"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                              {r.tokenPublico && (
+                                <button
+                                  disabled={r.datosCompletados}
+                                  onClick={() => {
+                                    const url = `${window.location.origin}/reservar/${r.tokenPublico}`;
+                                    navigator.clipboard.writeText(url);
+                                    setToastMsg("¡Enlace copiado!");
+                                    setTimeout(() => setToastMsg(""), 2000);
+                                  }}
+                                  className={`p-2 rounded transition-colors ${r.datosCompletados ? "text-slate-300 cursor-not-allowed" : "text-[#365b43] hover:bg-[#e8f0ea] cursor-pointer"}`}
+                                  title={r.datosCompletados ? "El huésped ya completó sus datos" : "Copiar enlace para el huésped"}
+                                >
+                                  <Link size={16} />
+                                </button>
+                              )}
+                              {r.phone && (
+                                <button
+                                  onClick={() => handleEnviarWhatsApp(r.id)}
+                                  className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
+                                  title="Enviar WhatsApp al huésped"
+                                >
+                                  <MessageCircle size={16} />
+                                </button>
+                              )}
+                              {r.status !== "Cancelada" && (
+                                <button
+                                  onClick={() => handleCancelReserva(r.id)}
+                                  className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                  title="Cancelar reserva"
+                                >
+                                  <X size={16} />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -2080,18 +2194,35 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     {usuariosDisplay.length} usuarios registrados
                   </p>
                 </div>
-                <button
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
-                  onClick={() => handleOpenUsuarioModal()}
-                >
-                  <Plus size={18} /> Nuevo Usuario
-                </button>
+                {user?.role === "admin" && (
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+                    onClick={() => handleOpenUsuarioModal()}
+                  >
+                    <Plus size={18} /> Nuevo Usuario
+                  </button>
+                )}
               </div>
 
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {usuariosDisplay && usuariosDisplay.length > 0 ? usuariosDisplay.map((u) => (
                   <div key={u.id} className="bg-white border border-slate-200 rounded-lg p-6 hover:shadow-md hover:border-slate-300 transition-all">
                     <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span
+                          className="text-xs font-mono bg-[#e8f0ea] text-[#365b43] border border-[#c2d8c8] px-2 py-0.5 rounded"
+                          title="Código de identificación"
+                        >
+                          {u.codigo}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded border ${
+                          u.role === "admin"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-slate-50 text-slate-600 border-slate-200"
+                        }`}>
+                          {u.role === "admin" ? "Admin" : "Usuario"}
+                        </span>
+                      </div>
                       <h3
                         className="text-lg font-semibold text-slate-900"
                         style={{ fontFamily: "'Playfair Display', serif" }}
@@ -2121,23 +2252,25 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </span>
                       </div>
                     </div>
-                    <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-slate-100">
-                      <button
-                        onClick={() => handleOpenUsuarioModal(u)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="Editar usuario"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUsuario(u)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors disabled:text-slate-300 disabled:hover:bg-transparent"
-                        title={u.id === user?.id ? "No puedes eliminar tu usuario" : "Eliminar usuario"}
-                        disabled={u.id === user?.id}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                    {user?.role === "admin" && (
+                      <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-slate-100">
+                        <button
+                          onClick={() => handleOpenUsuarioModal(u)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title="Editar usuario"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUsuario(u)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors disabled:text-slate-300 disabled:hover:bg-transparent"
+                          title={u.id === user?.id ? "No puedes eliminar tu usuario" : "Eliminar usuario"}
+                          disabled={u.id === user?.id}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )) : (
                   <div className="col-span-full text-center py-8">
@@ -2556,7 +2689,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   {reservaModalTab === "principal" && (
                     <>
                       <div className="relative">
-                        <label className="block text-sm mb-1 text-[#46654f]">Nombre del huésped</label>
+                        <label className="block text-sm mb-1 text-[#46654f]">
+                          Nombre del huésped
+                          {!editingReserva && <span className="text-slate-400 text-xs ml-1">(opcional — el huésped lo completa via enlace)</span>}
+                        </label>
                         <input
                           type="text"
                           className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
@@ -2567,7 +2703,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           }}
                           onBlur={() => setTimeout(() => setSugerenciasHuesped([]), 150)}
                           autoComplete="off"
-                          required
                         />
                         {sugerenciasHuesped.length > 0 && (
                           <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
@@ -2591,7 +2726,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
                           value={reservaForm.cedula_huesped}
                           onChange={e => setReservaForm(f => ({ ...f, cedula_huesped: e.target.value }))}
-                          required
                         />
                       </div>
                       <div>
@@ -2601,7 +2735,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
                           value={reservaForm.email_huesped}
                           onChange={e => setReservaForm(f => ({ ...f, email_huesped: e.target.value }))}
-                          required
                         />
                       </div>
                       <div>
@@ -2623,6 +2756,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             ...f,
                             hospedaje: e.target.value,
                             check_out: e.target.value === "Día de Sol" ? f.check_in : f.check_out,
+                            servicio_adicional: e.target.value === "Día de Sol" && !["N/A", "Desayuno termal"].includes(f.servicio_adicional) ? "N/A" : f.servicio_adicional,
                           }))}
                           required
                         >
@@ -2680,12 +2814,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           value={reservaForm.servicio_adicional}
                           onChange={e => setReservaForm(f => ({ ...f, servicio_adicional: e.target.value }))}
                         >
-                          <option value="Cumpleaños">Cumpleaños</option>
-                          <option value="Quieres ser mi novia">Quieres ser mi novia</option>
-                          <option value="Te amo">Te amo</option>
-                          <option value="Aniversario">Aniversario</option>
-                          <option value="Desayuno termal">Desayuno termal</option>
-                          <option value="N/A">N/A</option>
+                          {reservaForm.hospedaje === "Día de Sol" ? (
+                            <>
+                              <option value="N/A">N/A</option>
+                              <option value="Desayuno termal">Desayuno termal</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="Cumpleaños">Cumpleaños</option>
+                              <option value="Quieres ser mi novia">Quieres ser mi novia</option>
+                              <option value="Te amo">Te amo</option>
+                              <option value="Aniversario">Aniversario</option>
+                              <option value="Desayuno termal">Desayuno termal</option>
+                              <option value="N/A">N/A</option>
+                            </>
+                          )}
                         </select>
                       </div>
                       <div>
@@ -2808,7 +2951,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     {editingReserva ? "Guardar Cambios" : "Crear Reserva"}
                   </button>
                   {successMessage && (
-                    <div className="mt-4 text-green-600 text-center">{successMessage}</div>
+                    <div className="mt-4 text-green-600 text-sm text-center">{successMessage}</div>
                   )}
                 </form>
               </div>
@@ -2816,6 +2959,100 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           )}
         </main>
       </div>
+
+      {/* Botón flotante superior */}
+      <button
+        onClick={() => window.scrollBy({ top: -window.innerHeight * 0.8, behavior: "smooth" })}
+        className="fixed right-4 top-24 z-50 p-2 bg-white border border-slate-200 rounded-lg shadow-md text-[#46654f] hover:bg-primary/10 hover:border-primary transition-colors"
+        title="Subir"
+      >
+        <ChevronUp size={18} />
+      </button>
+
+      {/* Botón flotante inferior */}
+      <button
+        onClick={() => window.scrollBy({ top: window.innerHeight * 0.8, behavior: "smooth" })}
+        className="fixed right-4 bottom-6 z-50 p-2 bg-white border border-slate-200 rounded-lg shadow-md text-[#46654f] hover:bg-primary/10 hover:border-primary transition-colors"
+        title="Bajar"
+      >
+        <ChevronDown size={18} />
+      </button>
+
+      {/* Toast flotante de confirmación */}
+      {toastMsg && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-[#284735] text-white text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in">
+          <CheckCircle size={16} className="text-green-300" />
+          {toastMsg}
+        </div>
+      )}
+
+      {/* Modal de enlace generado para el huésped */}
+      {showEnlaceModal && enlaceGenerado && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">
+            <button
+              onClick={handleCloseEnlaceModal}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Ícono y título */}
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-12 h-12 bg-[#e8f0ea] rounded-full flex items-center justify-center mb-3">
+                <Link size={22} className="text-[#365b43]" />
+              </div>
+              <h3
+                className="text-lg font-semibold text-[#284735]"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Reserva creada
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">
+                Comparte este enlace con el huésped para que complete sus datos.
+              </p>
+            </div>
+
+            {/* Enlace */}
+            <div className="bg-[#f4f7f4] border border-[#c2d8c8] rounded-xl p-4 space-y-3">
+              <p className="text-xs font-medium text-[#46654f]">Enlace para el huésped:</p>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={enlaceGenerado}
+                  onClick={e => (e.target as HTMLInputElement).select()}
+                  className="flex-1 text-xs px-3 py-2 border border-[#c2d8c8] rounded-lg bg-white text-[#284735] font-mono focus:outline-none focus:border-[#365b43]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(enlaceGenerado);
+                    setEnlaceCopiado(true);
+                    setTimeout(() => setEnlaceCopiado(false), 2500);
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    enlaceCopiado
+                      ? "bg-green-500 text-white"
+                      : "bg-[#365b43] text-white hover:bg-[#284735]"
+                  }`}
+                >
+                  {enlaceCopiado ? "¡Copiado!" : "Copiar"}
+                </button>
+              </div>
+              <p className="text-xs text-slate-400">
+                El enlace solo puede completarse una vez. Queda bloqueado tras el envío.
+              </p>
+            </div>
+
+            <button
+              onClick={handleCloseEnlaceModal}
+              className="mt-5 w-full py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

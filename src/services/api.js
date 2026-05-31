@@ -174,6 +174,25 @@ export const correosAPI = {
   },
 };
 
+// Rutas públicas de reserva (sin autenticación — para el enlace del huésped)
+export const reservaPublicaAPI = {
+  async getByToken(token) {
+    const res = await fetch(`${API_BASE_URL}/reservas/publica/${token}`);
+    if (!res.ok) throw new Error((await res.json()).error || 'Enlace no válido');
+    return res.json();
+  },
+
+  async completar(token, data) {
+    const res = await fetch(`${API_BASE_URL}/reservas/publica/${token}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar los datos');
+    return res.json();
+  },
+};
+
 // Rutas de alojamientos
 export const alojamientosAPI = {
   getAll: () => fetchAPI('/alojamientos'),

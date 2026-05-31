@@ -72,6 +72,13 @@ const initializeDatabase = async () => {
       console.log('Usuario admin de demostración creado: admin@naturalsound.com / admin123');
     }
 
+    // Agregar columna codigo a usuarios y asignar a registros existentes
+    const columnasUsu = await all('PRAGMA table_info(usuarios)');
+    if (!columnasUsu.some(c => c.name === 'codigo')) {
+      await run('ALTER TABLE usuarios ADD COLUMN codigo TEXT');
+    }
+    await run(`UPDATE usuarios SET codigo = 'ADM-001' WHERE email = 'admin@naturalsound.com' AND (codigo IS NULL OR codigo = '')`);
+
     // Tabla de reservas
     await run(`
       CREATE TABLE IF NOT EXISTS reservas (
@@ -124,6 +131,12 @@ const initializeDatabase = async () => {
     }
     if (!columnasReserva.some((columna) => columna.name === 'total')) {
       await run('ALTER TABLE reservas ADD COLUMN total REAL DEFAULT 0');
+    }
+    if (!columnasReserva.some((columna) => columna.name === 'token_publico')) {
+      await run('ALTER TABLE reservas ADD COLUMN token_publico TEXT');
+    }
+    if (!columnasReserva.some((columna) => columna.name === 'datos_completados')) {
+      await run('ALTER TABLE reservas ADD COLUMN datos_completados INTEGER DEFAULT 0');
     }
 
     // Impedir reservas que superen el límite de unidades del alojamiento.
@@ -205,6 +218,27 @@ const initializeDatabase = async () => {
     }
     await run("UPDATE alojamientos SET limite_reservas = 4 WHERE nombre = 'Habitación Pareja'");
     await run("UPDATE alojamientos SET limite_reservas = 1 WHERE nombre = 'Habitación Cuadruple'");
+
+    // Agregar columna codigo a alojamientos y asignar a registros existentes
+    if (!columnasAlo.some(c => c.name === 'codigo')) {
+      await run('ALTER TABLE alojamientos ADD COLUMN codigo TEXT');
+    }
+    const codigosAlojamientos = [
+      ['Glamping Perla',       'GLM-001'],
+      ['Glamping Esmeralda',   'GLM-002'],
+      ['Glamping Diamante',    'GLM-003'],
+      ['Glamping Zafiro',      'GLM-004'],
+      ['Glamping Turquesa',    'GLM-005'],
+      ['Día de Sol',           'SOL-001'],
+      ['Habitación Pareja',    'HAB-001'],
+      ['Habitación Cuadruple', 'HAB-002'],
+    ];
+    for (const [nombre, codigo] of codigosAlojamientos) {
+      await run(
+        "UPDATE alojamientos SET codigo = ? WHERE nombre = ? AND (codigo IS NULL OR codigo = '')",
+        [codigo, nombre]
+      );
+    }
 
     // Insertar alojamientos de demostración si no existen
     const alojamientosCount = await get('SELECT COUNT(*) as count FROM alojamientos');

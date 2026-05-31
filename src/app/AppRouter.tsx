@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth, AuthProvider } from "./context/AuthContext";
 import { LoginPage } from "./pages/LoginPage";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { CompletarReserva } from "./pages/CompletarReserva";
 import App from "./App";
 
 // Componente que administra la lógica de ruta basada en autenticación.
@@ -11,6 +12,9 @@ import App from "./App";
 function AppRouterContent() {
   const { isAuthenticated } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
+
+  // Detecta la ruta pública de completar reserva.
+  const tokenReserva = window.location.pathname.match(/^\/reservar\/([^/]+)$/)?.[1] ?? null;
 
   // Comprueba si debe mostrar la página de login.
   useEffect(() => {
@@ -20,6 +24,11 @@ function AppRouterContent() {
       setShowLogin(true);
     }
   }, [isAuthenticated]);
+
+  // Ruta pública de completar reserva — no requiere autenticación.
+  if (tokenReserva) {
+    return <CompletarReserva token={tokenReserva} />;
+  }
 
   // Maneja el clic en el botón de iniciar sesión desde la app principal.
   const handleShowLogin = () => {
