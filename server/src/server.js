@@ -5,6 +5,7 @@ import authRoutes from './routes/auth.js';
 import reservasRoutes from './routes/reservas.js';
 import usuariosRoutes from './routes/usuarios.js';
 import alojamientosRoutes from './routes/alojamientos.js';
+import correosRoutes from './routes/correos.js';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/reservas', reservasRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/alojamientos', alojamientosRoutes);
+app.use('/api/correos', correosRoutes);
 
 // Ruta de prueba
 app.get('/api/health', (req, res) => {

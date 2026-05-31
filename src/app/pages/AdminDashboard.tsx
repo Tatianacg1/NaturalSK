@@ -2,8 +2,8 @@
 // Muestra estadísticas, gestiona reservas, usuarios y configuración en un dashboard.
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal } from "lucide-react";
-import { reservasAPI, usuariosAPI, alojamientosAPI } from "../../services/api";
+import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send } from "lucide-react";
+import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -19,6 +19,7 @@ interface ReservaForm {
   nombre_huesped: string;
   cedula_huesped: string;
   email_huesped: string;
+  telefono_huesped: string;
   hospedaje: string;
   check_in: string;
   check_out: string;
@@ -44,7 +45,9 @@ interface UsuarioForm {
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "reservas" | "historial" | "calendario" | "usuarios" | "configuracion">("calendario");
+  const [activeTab, setActiveTab] = useState<"overview" | "reservas" | "historial" | "calendario" | "usuarios" | "configuracion" | "correos">(
+    () => (sessionStorage.getItem("adminTab") as any) || "calendario"
+  );
   const [overviewSubTab, setOverviewSubTab] = useState<"proximas" | "concluidas">("proximas");
 
   // Estados de búsqueda y filtros del tab Reservas
@@ -62,6 +65,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  // Estados pestaña Correos
+  const [correoEstado, setCorreoEstado] = useState<any>(null);
+  const [correoEstadoCargando, setCorreoEstadoCargando] = useState(false);
+  const [correoPrueba, setCorreoPrueba] = useState("");
+  const [correoPruebaMsg, setCorreoPruebaMsg] = useState("");
+  const [correoPruebaEnviando, setCorreoPruebaEnviando] = useState(false);
+  const [correoReenviando, setCorreoReenviando] = useState<number | null>(null);
+
+  // Autocomplete de huéspedes anteriores
+  const [sugerenciasHuesped, setSugerenciasHuesped] = useState<any[]>([]);
+
   // Estados para manejar modales de crear/editar reserva
   const [showReservaModal, setShowReservaModal] = useState(false);
   const [editingReserva, setEditingReserva] = useState<any>(null);
@@ -70,6 +84,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     nombre_huesped: "",
     cedula_huesped: "",
     email_huesped: "",
+    telefono_huesped: "",
     hospedaje: "",
     check_in: "",
     check_out: "",
@@ -161,6 +176,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       guest: reserva.nombre_huesped,
       document: reserva.cedula_huesped || "",
       email: reserva.email_huesped,
+      phone: reserva.telefono_huesped || "",
       accommodation: reserva.hospedaje,
       checkIn: reserva.check_in,
       checkOut: reserva.check_out,
@@ -250,6 +266,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         nombre_huesped: reserva.guest,
         cedula_huesped: reserva.document,
         email_huesped: reserva.email,
+        telefono_huesped: reserva.phone || "",
         hospedaje: reserva.accommodation,
         check_in: reserva.checkIn,
         check_out: reserva.checkOut,
@@ -267,6 +284,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         nombre_huesped: "",
         cedula_huesped: "",
         email_huesped: "",
+        telefono_huesped: "",
         hospedaje: "",
         check_in: prefillDate || "",
         check_out: "",
@@ -341,25 +359,98 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         tipo_hospedaje: "Glamping",
       };
       if (editingReserva) {
-        // Editar reserva
         await reservasAPI.editarReserva(editingReserva.id, reservaPayload, token);
         await reloadReservas();
         setSuccessMessage("Reserva actualizada correctamente");
-        setTimeout(() => {
-          handleCloseReservaModal();
-        }, 1500);
+        setTimeout(() => handleCloseReservaModal(), 1500);
       } else {
-        // Crear reserva
         await reservasAPI.crearReserva(reservaPayload, token);
         await reloadReservas();
         setSuccessMessage("Reserva creada correctamente");
-        setTimeout(() => {
-          handleCloseReservaModal();
-        }, 1500);
+        setTimeout(() => handleCloseReservaModal(), 1500);
       }
     } catch (error) {
       setSuccessMessage("");
       alert(error.message || "Error guardando reserva");
+    }
+  };
+
+  const buscarHuespedes = (query: string) => {
+    if (query.length < 2) { setSugerenciasHuesped([]); return; }
+    const q = query.toLowerCase();
+    const vistos = new Set<string>();
+    const matches = reservas.filter(r => {
+      if (!r.guest?.toLowerCase().includes(q)) return false;
+      const key = r.document || r.guest;
+      if (vistos.has(key)) return false;
+      vistos.add(key);
+      return true;
+    }).slice(0, 6);
+    setSugerenciasHuesped(matches);
+  };
+
+  const seleccionarHuesped = (r: any) => {
+    setReservaForm(f => ({
+      ...f,
+      nombre_huesped: r.guest || "",
+      cedula_huesped: r.document || "",
+      email_huesped: r.email || "",
+      telefono_huesped: r.phone || "",
+    }));
+    setSugerenciasHuesped([]);
+  };
+
+  const handleVerEstadoCorreo = async () => {
+    setCorreoEstadoCargando(true);
+    try {
+      const data = await correosAPI.estado();
+      setCorreoEstado(data);
+    } catch {
+      setCorreoEstado({ configurado: false, mensaje: "Error al verificar" });
+    } finally {
+      setCorreoEstadoCargando(false);
+    }
+  };
+
+  const handleEnviarCorreoPrueba = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!correoPrueba) return;
+    setCorreoPruebaEnviando(true);
+    setCorreoPruebaMsg("");
+    try {
+      const data = await correosAPI.prueba(correoPrueba);
+      setCorreoPruebaMsg(data.mensaje || "Correo enviado correctamente");
+    } catch (error: any) {
+      setCorreoPruebaMsg(`Error: ${error.message}`);
+    } finally {
+      setCorreoPruebaEnviando(false);
+    }
+  };
+
+  const handleReenviarCorreo = async (reservaId: number) => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+    setCorreoReenviando(reservaId);
+    try {
+      const data = await correosAPI.reenviar(reservaId, token);
+      setSuccessMessage(data.mensaje || "Correo reenviado correctamente");
+      setTimeout(() => setSuccessMessage(""), 2500);
+    } catch (error: any) {
+      alert(error.message || "Error al reenviar correo");
+    } finally {
+      setCorreoReenviando(null);
+    }
+  };
+
+  const handleEnviarWhatsApp = async (reservaId: number) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+      await reservasAPI.enviarWhatsApp(reservaId, token);
+      setSuccessMessage("WhatsApp enviado correctamente");
+      setTimeout(() => setSuccessMessage(""), 2000);
+    } catch (error: any) {
+      alert(error.message || "Error al enviar WhatsApp");
     }
   };
 
@@ -564,12 +655,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 { id: "reservas", label: "Reservas", icon: Calendar },
                 { id: "historial", label: "Historial", icon: History },
                 { id: "usuarios", label: "Usuarios", icon: Users },
+                { id: "correos", label: "Correos", icon: Mail },
                 { id: "configuracion", label: "Configuración", icon: Settings },
               ].map((item) => (
                 <button
                   key={item.id}
                   onClick={() => {
                     setActiveTab(item.id as any);
+                    sessionStorage.setItem("adminTab", item.id);
+                    if (item.id === "correos") loadData(true);
                     setSidebarOpen(window.innerWidth >= 768);
                     setOverviewModal(null);
                     setOverviewDetailReserva(null);
@@ -1341,6 +1435,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             >
                               <Edit2 size={16} />
                             </button>
+                            {r.phone && (
+                              <button
+                                onClick={() => handleEnviarWhatsApp(r.id)}
+                                className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
+                                title="Enviar WhatsApp al huésped"
+                              >
+                                <MessageCircle size={16} />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleCancelReserva(r.id)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -1365,287 +1468,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </div>
               </div>
 
-              {/* Modal para crear/editar reserva */}
-              {showReservaModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-xl max-h-[92vh] overflow-y-auto shadow-lg relative text-[#284735]">
-                    <button
-                      className="absolute top-4 right-4 text-[#728875] hover:text-[#284735] transition-colors"
-                      onClick={handleCloseReservaModal}
-                    >
-                      <X size={20} />
-                    </button>
-                    <h3 className="text-xl font-semibold mb-6 text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
-                      {editingReserva ? "Editar Reserva" : "Nueva Reserva"}
-                    </h3>
-                    <form
-                      onSubmit={e => {
-                        e.preventDefault();
-                        handleSaveReserva();
-                      }}
-                      className="space-y-4"
-                    >
-                      <div className="flex gap-2 border-b border-[#d7e1d8] pb-3">
-                        <button
-                          type="button"
-                          onClick={() => setReservaModalTab("principal")}
-                          className={`px-3 py-2 rounded-md text-sm transition-colors ${
-                            reservaModalTab === "principal"
-                              ? "bg-[#e5eee7] text-[#284735]"
-                              : "text-[#718575] hover:text-[#284735]"
-                          }`}
-                        >
-                          Huésped principal
-                        </button>
-                        {reservaForm.numero_huespedes > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => setReservaModalTab("adicionales")}
-                            className={`px-3 py-2 rounded-md text-sm transition-colors ${
-                              reservaModalTab === "adicionales"
-                                ? "bg-[#e5eee7] text-[#284735]"
-                                : "text-[#718575] hover:text-[#284735]"
-                            }`}
-                          >
-                            Demás huéspedes ({reservaForm.numero_huespedes - 1})
-                          </button>
-                        )}
-                      </div>
-                      {reservaModalTab === "principal" && (
-                        <>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Nombre del huésped</label>
-                        <input
-                          type="text"
-                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
-                          value={reservaForm.nombre_huesped}
-                          onChange={e => setReservaForm(f => ({ ...f, nombre_huesped: e.target.value }))}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Cédula del huésped principal</label>
-                        <input
-                          type="text"
-                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
-                          value={reservaForm.cedula_huesped}
-                          onChange={e => setReservaForm(f => ({ ...f, cedula_huesped: e.target.value }))}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Email del huésped</label>
-                        <input
-                          type="email"
-                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
-                          value={reservaForm.email_huesped}
-                          onChange={e => setReservaForm(f => ({ ...f, email_huesped: e.target.value }))}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Alojamiento</label>
-                        <select
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
-                          value={reservaForm.hospedaje}
-                          onChange={e => setReservaForm(f => ({
-                            ...f,
-                            hospedaje: e.target.value,
-                            check_out: e.target.value === "Día de Sol" ? f.check_in : f.check_out,
-                          }))}
-                          required
-                        >
-                          <option value="">Selecciona...</option>
-                          {alojamientos.map((a) => (
-                            <option key={a.id} value={a.nombre}>{a.nombre}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <label className="block text-sm mb-1 text-[#46654f]">
-                            {reservaForm.hospedaje === "Día de Sol" ? "Fecha" : "Check-in"}
-                          </label>
-                          <input
-                            type="date"
-                            className="w-full px-3 py-2 border rounded text-[#284735]"
-                            value={reservaForm.check_in}
-                            onChange={e => setReservaForm(f => ({
-                              ...f,
-                              check_in: e.target.value,
-                              check_out: f.hospedaje === "Día de Sol" ? e.target.value : f.check_out,
-                            }))}
-                            required
-                          />
-                        </div>
-                        {reservaForm.hospedaje !== "Día de Sol" && (
-                        <div className="flex-1">
-                          <label className="block text-sm mb-1 text-[#46654f]">Check-out</label>
-                          <input
-                            type="date"
-                            className="w-full px-3 py-2 border rounded text-[#284735]"
-                            value={reservaForm.check_out}
-                            onChange={e => setReservaForm(f => ({ ...f, check_out: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Número de personas</label>
-                        <input
-                          type="number"
-                          min={1}
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
-                          value={reservaForm.numero_huespedes}
-                          onChange={e => handleCantidadHuespedesChange(Number(e.target.value))}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Servicio adicional</label>
-                        <select
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
-                          value={reservaForm.servicio_adicional}
-                          onChange={e => setReservaForm(f => ({
-                            ...f,
-                            servicio_adicional: e.target.value,
-                          }))}
-                        >
-                          <option value="Cumpleaños">Cumpleaños</option>
-                          <option value="Quieres ser mi novia">Quieres ser mi novia</option>
-                          <option value="Te amo">Te amo</option>
-                          <option value="Aniversario">Aniversario</option>
-                          <option value="Desayuno termal">Desayuno termal</option>
-                          <option value="N/A">N/A</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Valor del alojamiento</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
-                            placeholder="0"
-                            value={displayCOP(reservaForm.valor_alojamiento)}
-                            onFocus={e => { if (Number(reservaForm.valor_alojamiento) !== 0) e.target.select(); }}
-                            onChange={e => setReservaForm(f => ({ ...f, valor_alojamiento: parseCOP(e.target.value) }))}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Valor del servicio adicional</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
-                            placeholder="0"
-                            value={displayCOP(reservaForm.valor_servicio_adicional)}
-                            onFocus={e => { if (Number(reservaForm.valor_servicio_adicional) !== 0) e.target.select(); }}
-                            onChange={e => setReservaForm(f => ({ ...f, valor_servicio_adicional: parseCOP(e.target.value) }))}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Abono</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
-                            placeholder="0"
-                            value={displayCOP(reservaForm.abono)}
-                            onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
-                            onChange={e => {
-                              const val = parseCOP(e.target.value);
-                              if (val <= valorAlojamiento + valorServicioAdicional) {
-                                setReservaForm(f => ({ ...f, abono: val }));
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="rounded-md bg-[#e5eee7] p-4">
-                        <label className="block text-sm mb-1 text-[#46654f]">Total a pagar</label>
-                        <p className="text-xl font-semibold text-[#284735]">{formatCurrency(totalReserva)}</p>
-                        <p className="text-xs text-[#55735d] mt-1">
-                          Valor alojamiento + servicio adicional − abono
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Estado</label>
-                        <select
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
-                          value={reservaForm.estado}
-                          onChange={e => setReservaForm(f => ({ ...f, estado: e.target.value }))}
-                        >
-                          <option value="Pendiente">Pendiente</option>
-                          <option value="Confirmada">Confirmada</option>
-                          <option value="Cancelada">Cancelada</option>
-                        </select>
-                      </div>
-                        </>
-                      )}
-                      {reservaModalTab === "adicionales" && reservaForm.numero_huespedes > 1 && (
-                        <div className="space-y-4">
-                          <p className="text-sm text-[#46654f]">
-                            El huésped principal ya está registrado. Completa los datos de los acompañantes.
-                          </p>
-                          {reservaForm.huespedes_adicionales.map((huesped, index) => (
-                            <div key={index} className="rounded-md border border-[#d7e1d8] p-4 space-y-3">
-                              <p className="font-medium text-[#365b43]">Huésped {index + 2}</p>
-                              <div>
-                                <label className="block text-sm mb-1 text-[#46654f]">Nombre completo</label>
-                                <input
-                                  type="text"
-                                  className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
-                                  value={huesped.nombre}
-                                  onChange={e => handleHuespedAdicionalChange(index, "nombre", e.target.value)}
-                                  required
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm mb-1 text-[#46654f]">Cédula</label>
-                                <input
-                                  type="text"
-                                  className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
-                                  value={huesped.cedula}
-                                  onChange={e => handleHuespedAdicionalChange(index, "cedula", e.target.value)}
-                                  required
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm mb-1 text-[#46654f]">Email del huésped</label>
-                                <input
-                                  type="email"
-                                  className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
-                                  value={huesped.email || ""}
-                                  onChange={e => handleHuespedAdicionalChange(index, "email", e.target.value)}
-                                  required
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <button
-                        type="submit"
-                        className="w-full mt-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
-                      >
-                        {editingReserva ? "Guardar Cambios" : "Crear Reserva"}
-                      </button>
-                      {successMessage && (
-                        <div className="mt-4 text-green-600 text-center">{successMessage}</div>
-                      )}
-                    </form>
-                  </div>
-                </div>
-              )}
             </div>
           );
           })()}
@@ -2415,6 +2237,143 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </div>
           )}
 
+          {/* Correos Tab */}
+          {activeTab === "correos" && (
+            <div>
+              <div className="mb-8">
+                <h2 className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  Correos
+                </h2>
+                <p className="text-slate-700" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  Gestiona el envío de confirmaciones por correo electrónico
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                {/* Estado SMTP */}
+                <div className="bg-white border border-slate-200 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-[#284735] mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    Estado de configuración
+                  </h3>
+                  {correoEstado ? (
+                    <div className={`flex items-center gap-3 p-4 rounded-lg mb-4 ${correoEstado.configurado ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+                      {correoEstado.configurado
+                        ? <CheckCircle size={22} className="text-green-600 shrink-0" />
+                        : <XCircle size={22} className="text-red-500 shrink-0" />}
+                      <div>
+                        <p className={`font-medium text-sm ${correoEstado.configurado ? "text-green-700" : "text-red-600"}`}>
+                          {correoEstado.configurado ? "Conexión activa" : "Sin conexión"}
+                        </p>
+                        {correoEstado.correo && (
+                          <p className="text-xs text-green-600 mt-0.5">{correoEstado.correo}</p>
+                        )}
+                        <p className="text-xs text-slate-500 mt-0.5">{correoEstado.mensaje}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 mb-4">Haz clic en verificar para comprobar la conexión SMTP.</p>
+                  )}
+                  <button
+                    onClick={handleVerEstadoCorreo}
+                    disabled={correoEstadoCargando}
+                    className="w-full py-2 bg-[#284735] text-white rounded-lg hover:bg-[#365b43] transition-colors disabled:opacity-50 text-sm font-medium"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    {correoEstadoCargando ? "Verificando..." : "Verificar conexión"}
+                  </button>
+                </div>
+
+                {/* Correo de prueba */}
+                <div className="bg-white border border-slate-200 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-[#284735] mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    Enviar correo de prueba
+                  </h3>
+                  <form onSubmit={handleEnviarCorreoPrueba} className="space-y-3">
+                    <input
+                      type="email"
+                      placeholder="correo@ejemplo.com"
+                      value={correoPrueba}
+                      onChange={e => setCorreoPrueba(e.target.value)}
+                      required
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#284735]/30"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={correoPruebaEnviando}
+                      className="w-full py-2 bg-[#284735] text-white rounded-lg hover:bg-[#365b43] transition-colors disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <Send size={15} />
+                      {correoPruebaEnviando ? "Enviando..." : "Enviar prueba"}
+                    </button>
+                    {correoPruebaMsg && (
+                      <p className={`text-sm text-center ${correoPruebaMsg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>
+                        {correoPruebaMsg}
+                      </p>
+                    )}
+                  </form>
+                </div>
+              </div>
+
+              {/* Tabla de reservas confirmadas */}
+              <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <h3 className="text-lg font-semibold text-[#284735]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    Reenviar confirmación
+                  </h3>
+                  <p className="text-sm text-slate-500 mt-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    Reservas confirmadas con correo registrado
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600 text-left">
+                        <th className="py-3 px-4 font-medium">#</th>
+                        <th className="py-3 px-4 font-medium">Huésped</th>
+                        <th className="py-3 px-4 font-medium">Correo</th>
+                        <th className="py-3 px-4 font-medium">Alojamiento</th>
+                        <th className="py-3 px-4 font-medium">Check-in</th>
+                        <th className="py-3 px-4 font-medium">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reservas
+                        .filter(r => r.status === "Confirmada" && r.email)
+                        .map(r => (
+                          <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td className="py-3 px-4 text-slate-400">{r.id}</td>
+                            <td className="py-3 px-4 font-medium text-[#284735]">{r.guest}</td>
+                            <td className="py-3 px-4 text-slate-600">{r.email}</td>
+                            <td className="py-3 px-4 text-slate-600">{r.accommodation}</td>
+                            <td className="py-3 px-4 text-slate-600">{r.checkIn}</td>
+                            <td className="py-3 px-4">
+                              <button
+                                onClick={() => handleReenviarCorreo(r.id)}
+                                disabled={correoReenviando === r.id}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#284735] text-white rounded-lg hover:bg-[#365b43] transition-colors disabled:opacity-50 text-xs font-medium"
+                              >
+                                <Mail size={13} />
+                                {correoReenviando === r.id ? "Enviando..." : "Reenviar"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {reservas.filter(r => r.status === "Confirmada" && r.email).length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                            No hay reservas confirmadas con correo registrado
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Configuración Tab */}
           {activeTab === "configuracion" && (
             <div>
@@ -2555,6 +2514,303 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </button>
                   </form>
                 </div>
+              </div>
+            </div>
+          )}
+          {/* Modal crear/editar reserva — global, visible desde cualquier pestaña */}
+          {showReservaModal && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-xl max-h-[92vh] overflow-y-auto shadow-lg relative text-[#284735]">
+                <button
+                  className="absolute top-4 right-4 text-[#728875] hover:text-[#284735] transition-colors"
+                  onClick={handleCloseReservaModal}
+                >
+                  <X size={20} />
+                </button>
+                <h3 className="text-xl font-semibold mb-6 text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  {editingReserva ? "Editar Reserva" : "Nueva Reserva"}
+                </h3>
+                <form
+                  onSubmit={e => { e.preventDefault(); handleSaveReserva(); }}
+                  className="space-y-4"
+                >
+                  <div className="flex gap-2 border-b border-[#d7e1d8] pb-3">
+                    <button
+                      type="button"
+                      onClick={() => setReservaModalTab("principal")}
+                      className={`px-3 py-2 rounded-md text-sm transition-colors ${reservaModalTab === "principal" ? "bg-[#e5eee7] text-[#284735]" : "text-[#718575] hover:text-[#284735]"}`}
+                    >
+                      Huésped principal
+                    </button>
+                    {reservaForm.numero_huespedes > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setReservaModalTab("adicionales")}
+                        className={`px-3 py-2 rounded-md text-sm transition-colors ${reservaModalTab === "adicionales" ? "bg-[#e5eee7] text-[#284735]" : "text-[#718575] hover:text-[#284735]"}`}
+                      >
+                        Demás huéspedes ({reservaForm.numero_huespedes - 1})
+                      </button>
+                    )}
+                  </div>
+
+                  {reservaModalTab === "principal" && (
+                    <>
+                      <div className="relative">
+                        <label className="block text-sm mb-1 text-[#46654f]">Nombre del huésped</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                          value={reservaForm.nombre_huesped}
+                          onChange={e => {
+                            setReservaForm(f => ({ ...f, nombre_huesped: e.target.value }));
+                            buscarHuespedes(e.target.value);
+                          }}
+                          onBlur={() => setTimeout(() => setSugerenciasHuesped([]), 150)}
+                          autoComplete="off"
+                          required
+                        />
+                        {sugerenciasHuesped.length > 0 && (
+                          <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
+                            {sugerenciasHuesped.map((r, i) => (
+                              <li
+                                key={i}
+                                onMouseDown={() => seleccionarHuesped(r)}
+                                className="px-3 py-2 hover:bg-[#f0f7f1] cursor-pointer border-b border-slate-100 last:border-0"
+                              >
+                                <p className="text-sm font-medium text-[#284735]">{r.guest}</p>
+                                <p className="text-xs text-slate-400">{r.document} · {r.email}</p>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">Cédula del huésped principal</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                          value={reservaForm.cedula_huesped}
+                          onChange={e => setReservaForm(f => ({ ...f, cedula_huesped: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">Email del huésped</label>
+                        <input
+                          type="email"
+                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                          value={reservaForm.email_huesped}
+                          onChange={e => setReservaForm(f => ({ ...f, email_huesped: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">WhatsApp del huésped</label>
+                        <input
+                          type="tel"
+                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                          placeholder="Ej: 573001234567 (con código de país)"
+                          value={reservaForm.telefono_huesped}
+                          onChange={e => setReservaForm(f => ({ ...f, telefono_huesped: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">Alojamiento</label>
+                        <select
+                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          value={reservaForm.hospedaje}
+                          onChange={e => setReservaForm(f => ({
+                            ...f,
+                            hospedaje: e.target.value,
+                            check_out: e.target.value === "Día de Sol" ? f.check_in : f.check_out,
+                          }))}
+                          required
+                        >
+                          <option value="">Selecciona...</option>
+                          {alojamientos.map((a) => (
+                            <option key={a.id} value={a.nombre}>{a.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="block text-sm mb-1 text-[#46654f]">
+                            {reservaForm.hospedaje === "Día de Sol" ? "Fecha" : "Check-in"}
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full px-3 py-2 border rounded text-[#284735]"
+                            value={reservaForm.check_in}
+                            onChange={e => setReservaForm(f => ({
+                              ...f,
+                              check_in: e.target.value,
+                              check_out: f.hospedaje === "Día de Sol" ? e.target.value : f.check_out,
+                            }))}
+                            required
+                          />
+                        </div>
+                        {reservaForm.hospedaje !== "Día de Sol" && (
+                          <div className="flex-1">
+                            <label className="block text-sm mb-1 text-[#46654f]">Check-out</label>
+                            <input
+                              type="date"
+                              className="w-full px-3 py-2 border rounded text-[#284735]"
+                              value={reservaForm.check_out}
+                              onChange={e => setReservaForm(f => ({ ...f, check_out: e.target.value }))}
+                              required
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">Número de personas</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          value={reservaForm.numero_huespedes}
+                          onChange={e => handleCantidadHuespedesChange(Number(e.target.value))}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">Servicio adicional</label>
+                        <select
+                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          value={reservaForm.servicio_adicional}
+                          onChange={e => setReservaForm(f => ({ ...f, servicio_adicional: e.target.value }))}
+                        >
+                          <option value="Cumpleaños">Cumpleaños</option>
+                          <option value="Quieres ser mi novia">Quieres ser mi novia</option>
+                          <option value="Te amo">Te amo</option>
+                          <option value="Aniversario">Aniversario</option>
+                          <option value="Desayuno termal">Desayuno termal</option>
+                          <option value="N/A">N/A</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">Valor del alojamiento</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
+                            placeholder="0"
+                            value={displayCOP(reservaForm.valor_alojamiento)}
+                            onFocus={e => { if (Number(reservaForm.valor_alojamiento) !== 0) e.target.select(); }}
+                            onChange={e => setReservaForm(f => ({ ...f, valor_alojamiento: parseCOP(e.target.value) }))}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">Valor del servicio adicional</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
+                            placeholder="0"
+                            value={displayCOP(reservaForm.valor_servicio_adicional)}
+                            onFocus={e => { if (Number(reservaForm.valor_servicio_adicional) !== 0) e.target.select(); }}
+                            onChange={e => setReservaForm(f => ({ ...f, valor_servicio_adicional: parseCOP(e.target.value) }))}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">Abono</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
+                            placeholder="0"
+                            value={displayCOP(reservaForm.abono)}
+                            onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
+                            onChange={e => {
+                              const val = parseCOP(e.target.value);
+                              if (val <= valorAlojamiento + valorServicioAdicional) {
+                                setReservaForm(f => ({ ...f, abono: val }));
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-[#e5eee7] p-4">
+                        <label className="block text-sm mb-1 text-[#46654f]">Total a pagar</label>
+                        <p className="text-xl font-semibold text-[#284735]">{formatCurrency(totalReserva)}</p>
+                        <p className="text-xs text-[#55735d] mt-1">Valor alojamiento + servicio adicional − abono</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#46654f]">Estado</label>
+                        <select
+                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          value={reservaForm.estado}
+                          onChange={e => setReservaForm(f => ({ ...f, estado: e.target.value }))}
+                        >
+                          <option value="Pendiente">Pendiente</option>
+                          <option value="Confirmada">Confirmada</option>
+                          <option value="Cancelada">Cancelada</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {reservaModalTab === "adicionales" && reservaForm.numero_huespedes > 1 && (
+                    <div className="space-y-4">
+                      <p className="text-sm text-[#46654f]">
+                        El huésped principal ya está registrado. Completa los datos de los acompañantes.
+                      </p>
+                      {reservaForm.huespedes_adicionales.map((huesped, index) => (
+                        <div key={index} className="rounded-md border border-[#d7e1d8] p-4 space-y-3">
+                          <p className="font-medium text-[#365b43]">Huésped {index + 2}</p>
+                          <div>
+                            <label className="block text-sm mb-1 text-[#46654f]">Nombre completo</label>
+                            <input
+                              type="text"
+                              className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                              value={huesped.nombre}
+                              onChange={e => handleHuespedAdicionalChange(index, "nombre", e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm mb-1 text-[#46654f]">Cédula</label>
+                            <input
+                              type="text"
+                              className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                              value={huesped.cedula}
+                              onChange={e => handleHuespedAdicionalChange(index, "cedula", e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm mb-1 text-[#46654f]">Email del huésped</label>
+                            <input
+                              type="email"
+                              className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                              value={huesped.email || ""}
+                              onChange={e => handleHuespedAdicionalChange(index, "email", e.target.value)}
+                              required
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full mt-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+                  >
+                    {editingReserva ? "Guardar Cambios" : "Crear Reserva"}
+                  </button>
+                  {successMessage && (
+                    <div className="mt-4 text-green-600 text-center">{successMessage}</div>
+                  )}
+                </form>
               </div>
             </div>
           )}

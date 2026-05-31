@@ -1,6 +1,7 @@
 import express from 'express';
 import { get, all, run } from '../database.js';
 import { verificarToken } from './auth.js';
+import { enviarEmailConfirmacion, enviarWhatsAppMeta, generarMensajeWhatsApp } from '../notifications.js';
 
 const router = express.Router();
 const mensajeSinDisponibilidad = 'El alojamiento ya tiene una reserva para las fechas seleccionadas';
@@ -104,6 +105,7 @@ router.post('/', verificarToken, async (req, res) => {
       email_huesped,
       nombre_huesped,
       cedula_huesped,
+      telefono_huesped = '',
       huespedes_adicionales = [],
       servicio_adicional = 'N/A',
       valor_alojamiento,
@@ -138,14 +140,23 @@ router.post('/', verificarToken, async (req, res) => {
     }
 
     const resultado = await run(
-      'INSERT INTO reservas (usuario_id, hospedaje, tipo_hospedaje, check_in, check_out, numero_huespedes, estado, email_huesped, nombre_huesped, cedula_huesped, huespedes_adicionales, servicio_adicional, valor_alojamiento, valor_servicio_adicional, abono, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.usuario.id, hospedaje, tipo_hospedaje, check_in, check_out, numero_huespedes, estado, email_huesped, nombre_huesped, cedula_huesped, JSON.stringify(huespedes_adicionales), servicio_adicional, valores.valor_alojamiento, valores.valor_servicio_adicional, valores.abono, valores.total]
+      'INSERT INTO reservas (usuario_id, hospedaje, tipo_hospedaje, check_in, check_out, numero_huespedes, estado, email_huesped, nombre_huesped, cedula_huesped, telefono_huesped, huespedes_adicionales, servicio_adicional, valor_alojamiento, valor_servicio_adicional, abono, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.usuario.id, hospedaje, tipo_hospedaje, check_in, check_out, numero_huespedes, estado, email_huesped, nombre_huesped, cedula_huesped, telefono_huesped, JSON.stringify(huespedes_adicionales), servicio_adicional, valores.valor_alojamiento, valores.valor_servicio_adicional, valores.abono, valores.total]
     );
 
-    res.json({ 
-      mensaje: 'Reserva creada correctamente',
-      id: resultado.lastID
-    });
+    const reservaCreada = {
+      id: resultado.lastID, hospedaje, check_in, check_out, numero_huespedes,
+      estado, email_huesped, nombre_huesped, telefono_huesped,
+      servicio_adicional, valor_alojamiento: valores.valor_alojamiento,
+      valor_servicio_adicional: valores.valor_servicio_adicional,
+      abono: valores.abono, total: valores.total
+    };
+
+    if (estado === 'Confirmada') {
+      await enviarEmailConfirmacion(reservaCreada);
+    }
+
+    res.json({ mensaje: 'Reserva creada correctamente', id: resultado.lastID });
   } catch (error) {
     if (error.message?.includes(mensajeSinDisponibilidad)) {
       return res.status(409).json({ error: mensajeSinDisponibilidad });
@@ -212,6 +223,7 @@ router.put('/:id', verificarToken, async (req, res) => {
       email_huesped,
       nombre_huesped,
       cedula_huesped,
+      telefono_huesped,
       huespedes_adicionales,
       servicio_adicional,
       valor_alojamiento,
@@ -250,6 +262,7 @@ router.put('/:id', verificarToken, async (req, res) => {
       email_huesped: email_huesped || reserva.email_huesped,
       nombre_huesped: nombre_huesped || reserva.nombre_huesped,
       cedula_huesped: cedula_huesped || reserva.cedula_huesped,
+      telefono_huesped: telefono_huesped !== undefined ? telefono_huesped : (reserva.telefono_huesped || ''),
       servicio_adicional: servicio_adicional || reserva.servicio_adicional || 'N/A'
     };
 
@@ -283,7 +296,7 @@ router.put('/:id', verificarToken, async (req, res) => {
     }
 
     await run(
-      'UPDATE reservas SET estado = ?, hospedaje = ?, tipo_hospedaje = ?, check_in = ?, check_out = ?, numero_huespedes = ?, email_huesped = ?, nombre_huesped = ?, cedula_huesped = ?, huespedes_adicionales = ?, servicio_adicional = ?, valor_alojamiento = ?, valor_servicio_adicional = ?, abono = ?, total = ? WHERE id = ?',
+      'UPDATE reservas SET estado = ?, hospedaje = ?, tipo_hospedaje = ?, check_in = ?, check_out = ?, numero_huespedes = ?, email_huesped = ?, nombre_huesped = ?, cedula_huesped = ?, telefono_huesped = ?, huespedes_adicionales = ?, servicio_adicional = ?, valor_alojamiento = ?, valor_servicio_adicional = ?, abono = ?, total = ? WHERE id = ?',
       [
         reservaActualizada.estado,
         reservaActualizada.hospedaje,
@@ -294,6 +307,7 @@ router.put('/:id', verificarToken, async (req, res) => {
         reservaActualizada.email_huesped,
         reservaActualizada.nombre_huesped,
         reservaActualizada.cedula_huesped,
+        reservaActualizada.telefono_huesped,
         JSON.stringify(datosAdicionales),
         reservaActualizada.servicio_adicional,
         valores.valor_alojamiento,
@@ -304,6 +318,13 @@ router.put('/:id', verificarToken, async (req, res) => {
       ]
     );
 
+    // Enviar notificaciones solo cuando se cambia a Confirmada por primera vez
+    const seConfirmaAhora = reserva.estado !== 'Confirmada' && reservaActualizada.estado === 'Confirmada';
+    if (seConfirmaAhora) {
+      const reservaCompleta = { ...reservaActualizada, id: req.params.id, ...valores };
+      await enviarEmailConfirmacion(reservaCompleta);
+    }
+
     res.json({ mensaje: 'Reserva actualizada correctamente' });
   } catch (error) {
     if (error.message?.includes(mensajeSinDisponibilidad)) {
@@ -311,6 +332,65 @@ router.put('/:id', verificarToken, async (req, res) => {
     }
     console.error('Error al actualizar reserva:', error);
     res.status(500).json({ error: 'Error al actualizar reserva' });
+  }
+});
+
+// Reenviar correo de confirmación
+router.post('/:id/email', verificarToken, async (req, res) => {
+  try {
+    const usuario = await get('SELECT rol FROM usuarios WHERE id = ?', [req.usuario.id]);
+    if (usuario.rol !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+
+    const reserva = await get('SELECT * FROM reservas WHERE id = ?', [req.params.id]);
+    if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
+    if (!reserva.email_huesped) return res.status(400).json({ error: 'El huésped no tiene correo registrado' });
+
+    const resultado = await enviarEmailConfirmacion({ ...reserva, id: req.params.id });
+    if (!resultado.enviado) return res.status(500).json({ error: resultado.razon || 'No se pudo enviar el correo' });
+
+    res.json({ enviado: true, mensaje: `Correo enviado a ${reserva.email_huesped}` });
+  } catch (error) {
+    console.error('Error al reenviar email:', error);
+    res.status(500).json({ error: 'Error interno al enviar correo' });
+  }
+});
+
+// Enviar WhatsApp manualmente a un huésped
+router.post('/:id/whatsapp', verificarToken, async (req, res) => {
+  try {
+    const usuario = await get('SELECT rol FROM usuarios WHERE id = ?', [req.usuario.id]);
+    if (usuario.rol !== 'admin') {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+
+    const reserva = await get('SELECT * FROM reservas WHERE id = ?', [req.params.id]);
+    if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
+
+    if (!reserva.telefono_huesped) {
+      return res.status(400).json({ error: 'El huésped no tiene número de teléfono registrado' });
+    }
+
+    const datos = {
+      id: reserva.id,
+      nombre_huesped: reserva.nombre_huesped,
+      hospedaje: reserva.hospedaje,
+      check_in: reserva.check_in,
+      check_out: reserva.check_out,
+      numero_huespedes: reserva.numero_huespedes,
+      servicio_adicional: reserva.servicio_adicional,
+      telefono_huesped: reserva.telefono_huesped,
+      total: reserva.total,
+    };
+
+    const resultado = await enviarWhatsAppMeta(datos);
+    if (!resultado.enviado) {
+      return res.status(500).json({ error: resultado.razon || 'No se pudo enviar el mensaje' });
+    }
+
+    res.json({ mensaje: 'WhatsApp enviado correctamente', messageId: resultado.messageId });
+  } catch (error) {
+    console.error('Error al enviar WhatsApp manual:', error);
+    res.status(500).json({ error: 'Error interno al enviar WhatsApp' });
   }
 });
 

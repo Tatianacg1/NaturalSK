@@ -86,6 +86,7 @@ const initializeDatabase = async () => {
         email_huesped TEXT NOT NULL,
         nombre_huesped TEXT NOT NULL,
         cedula_huesped TEXT,
+        telefono_huesped TEXT,
         huespedes_adicionales TEXT DEFAULT '[]',
         servicio_adicional TEXT DEFAULT 'N/A',
         valor_alojamiento REAL DEFAULT 0,
@@ -102,6 +103,9 @@ const initializeDatabase = async () => {
     const columnasReserva = await all('PRAGMA table_info(reservas)');
     if (!columnasReserva.some((columna) => columna.name === 'cedula_huesped')) {
       await run('ALTER TABLE reservas ADD COLUMN cedula_huesped TEXT');
+    }
+    if (!columnasReserva.some((columna) => columna.name === 'telefono_huesped')) {
+      await run('ALTER TABLE reservas ADD COLUMN telefono_huesped TEXT');
     }
     if (!columnasReserva.some((columna) => columna.name === 'huespedes_adicionales')) {
       await run("ALTER TABLE reservas ADD COLUMN huespedes_adicionales TEXT DEFAULT '[]'");

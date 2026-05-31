@@ -83,6 +83,17 @@ export const reservasAPI = {
     return res.json();
   },
 
+  async enviarWhatsApp(id, token) {
+    const res = await fetch(`${API_BASE_URL}/reservas/${id}/whatsapp`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Error al enviar WhatsApp');
+    return res.json();
+  },
+
   getAll: () => fetchAPI('/reservas'),
   
   getById: (id) => fetchAPI(`/reservas/${id}`),
@@ -141,6 +152,26 @@ export const usuariosAPI = {
     fetchAPI(`/usuarios/${id}`, {
       method: 'DELETE',
     }),
+};
+
+// Rutas de correos
+export const correosAPI = {
+  estado: () => fetchAPI('/correos/estado'),
+
+  prueba: (email) =>
+    fetchAPI('/correos/prueba', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  async reenviar(id, token) {
+    const res = await fetch(`${API_BASE_URL}/reservas/${id}/email`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Error al reenviar correo');
+    return res.json();
+  },
 };
 
 // Rutas de alojamientos
