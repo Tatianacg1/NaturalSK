@@ -139,6 +139,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     compartir_datos: false,
   });
   const [perfilForm, setPerfilForm] = useState({ nombre: "", email: "" });
+  const [perfilId, setPerfilId] = useState<number | null>(null);
   const [configMessage, setConfigMessage] = useState("");
   const [configLoading, setConfigLoading] = useState(false);
 
@@ -272,16 +273,35 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   // Cargar perfil y configuración del usuario cuando hay sesión
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user) return;
     setPerfilForm({ nombre: user.name || "", email: user.email || "" });
-    usuariosAPI.getConfig(user.id)
-      .then(cfg => setConfig({
-        recibir_notificaciones: Boolean(cfg.recibir_notificaciones),
-        notificaciones_reservas: Boolean(cfg.notificaciones_reservas),
-        compartir_datos: Boolean(cfg.compartir_datos),
-      }))
-      .catch(() => {});
-  }, [user?.id]);
+    usuariosAPI.getPerfil()
+      .then((perfil: any) => {
+        const id = perfil.id ?? user.id;
+        setPerfilId(id);
+        if (id) {
+          usuariosAPI.getConfig(id)
+            .then((cfg: any) => setConfig({
+              recibir_notificaciones: Boolean(cfg.recibir_notificaciones),
+              notificaciones_reservas: Boolean(cfg.notificaciones_reservas),
+              compartir_datos: Boolean(cfg.compartir_datos),
+            }))
+            .catch(() => {});
+        }
+      })
+      .catch(() => {
+        if (user.id) {
+          setPerfilId(user.id);
+          usuariosAPI.getConfig(user.id)
+            .then((cfg: any) => setConfig({
+              recibir_notificaciones: Boolean(cfg.recibir_notificaciones),
+              notificaciones_reservas: Boolean(cfg.notificaciones_reservas),
+              compartir_datos: Boolean(cfg.compartir_datos),
+            }))
+            .catch(() => {});
+        }
+      });
+  }, [user]);
 
   // Funciones para manejar reservas usando el API centralizado
   const handleOpenReservaModal = (reserva?: any, prefillDate?: string) => {
@@ -2237,6 +2257,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       </p>
                     </div>
                     <div className="space-y-2 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">ID privado:</span>
+                        <span className="font-mono text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded select-all">#{u.id}</span>
+                      </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Registrado:</span>
                         <span className="text-[#284735]">{u.joined}</span>
@@ -2542,6 +2566,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       }
                     }}
                   >
+                    <div>
+                      <label className="block text-sm text-slate-600 mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>ID de usuario</label>
+                      <div className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded bg-slate-50">
+                        <span className="text-xs font-mono text-slate-400 select-none">#</span>
+                        <span className="font-mono text-[#284735] text-sm select-all">{perfilId ?? user?.id ?? '—'}</span>
+                        <span className="ml-auto text-xs text-slate-400 italic" style={{ fontFamily: "'DM Mono', monospace" }}>solo lectura</span>
+                      </div>
+                    </div>
                     <div>
                       <label className="block text-sm text-slate-600 mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Nombre</label>
                       <input

@@ -53,8 +53,8 @@ function AppRouterContent() {
     return <LoginPage onSwitchToApp={handleLoginSuccess} />;
   }
 
-  // Si está autenticado, mostrar dashboard de admin.
-  if (isAuthenticated) {
+  // Si está autenticado Y está en la ruta /admin, mostrar dashboard de admin.
+  if (isAuthenticated && window.location.pathname.includes("/admin")) {
     return <AdminDashboard onLogout={handleLogout} />;
   }
 
