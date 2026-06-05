@@ -3,13 +3,13 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/:path*",
-      "destination": "/api/index.js"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/assets/:path*",
+      "source": "/assets/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -19,6 +19,3 @@
     }
   ]
 }
-
-
-
