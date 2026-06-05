@@ -194,9 +194,7 @@ export function CalendarioPublico({
     }
 
     if (!checkIn || checkOut) { onRangeChange(ds, ""); return; }
-    // En modo fecha: clic en la misma fecha seleccionada → confirma día único (Día de Sol)
-    if (modoFecha && ds === checkIn) { onRangeChange(ds, ds); return; }
-    if (ds < checkIn) { onRangeChange(ds, ""); return; }
+    if (ds <= checkIn) { onRangeChange(ds, ""); return; }
 
     if (!modoFecha) {
       const cur = new Date(parseLocal(checkIn));
@@ -307,14 +305,20 @@ export function CalendarioPublico({
                               : modoFecha
                                 ? noneAvail
                                   ? "text-red-400 cursor-not-allowed"
-                                  : allAvail
-                                    ? todayCell
-                                      ? "text-[#607651] ring-1 ring-[#607651] hover:bg-[#607651]/10"
-                                      : "text-gray-800 hover:bg-[#607651]/10 cursor-pointer"
-                                    : "text-amber-600 hover:bg-amber-50 cursor-pointer"
-                                : todayCell
-                                  ? "text-[#607651] ring-1 ring-[#607651] hover:bg-[#607651]/10"
-                                  : "text-gray-700 hover:bg-[#607651]/10 hover:text-[#284735] cursor-pointer"
+                                  : festivo
+                                    ? "text-orange-500 font-bold ring-2 ring-orange-400 bg-orange-50 hover:bg-orange-100 cursor-pointer"
+                                    : allAvail
+                                      ? todayCell
+                                        ? "text-[#607651] ring-1 ring-[#607651] hover:bg-[#607651]/10"
+                                        : "text-gray-800 hover:bg-[#607651]/10 cursor-pointer"
+                                      : "text-amber-600 hover:bg-amber-50 cursor-pointer"
+                                : festivo
+                                  ? todayCell
+                                    ? "text-orange-500 font-bold ring-2 ring-orange-400 bg-orange-50 hover:bg-orange-100"
+                                    : "text-orange-500 font-bold ring-2 ring-orange-400 bg-orange-50 hover:bg-orange-100 cursor-pointer"
+                                  : todayCell
+                                    ? "text-[#607651] ring-1 ring-[#607651] hover:bg-[#607651]/10"
+                                    : "text-gray-700 hover:bg-[#607651]/10 hover:text-[#284735] cursor-pointer"
                     )}
                   >
                     {day}
@@ -347,10 +351,6 @@ export function CalendarioPublico({
                     >
                       {cuposDiaSol === 0 ? "Lleno" : `${cuposDiaSol} cupos`}
                     </span>
-                  )}
-                  {/* Indicador festivo */}
-                  {festivo && !start && !end && (
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-orange-400 pointer-events-none" />
                   )}
                 </button>
               </div>
@@ -423,7 +423,7 @@ export function CalendarioPublico({
                 <span className="text-gray-500">Sin disponibilidad</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-orange-400" />
+                <div className="w-3.5 h-3.5 rounded-full bg-orange-50 ring-2 ring-orange-400 shrink-0" />
                 <span className="text-gray-500">Festivo</span>
               </div>
             </>
@@ -442,7 +442,7 @@ export function CalendarioPublico({
                 <span className="text-gray-500">No disponible</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-orange-400" />
+                <div className="w-3.5 h-3.5 rounded-full bg-orange-50 ring-2 ring-orange-400 shrink-0" />
                 <span className="text-gray-500">Festivo</span>
               </div>
             </>

@@ -2,7 +2,7 @@
 // Muestra estadísticas, gestiona reservas, usuarios y configuración en un dashboard.
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link } from "lucide-react";
+import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
 import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo } from "../data/pricing";
 
@@ -46,7 +46,7 @@ interface UsuarioForm {
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "reservas" | "historial" | "calendario" | "usuarios" | "configuracion" | "correos">(
+  const [activeTab, setActiveTab] = useState<"overview" | "reservas" | "historial" | "calendario" | "pendientes" | "usuarios" | "configuracion" | "correos">(
     () => (sessionStorage.getItem("adminTab") as any) || "calendario"
   );
   const [overviewSubTab, setOverviewSubTab] = useState<"proximas" | "concluidas">("proximas");
@@ -558,6 +558,38 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
+  const handleConfirmarReserva = async (reservaId: number) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+      const reserva = reservas.find(r => r.id === reservaId);
+      if (!reserva) return;
+      await reservasAPI.editarReserva(reservaId, {
+        nombre_huesped: reserva.guest,
+        cedula_huesped: reserva.document,
+        email_huesped: reserva.email,
+        telefono_huesped: reserva.phone,
+        hospedaje: reserva.accommodation,
+        check_in: reserva.checkIn,
+        check_out: reserva.checkOut,
+        numero_huespedes: reserva.guests,
+        servicio_adicional: reserva.additionalService,
+        valor_alojamiento: reserva.accommodationValue,
+        valor_servicio_adicional: reserva.additionalServiceValue,
+        abono: reserva.deposit,
+        estado: "Confirmada",
+        huespedes_adicionales: reserva.additionalGuests,
+        usuario_id: user?.id,
+        tipo_hospedaje: "Glamping",
+      }, token);
+      await reloadReservas();
+      setSuccessMessage("Reserva confirmada correctamente");
+      setTimeout(() => setSuccessMessage(""), 1500);
+    } catch (error: any) {
+      alert(error.message || "Error al confirmar reserva");
+    }
+  };
+
   const handleOpenUsuarioModal = (usuario?: any) => {
     if (usuario) {
       setEditingUsuario(usuario);
@@ -745,12 +777,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               {[
                 { id: "overview", label: "Panel General", icon: BarChart3 },
                 { id: "calendario", label: "Calendario", icon: CalendarDays },
+                { id: "pendientes", label: "Pendientes", icon: Clock },
                 { id: "reservas", label: "Reservas", icon: Calendar },
                 { id: "historial", label: "Historial", icon: History },
                 ...(user?.role === "admin" ? [{ id: "usuarios", label: "Usuarios", icon: Users }] : []),
                 { id: "correos", label: "Correos", icon: Mail },
                 { id: "configuracion", label: "Configuración", icon: Settings },
-              ].map((item) => (
+              ].map((item) => {
+                const pendientesCount = item.id === "pendientes"
+                  ? reservasDisplay.filter(r => r.status === "Pendiente").length
+                  : 0;
+                return (
                 <button
                   key={item.id}
                   onClick={() => {
@@ -770,8 +807,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 >
                   <item.icon size={18} />
                   {item.label}
+                  {pendientesCount > 0 && (
+                    <span className="ml-auto bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                      {pendientesCount}
+                    </span>
+                  )}
                 </button>
-              ))}
+                );
+              })}
             </nav>
           </aside>
         )}
@@ -1916,6 +1959,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               return reservasActivas.filter(r => {
                 const ci = parseLocalDate(r.checkIn);
                 const co = parseLocalDate(r.checkOut);
+                if (ci.getTime() === co.getTime()) return date.getTime() === ci.getTime();
                 return date >= ci && date < co;
               });
             };
@@ -1974,7 +2018,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </div>
                   ))}
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-orange-400" />
+                    <div className="w-3.5 h-3.5 rounded border border-dashed border-yellow-400 bg-yellow-50 shrink-0" />
+                    <span className="text-slate-500">Pendiente de confirmación</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-bold text-orange-500 leading-none"
+                      style={{ fontFamily: "'DM Mono', monospace" }}>
+                      FEST
+                    </span>
                     <span className="text-slate-500">Festivo</span>
                   </div>
                 </div>
@@ -2049,17 +2100,30 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             : "Crear reserva"
                           }
                         >
-                          <div className={`flex items-center justify-end gap-1 font-semibold mb-0.5 ${numColor}`}>
-                            {esFestivoDay && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />}
-                            {day}
+                          <div className="flex items-center justify-end gap-1 mb-0.5">
+                            {esFestivoDay && (
+                              <span className="text-[8px] font-bold text-orange-500 leading-none tracking-tight"
+                                style={{ fontFamily: "'DM Mono', monospace" }}>
+                                FEST
+                              </span>
+                            )}
+                            <span className={`font-semibold ${numColor}`}>{day}</span>
                           </div>
                           {dayRes.length > 0 && (
                             <div className="space-y-0.5">
                               {dayRes.slice(0, 2).map(r => (
                                 <div
                                   key={r.id}
-                                  className={`truncate text-[10px] leading-tight rounded px-1 py-0.5 ${isPast ? "bg-slate-200 text-slate-500" : isFullyBooked ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}
-                                  title={`${r.guest} · ${r.accommodation}`}
+                                  className={`truncate text-[10px] leading-tight rounded px-1 py-0.5 ${
+                                    isPast
+                                      ? "bg-slate-200 text-slate-500"
+                                      : r.status === "Pendiente"
+                                        ? "bg-yellow-50 text-yellow-700 border border-dashed border-yellow-400"
+                                        : isFullyBooked
+                                          ? "bg-red-100 text-red-700"
+                                          : "bg-amber-100 text-amber-700"
+                                  }`}
+                                  title={`${r.guest} · ${r.accommodation}${r.status === "Pendiente" ? " · Pendiente de confirmación" : ""}`}
                                 >
                                   {calFiltroAlojamiento ? r.guest : r.accommodation}
                                 </div>
@@ -2085,9 +2149,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <p className="text-sm font-semibold text-[#365b43]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         Reservas en {monthNames[month]}
                       </p>
-                      <span className="text-xs text-slate-500" style={{ fontFamily: "'DM Mono', monospace" }}>
-                        {reservasMes.length} reserva{reservasMes.length !== 1 ? "s" : ""}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {reservasMes.filter(r => r.status === "Pendiente").length > 0 && (
+                          <span className="text-xs bg-yellow-100 text-yellow-700 border border-yellow-300 px-2 py-0.5 rounded-full" style={{ fontFamily: "'DM Mono', monospace" }}>
+                            {reservasMes.filter(r => r.status === "Pendiente").length} pendiente{reservasMes.filter(r => r.status === "Pendiente").length !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-500" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          {reservasMes.length} reserva{reservasMes.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
                     </div>
                     <div className="divide-y divide-slate-100">
                       {reservasMes.map(r => (
@@ -2219,6 +2290,127 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </div>
                   );
                 })()}
+              </div>
+            );
+          })()}
+
+          {/* Reservas Pendientes Tab */}
+          {activeTab === "pendientes" && (() => {
+            const reservasPendientes = reservasDisplay
+              .filter(r => r.status === "Pendiente")
+              .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
+            return (
+              <div>
+                <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      Reservas Pendientes
+                    </h2>
+                    <p className="text-slate-700 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      {reservasPendientes.length} reserva{reservasPendientes.length !== 1 ? "s" : ""} pendiente{reservasPendientes.length !== 1 ? "s" : ""} de confirmación
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => loadData()}
+                    disabled={isRefreshing}
+                    className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded bg-white hover:bg-slate-50 text-[#46654f] transition-colors disabled:opacity-60"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+                    Actualizar
+                  </button>
+                </div>
+
+                {reservasPendientes.length === 0 ? (
+                  <div className="bg-white border border-slate-200 rounded-lg py-16 text-center">
+                    <CheckCircle size={40} className="text-green-400 mx-auto mb-3" />
+                    <p className="text-slate-500 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      No hay reservas pendientes de confirmación.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {reservasPendientes.map(r => (
+                      <div key={r.id} className="bg-white border border-yellow-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 border border-yellow-300 rounded-full text-xs font-medium">
+                                Pendiente de confirmación
+                              </span>
+                              <span className="text-xs text-slate-400" style={{ fontFamily: "'DM Mono', monospace" }}>
+                                #{r.id}
+                              </span>
+                            </div>
+                            <p className="font-semibold text-[#284735]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                              {r.guest || "Sin nombre — pendiente de completar datos"}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-1 text-xs text-slate-500" style={{ fontFamily: "'DM Mono', monospace" }}>
+                              <span>{r.accommodation}</span>
+                              <span>·</span>
+                              <span>{r.checkIn}{r.accommodation !== "Día de Sol" ? ` → ${r.checkOut}` : ""}</span>
+                              <span>·</span>
+                              <span>{r.guests} persona{r.guests !== 1 ? "s" : ""}</span>
+                            </div>
+                            {r.email && (
+                              <p className="text-xs text-slate-400 mt-0.5">{r.email}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => handleConfirmarReserva(r.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-xs font-medium"
+                              title="Confirmar reserva"
+                            >
+                              <CheckCircle size={13} />
+                              Confirmar
+                            </button>
+                            <button
+                              onClick={() => handleOpenReservaModal(r)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="Editar reserva"
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                            <button
+                              onClick={() => handleCancelReserva(r.id)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
+                              title="Cancelar reserva"
+                            >
+                              <X size={15} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-4 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          <div className="flex gap-1">
+                            <span className="text-slate-400">Valor:</span>
+                            <span className="font-medium text-[#284735]">{formatCurrency(r.fullValue)}</span>
+                          </div>
+                          {r.deposit > 0 && (
+                            <div className="flex gap-1">
+                              <span className="text-slate-400">Abono:</span>
+                              <span className="font-medium text-green-600">{formatCurrency(r.deposit)}</span>
+                            </div>
+                          )}
+                          {r.tokenPublico && !r.datosCompletados && (
+                            <button
+                              onClick={() => {
+                                const url = `${window.location.origin}/reservar/${r.tokenPublico}`;
+                                navigator.clipboard.writeText(url);
+                                setToastMsg("¡Enlace copiado!");
+                                setTimeout(() => setToastMsg(""), 2000);
+                              }}
+                              className="flex items-center gap-1 text-[#365b43] hover:underline"
+                            >
+                              <Link size={11} />
+                              Copiar enlace para el huésped
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })()}

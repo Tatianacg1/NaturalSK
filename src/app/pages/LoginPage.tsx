@@ -166,14 +166,6 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
                 className="w-full px-4 py-3 bg-background border border-border rounded text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               />
-              {isLogin && (
-                <p
-                  className="text-xs text-muted-foreground mt-2"
-                  style={{ fontFamily: "'DM Mono', monospace" }}
-                >
-                  Demo: admin@naturalsound.com (para acceso de admin)
-                </p>
-              )}
             </div>
 
             {/* Contraseña */}

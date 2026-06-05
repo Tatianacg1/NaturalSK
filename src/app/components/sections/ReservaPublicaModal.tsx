@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, CheckCircle, AlertCircle, Loader, ChevronLeft, Info } from "lucide-react";
+import { X, CheckCircle, AlertCircle, Loader, ChevronLeft, Info, MessageCircle } from "lucide-react";
 import { accommodations } from "../../data/accommodations";
 import { reservaPublicaAPI } from "../../../services/api";
 import { CalendarioPublico, type AloData } from "./CalendarioPublico";
@@ -47,11 +47,36 @@ function isAvailableForRange(alo: AloData, ci: string, co: string): boolean {
   return true;
 }
 
+function buildWaUrl(
+  hospedaje: string,
+  checkIn: string,
+  checkOut: string,
+  nights: number,
+  huespedes: string,
+  servicio: string,
+  total: number | null
+): string {
+  const lines = [
+    `Hola! Acabo de solicitar una reserva en Natural Sound 🌿`,
+    ``,
+    `🏡 *${hospedaje}*`,
+    `📅 Llegada: ${formatDateEs(checkIn)}`,
+    `🚪 Salida: ${formatDateEs(checkOut)}`,
+    `🌙 ${nights} ${nights === 1 ? "noche" : "noches"} · ${huespedes} ${Number(huespedes) === 1 ? "huésped" : "huéspedes"}`,
+    ...(servicio !== "N/A" ? [`✨ Servicio: ${servicio}`] : []),
+    ...(total ? [`💰 Precio estimado: ${formatCOP(total)} COP`] : []),
+    ``,
+    `Quiero confirmar los detalles del pago.`,
+  ];
+  return `https://wa.me/573127131999?text=${encodeURIComponent(lines.join("\n"))}`;
+}
+
 const emptyForm = (alojamiento = "") => ({
   hospedaje: alojamiento,
   check_in: "",
   check_out: "",
   nombre_huesped: "",
+  cedula_huesped: "",
   email_huesped: "",
   telefono_huesped: "",
   numero_huespedes: "2",
@@ -207,39 +232,60 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
         <div className="overflow-y-auto flex-1 px-6 py-5">
 
           {/* ── ÉXITO ── */}
-          {exito && (
-            <div className="text-center py-8">
-              <CheckCircle size={52} className="text-[#607651] mx-auto mb-4" />
-              <p
-                className="text-[#284735] text-lg font-semibold mb-2"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
-                Tu solicitud fue recibida
-              </p>
-              <p className="text-gray-600 text-sm mb-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                <span className="text-[#284735] font-medium">{form.hospedaje}</span>
-                {" · "}
-                {formatDateEs(form.check_in)} → {formatDateEs(form.check_out)}
-                {" · "}
-                {nights} {nights === 1 ? "noche" : "noches"}
-              </p>
-              <p
-                className="text-gray-500 text-sm leading-relaxed mb-8 max-w-sm mx-auto"
-                style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300 }}
-              >
-                Tu reserva queda en estado{" "}
-                <span className="text-amber-600 font-medium">Pendiente</span>.
-                {" "}El equipo revisará la disponibilidad y te contactará pronto.
-              </p>
-              <button
-                onClick={handleClose}
-                className="bg-[#607651] hover:bg-[#4e6142] text-white px-8 py-3 rounded-full text-sm tracking-wide transition-colors"
-                style={{ fontFamily: "'DM Sans', sans-serif" }}
-              >
-                Cerrar
-              </button>
-            </div>
-          )}
+          {exito && (() => {
+            const exitoTotal = tieneTarifa(form.hospedaje) && form.check_in && form.check_out
+              ? precioTotal(form.hospedaje, form.check_in, form.check_out)
+              : null;
+            const waUrl = buildWaUrl(
+              form.hospedaje, form.check_in, form.check_out, nights,
+              form.numero_huespedes, form.servicio_adicional, exitoTotal
+            );
+            return (
+              <div className="text-center py-8">
+                <CheckCircle size={52} className="text-[#607651] mx-auto mb-4" />
+                <p
+                  className="text-[#284735] text-lg font-semibold mb-2"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  Tu solicitud fue recibida
+                </p>
+                <p className="text-gray-600 text-sm mb-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  <span className="text-[#284735] font-medium">{form.hospedaje}</span>
+                  {" · "}
+                  {formatDateEs(form.check_in)} → {formatDateEs(form.check_out)}
+                  {" · "}
+                  {nights} {nights === 1 ? "noche" : "noches"}
+                </p>
+                <p
+                  className="text-gray-500 text-sm leading-relaxed mb-6 max-w-sm mx-auto"
+                  style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300 }}
+                >
+                  Tu reserva queda en estado{" "}
+                  <span className="text-amber-600 font-medium">Pendiente</span>.
+                  {" "}Escríbenos por WhatsApp para coordinar el pago y confirmar.
+                </p>
+                <div className="flex flex-col gap-2.5 max-w-xs mx-auto">
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white px-6 py-3 rounded-full text-sm font-semibold transition-colors shadow-sm"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    <MessageCircle size={16} />
+                    Coordinar pago por WhatsApp
+                  </a>
+                  <button
+                    onClick={handleClose}
+                    className="text-gray-400 hover:text-gray-600 text-sm transition-colors py-2"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── PASO 1 ── */}
           {!exito && step === 1 && (
@@ -274,9 +320,11 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                     <select
                       name="hospedaje"
                       value={form.hospedaje}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, hospedaje: e.target.value, check_in: "", check_out: "" }))
-                      }
+                      onChange={(e) => {
+                        const h = e.target.value;
+                        const isDDS = h.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim() === "dia de sol";
+                        setForm((p) => ({ ...p, hospedaje: h, check_in: "", check_out: "", ...(isDDS ? { servicio_adicional: "N/A" } : {}) }));
+                      }}
                       className={inputCls}
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
@@ -331,9 +379,11 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                         <button
                           key={alo.nombre}
                           disabled={!alo.disponible}
-                          onClick={() =>
-                            alo.disponible && setForm((p) => ({ ...p, hospedaje: alo.nombre }))
-                          }
+                          onClick={() => {
+                            if (!alo.disponible) return;
+                            const isDDS = alo.nombre.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim() === "dia de sol";
+                            setForm((p) => ({ ...p, hospedaje: alo.nombre, ...(isDDS ? { servicio_adicional: "N/A" } : {}) }));
+                          }}
                           className={cn(
                             "w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all",
                             !alo.disponible
@@ -511,14 +561,25 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                 );
               })()}
 
-              <div>
-                <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                  Nombre completo
-                </label>
-                <input type="text" name="nombre_huesped" value={form.nombre_huesped}
-                  onChange={handleChange} required placeholder="Tu nombre completo"
-                  className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                    Nombre completo
+                  </label>
+                  <input type="text" name="nombre_huesped" value={form.nombre_huesped}
+                    onChange={handleChange} required placeholder="Tu nombre completo"
+                    className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                    Cédula
+                  </label>
+                  <input type="text" name="cedula_huesped" value={form.cedula_huesped}
+                    onChange={handleChange} required placeholder="Número de cédula"
+                    className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -548,25 +609,27 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                 />
               </div>
 
-              <div>
-                <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                  Servicio adicional
-                </label>
-                <select
-                  name="servicio_adicional"
-                  value={form.servicio_adicional}
-                  onChange={handleChange}
-                  className={inputCls}
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  <option value="N/A">Sin servicio adicional</option>
-                  <option value="Desayuno termal">Desayuno termal</option>
-                  <option value="Cumpleaños">Cumpleaños</option>
-                  <option value="Aniversario">Aniversario</option>
-                  <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
-                  <option value="Te amo">Te amo</option>
-                </select>
-              </div>
+              {form.hospedaje.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim() !== "dia de sol" && (
+                <div>
+                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                    Servicio adicional
+                  </label>
+                  <select
+                    name="servicio_adicional"
+                    value={form.servicio_adicional}
+                    onChange={handleChange}
+                    className={inputCls}
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    <option value="N/A">Sin servicio adicional</option>
+                    <option value="Desayuno termal">Desayuno termal</option>
+                    <option value="Cumpleaños">Cumpleaños</option>
+                    <option value="Aniversario">Aniversario</option>
+                    <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
+                    <option value="Te amo">Te amo</option>
+                  </select>
+                </div>
+              )}
 
               {error && (
                 <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">

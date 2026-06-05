@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, CheckCircle, AlertCircle, Loader, CalendarDays, MapPin, Expand, Info } from "lucide-react";
+import { ArrowLeft, CheckCircle, AlertCircle, Loader, CalendarDays, MapPin, Expand, Info, MessageCircle } from "lucide-react";
 import { accommodations } from "../data/accommodations";
 import { reservaPublicaAPI } from "../../services/api";
 import { CalendarioPublico, type AloData } from "../components/sections/CalendarioPublico";
@@ -54,6 +54,33 @@ function isAvailableForRange(alo: AloData, ci: string, co: string): boolean {
 
 function normalize(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+}
+
+function buildWaUrl(
+  hospedaje: string,
+  checkIn: string,
+  checkOut: string,
+  nights: number,
+  huespedes: string,
+  servicio: string,
+  total: number | null
+): string {
+  const esDiaSol = normalize(hospedaje) === "dia de sol";
+  const lines = [
+    `Hola! Acabo de solicitar una reserva en Natural Sound 🌿`,
+    ``,
+    `🏡 *${hospedaje}*`,
+    `📅 Llegada: ${formatDateLong(checkIn)}`,
+    ...(!esDiaSol ? [`🚪 Salida: ${formatDateLong(checkOut)}`] : []),
+    esDiaSol
+      ? `👥 ${huespedes} ${Number(huespedes) === 1 ? "persona" : "personas"}`
+      : `🌙 ${nights} ${nights === 1 ? "noche" : "noches"} · ${huespedes} ${Number(huespedes) === 1 ? "huésped" : "huéspedes"}`,
+    ...(servicio !== "N/A" ? [`✨ Servicio: ${servicio}`] : []),
+    ...(total ? [`💰 Precio estimado: ${formatCOP(total)} COP`] : []),
+    ``,
+    `Quiero confirmar los detalles del pago.`,
+  ];
+  return `https://wa.me/573127131999?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
 // ─── Tarjeta de alojamiento (reutilizable) ────────────────────────────────────
@@ -248,7 +275,8 @@ export function ReservaPage() {
     accommodations.find((a) => normalize(a.name) === normalize(nombre));
 
   const selectedLocalData = localDataFor(form.hospedaje);
-  const canSubmit = !!form.hospedaje && !!form.check_in && !!form.check_out;
+  const isDiaDeSol = normalize(form.hospedaje) === "dia de sol";
+  const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -261,9 +289,9 @@ export function ReservaPage() {
       return {
         ...p,
         check_in: ci,
-        // Día de Sol: siempre mismo día independientemente de lo que envíe el calendario
         check_out: esDiaSol ? ci : co,
-        hospedaje: modoVista === "fecha" ? "" : p.hospedaje,
+        // Keep the hospedaje when user changes date for an already-selected Día de Sol
+        hospedaje: modoVista === "fecha" && !esDiaSol ? "" : p.hospedaje,
       };
     });
   };
@@ -280,6 +308,7 @@ export function ReservaPage() {
     try {
       await reservaPublicaAPI.crearPublica({
         ...form,
+        check_out: isDiaDeSol ? form.check_in : form.check_out,
         telefono_huesped: `${indicativo}${form.telefono_huesped.replace(/^\+?\d{1,3}/, "").trim()}`,
         numero_huespedes: Number(form.numero_huespedes),
       });
@@ -298,6 +327,13 @@ export function ReservaPage() {
 
   // ─── ÉXITO ───────────────────────────────────────────────────────────────────
   if (exito) {
+    const exitoTotal = tieneTarifa(form.hospedaje) && form.check_in && form.check_out
+      ? precioTotal(form.hospedaje, form.check_in, form.check_out)
+      : null;
+    const waUrl = buildWaUrl(
+      form.hospedaje, form.check_in, form.check_out, nights,
+      form.numero_huespedes, form.servicio_adicional, exitoTotal
+    );
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-3xl shadow-lg border border-gray-200 p-10 max-w-md w-full text-center">
@@ -317,7 +353,7 @@ export function ReservaPage() {
             {" → "}
             {formatDateLong(form.check_out)}
           </p>
-          <p className="text-gray-400 text-sm mb-8" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          <p className="text-gray-400 text-sm mb-6" style={{ fontFamily: "'DM Sans', sans-serif" }}>
             {normalize(form.hospedaje) === "dia de sol"
               ? `1 día · ${form.numero_huespedes} ${Number(form.numero_huespedes) === 1 ? "persona" : "personas"}`
               : `${nights} ${nights === 1 ? "noche" : "noches"} · ${form.numero_huespedes} ${Number(form.numero_huespedes) === 1 ? "huésped" : "huéspedes"}`}
@@ -327,16 +363,28 @@ export function ReservaPage() {
             style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300 }}
           >
             Tu reserva quedó en estado{" "}
-            <span className="text-amber-600 font-medium">Pendiente</span>. El equipo de Natural Sound revisará la disponibilidad y se pondrá en contacto pronto.
+            <span className="text-amber-600 font-medium">Pendiente</span>. Escríbenos por WhatsApp para coordinar el pago y confirmar tu reserva.
           </p>
-          <a
-            href="/"
-            className="inline-flex items-center gap-2 bg-[#607651] hover:bg-[#4e6142] text-white px-8 py-3 rounded-full text-sm font-medium transition-colors"
-            style={{ fontFamily: "'DM Sans', sans-serif" }}
-          >
-            <ArrowLeft size={15} />
-            Volver al inicio
-          </a>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white px-7 py-3 rounded-full text-sm font-semibold transition-colors shadow-sm"
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
+            >
+              <MessageCircle size={16} />
+              Coordinar pago por WhatsApp
+            </a>
+            <a
+              href="/"
+              className="inline-flex items-center justify-center gap-2 border border-gray-200 text-gray-500 hover:text-[#284735] hover:border-[#607651]/40 px-7 py-3 rounded-full text-sm font-medium transition-colors"
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
+            >
+              <ArrowLeft size={15} />
+              Volver al inicio
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -438,9 +486,11 @@ export function ReservaPage() {
                   <select
                     name="hospedaje"
                     value={form.hospedaje}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, hospedaje: e.target.value, check_in: "", check_out: "" }))
-                    }
+                    onChange={(e) => {
+                      const h = e.target.value;
+                      const isDDS = normalize(h) === "dia de sol";
+                      setForm((p) => ({ ...p, hospedaje: h, check_in: "", check_out: "", ...(isDDS ? { servicio_adicional: "N/A" } : {}) }));
+                    }}
                     className={inputCls}
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
@@ -551,7 +601,7 @@ export function ReservaPage() {
                           esDiaSol
                           maxPersonas={alo.max_por_reserva ?? 8}
                           onSelect={() => {
-                            if (alo.disponible) setForm((p) => ({ ...p, hospedaje: alo.nombre, check_out: p.check_in }));
+                            if (alo.disponible) setForm((p) => ({ ...p, hospedaje: alo.nombre, check_out: p.check_in, servicio_adicional: "N/A" }));
                           }}
                           onLightbox={() => setLightbox(alo.nombre)}
                         />
@@ -598,19 +648,21 @@ export function ReservaPage() {
                       >
                         {form.hospedaje}
                       </p>
-                      {form.check_in && form.check_out ? (
+                      {form.check_in && (isDiaDeSol || form.check_out) ? (
                         <>
                           <p className="text-gray-500 text-xs mt-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                             {formatDateLong(form.check_in)}
                           </p>
-                          <p className="text-gray-500 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                            {formatDateLong(form.check_out)}
-                          </p>
+                          {!isDiaDeSol && (
+                            <p className="text-gray-500 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                              {formatDateLong(form.check_out)}
+                            </p>
+                          )}
                           <p
                             className="text-[#607651] text-xs font-semibold mt-1"
                             style={{ fontFamily: "'DM Mono', monospace" }}
                           >
-                            {normalize(form.hospedaje) === "dia de sol"
+                            {isDiaDeSol
                               ? "Día de Sol · 1 día"
                               : `${nights} ${nights === 1 ? "noche" : "noches"}`}
                           </p>
@@ -618,7 +670,7 @@ export function ReservaPage() {
                       ) : (
                         <p className="text-gray-400 text-xs mt-1 flex items-center gap-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                           <CalendarDays size={11} />
-                          Selecciona las fechas
+                          {isDiaDeSol ? "Selecciona la fecha" : "Selecciona las fechas"}
                         </p>
                       )}
                     </div>
@@ -773,34 +825,27 @@ export function ReservaPage() {
                   />
                 </div>
 
-                <div>
-                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                    Servicio adicional
-                  </label>
-                  <select
-                    name="servicio_adicional"
-                    value={form.servicio_adicional}
-                    onChange={handleChange}
-                    className={inputCls}
-                    style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  >
-                    {normalize(form.hospedaje) === "dia de sol" ? (
-                      <>
-                        <option value="N/A">Sin servicio adicional</option>
-                        <option value="Desayuno termal">Desayuno termal</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="N/A">Sin servicio adicional</option>
-                        <option value="Desayuno termal">Desayuno termal</option>
-                        <option value="Cumpleaños">Cumpleaños</option>
-                        <option value="Aniversario">Aniversario</option>
-                        <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
-                        <option value="Te amo">Te amo</option>
-                      </>
-                    )}
-                  </select>
-                </div>
+                {normalize(form.hospedaje) !== "dia de sol" && (
+                  <div>
+                    <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                      Servicio adicional
+                    </label>
+                    <select
+                      name="servicio_adicional"
+                      value={form.servicio_adicional}
+                      onChange={handleChange}
+                      className={inputCls}
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <option value="N/A">Sin servicio adicional</option>
+                      <option value="Desayuno termal">Desayuno termal</option>
+                      <option value="Cumpleaños">Cumpleaños</option>
+                      <option value="Aniversario">Aniversario</option>
+                      <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
+                      <option value="Te amo">Te amo</option>
+                    </select>
+                  </div>
+                )}
 
                 {error && (
                   <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
@@ -826,7 +871,7 @@ export function ReservaPage() {
                     <><Loader size={14} className="animate-spin" /> Enviando...</>
                   ) : !canSubmit ? (
                     !form.hospedaje ? "Selecciona un alojamiento" :
-                    !form.check_in || !form.check_out ? "Selecciona las fechas" :
+                    !form.check_in || (!isDiaDeSol && !form.check_out) ? "Selecciona las fechas" :
                     "Completa tus datos"
                   ) : (
                     "Enviar solicitud de reserva"
