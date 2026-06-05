@@ -1,0 +1,36 @@
+# .htaccess — Configuración para Apache (SPA Fallback)
+#
+# UBICACIÓN: dist/.htaccess (en la raíz de archivos estáticos)
+# Para que funcione, habilita mod_rewrite:
+#   a2enmod rewrite
+#   systemctl reload apache2
+
+<IfModule mod_rewrite.c>
+  # Habilitar rewrite engine
+  RewriteEngine On
+
+  # No reescribir si el archivo o directorio existe
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # Todas las demás solicitudes van a index.html (SPA fallback)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Cache headers para archivos estáticos
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+# Compresión
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
