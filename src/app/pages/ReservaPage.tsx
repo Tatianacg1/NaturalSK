@@ -5,7 +5,7 @@ import { reservaPublicaAPI } from "../../services/api";
 import { CalendarioPublico, type AloData } from "../components/sections/CalendarioPublico";
 import { AccommodationLightbox } from "../components/sections/AccommodationLightbox";
 import { cn } from "../components/ui/utils";
-import { precioTotal, tarifasBase, formatCOP, tieneTarifa } from "../data/pricing";
+import { precioTotal, tarifasBase, formatCOP, tieneTarifa, precioServicio } from "../data/pricing";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -235,6 +235,7 @@ export function ReservaPage() {
   const [huespedesAdicionales, setHuespedesAdicionales] = useState<Array<{ nombre: string; cedula: string }>>([]);
   const [tabActivo, setTabActivo] = useState(0);
   const alosRef = useRef<HTMLDivElement>(null);
+  const prevNumHuespedesRef = useRef(1);
 
   const [datosGenerales, setDatosGenerales] = useState<AloData[] | undefined>(undefined);
   const [loadingGeneral, setLoadingGeneral] = useState(false);
@@ -251,12 +252,13 @@ export function ReservaPage() {
   }, [modoVista, datosGenerales]);
 
   useEffect(() => {
-    if (modoVista !== "fecha" || !form.check_in) return;
+    if (modoVista !== "fecha") return;
+    if (!form.check_out || form.check_out === form.check_in) return;
     const timer = setTimeout(() => {
       alosRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+    }, 150);
     return () => clearTimeout(timer);
-  }, [form.check_in, form.check_out, modoVista]);
+  }, [form.check_out, modoVista]);
 
   const numHuespedes = parseInt(form.numero_huespedes) || 1;
 
@@ -267,7 +269,13 @@ export function ReservaPage() {
       while (next.length < extra) next.push({ nombre: "", cedula: "" });
       return next.slice(0, extra);
     });
-    setTabActivo(prev => Math.min(prev, Math.max(0, numHuespedes - 1)));
+    if (numHuespedes > prevNumHuespedesRef.current) {
+      // Huéspedes aumentaron: saltar al tab del nuevo acompañante
+      setTabActivo(numHuespedes - 1);
+    } else {
+      setTabActivo(prev => Math.min(prev, Math.max(0, numHuespedes - 1)));
+    }
+    prevNumHuespedesRef.current = numHuespedes;
   }, [numHuespedes]);
 
   const nights = nightsBetween(form.check_in, form.check_out);
@@ -310,13 +318,14 @@ export function ReservaPage() {
 
   const handleRangeChange = (ci: string, co: string) => {
     setForm((p) => {
+      if (modoVista === "fecha") {
+        return { ...p, check_in: ci, check_out: co, hospedaje: "" };
+      }
       const esDiaSol = normalize(p.hospedaje) === "dia de sol";
       return {
         ...p,
         check_in: ci,
         check_out: esDiaSol ? ci : co,
-        // Keep the hospedaje when user changes date for an already-selected Día de Sol
-        hospedaje: modoVista === "fecha" && !esDiaSol ? "" : p.hospedaje,
       };
     });
   };
@@ -594,13 +603,13 @@ export function ReservaPage() {
                       Alojamientos · {formatDateLong(form.check_in)} → {formatDateLong(form.check_out)}
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {alosDisponibles.map((alo) => (
+                      {(form.hospedaje ? alosDisponibles.filter(a => a.nombre === form.hospedaje) : alosDisponibles).map((alo) => (
                         <AloCard
                           key={alo.nombre}
                           alo={alo}
                           local={localDataFor(alo.nombre)}
                           selected={form.hospedaje === alo.nombre}
-                          onSelect={() => alo.disponible && setForm((p) => ({ ...p, hospedaje: alo.nombre }))}
+                          onSelect={() => alo.disponible && setForm((p) => ({ ...p, hospedaje: p.hospedaje === alo.nombre ? "" : alo.nombre }))}
                           onLightbox={() => setLightbox(alo.nombre)}
                         />
                       ))}
@@ -608,15 +617,15 @@ export function ReservaPage() {
                   </div>
                 )}
 
-                {/* ── Grid Día de Sol ── */}
-                {diaSolDisponible.length > 0 && (
+                {/* ── Grid Día de Sol ── oculto cuando hay rango de noches seleccionado */}
+                {diaSolDisponible.length > 0 && !(form.check_out && form.check_out !== form.check_in) && (
                   <div>
                     <p className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold mb-4"
                       style={{ fontFamily: "'DM Mono', monospace" }}>
                       Día de Sol · {formatDateLong(form.check_in)}
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {diaSolDisponible.map((alo) => (
+                      {(form.hospedaje ? diaSolDisponible.filter(a => a.nombre === form.hospedaje) : diaSolDisponible).map((alo) => (
                         <AloCard
                           key={alo.nombre}
                           alo={alo}
@@ -625,7 +634,12 @@ export function ReservaPage() {
                           esDiaSol
                           maxPersonas={alo.max_por_reserva ?? 8}
                           onSelect={() => {
-                            if (alo.disponible) setForm((p) => ({ ...p, hospedaje: alo.nombre, check_out: p.check_in, servicio_adicional: "N/A" }));
+                            if (alo.disponible) setForm((p) => ({
+                              ...p,
+                              hospedaje: p.hospedaje === alo.nombre ? "" : alo.nombre,
+                              check_out: p.hospedaje === alo.nombre ? "" : p.check_in,
+                              servicio_adicional: "N/A",
+                            }));
                           }}
                           onLightbox={() => setLightbox(alo.nombre)}
                         />
@@ -718,7 +732,9 @@ export function ReservaPage() {
               {/* Bloque de precio estimado */}
               {form.hospedaje && form.check_in && form.check_out && normalize(form.hospedaje) !== "dia de sol" && tieneTarifa(form.hospedaje) && (() => {
                 const g = Number(form.numero_huespedes);
-                const total = precioTotal(form.hospedaje, form.check_in, form.check_out, g);
+                const alojamientoPrice = precioTotal(form.hospedaje, form.check_in, form.check_out, g);
+                const servicioPrice = precioServicio(form.servicio_adicional);
+                const totalPrice = alojamientoPrice + servicioPrice;
                 const bases = tarifasBase(form.hospedaje, g)!;
                 return (
                   <div className="px-6 py-4 border-b border-gray-100 bg-[#f9f2e8]">
@@ -726,23 +742,49 @@ export function ReservaPage() {
                       style={{ fontFamily: "'DM Mono', monospace" }}>
                       Precio estimado
                     </p>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-gray-500 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                        {nights} {nights === 1 ? "noche" : "noches"}
-                      </span>
-                      <span className="text-[#3d2010] text-sm font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
-                        {formatCOP(total)}
-                      </span>
+
+                    {/* Desglose */}
+                    <div className="space-y-1 mb-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-500 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                          Alojamiento · {nights} {nights === 1 ? "noche" : "noches"}
+                        </span>
+                        <span className="text-[#3d2010] text-sm font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                          {formatCOP(alojamientoPrice)}
+                        </span>
+                      </div>
+
+                      {servicioPrice > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                            {form.servicio_adicional}
+                          </span>
+                          <span className="text-[#3d2010] text-sm font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                            {formatCOP(servicioPrice)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Total — siempre visible */}
+                      <div className="flex justify-between items-center pt-2 mt-1 border-t border-[#c4a07a]/30">
+                        <span className="text-[#8a6038] text-xs font-semibold tracking-wide" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          TOTAL
+                        </span>
+                        <span className="text-[#3d2010] text-lg font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                          {formatCOP(totalPrice)}
+                        </span>
+                      </div>
                     </div>
+
                     <div className="flex gap-3 text-[11px] text-gray-400 mb-3" style={{ fontFamily: "'DM Mono', monospace" }}>
                       <span>Lun–Jue {formatCOP(bases.low)}/noche</span>
                       <span>·</span>
-                      <span>Fin de semana / festivo / temp. alta {formatCOP(bases.high)}/noche</span>
+                      <span>Fin sem / festivo {formatCOP(bases.high)}/noche</span>
                     </div>
                     <div className="flex items-start gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                       <Info size={11} className="text-amber-500 mt-0.5 shrink-0" />
                       <p className="text-amber-700 text-[10px] leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                        Precio referencial en pesos colombianos. Sujeto a cambios según disponibilidad y condiciones especiales.
+                        Precio referencial en COP. Sujeto a cambios según disponibilidad y condiciones especiales.
                       </p>
                     </div>
                   </div>
@@ -772,24 +814,41 @@ export function ReservaPage() {
                             type="button"
                             onClick={() => setTabActivo(i)}
                             className={cn(
-                              "flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                              "flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all border",
                               tabActivo === i
-                                ? "bg-[#8a6038] text-white shadow-sm"
-                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                ? "bg-[#8a6038] text-white shadow-sm border-[#8a6038]"
+                                : isIncomplete
+                                  ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                                  : "bg-gray-100 text-gray-500 border-transparent hover:bg-gray-200"
                             )}
                             style={{ fontFamily: "'DM Sans', sans-serif" }}
                           >
+                            {isIncomplete && tabActivo !== i && (
+                              <AlertCircle size={12} className="text-amber-500 shrink-0" />
+                            )}
                             Huésped {i + 1}
-                            {isIncomplete && (
-                              <span className={cn(
-                                "w-1.5 h-1.5 rounded-full shrink-0",
-                                tabActivo === i ? "bg-white/60" : "bg-amber-400"
-                              )} />
+                            {!isIncomplete && tabActivo !== i && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
                             )}
                           </button>
                         );
                       })}
                     </div>
+
+                    {/* Banner cuando hay acompañantes sin completar */}
+                    {huespedesAdicionales.some(h => !h.nombre.trim() || !h.cedula.trim()) && (
+                      <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2.5 mt-1">
+                        <AlertCircle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-amber-700 text-xs font-semibold" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                            Completa los datos de tus acompañantes
+                          </p>
+                          <p className="text-amber-600 text-[11px] mt-0.5 leading-snug" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                            Selecciona cada tab de "Huésped" para ingresar nombre y cédula.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p
@@ -940,44 +999,48 @@ export function ReservaPage() {
                   </>
                 )}
 
-                <div>
-                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                    Número de huéspedes
-                    {normalize(form.hospedaje) === "dia de sol" && (
-                      <span className="ml-2 text-amber-500 font-normal normal-case tracking-normal text-[10px]">
-                        (máx. 8 por reserva)
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="number" name="numero_huespedes" value={form.numero_huespedes}
-                    onChange={handleChange} min="1"
-                    max={normalize(form.hospedaje) === "dia de sol" ? "8" : "20"}
-                    required
-                    className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  />
-                </div>
+                {(tabActivo === 0 || numHuespedes === 1) && (
+                  <>
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Número de huéspedes
+                        {normalize(form.hospedaje) === "dia de sol" && (
+                          <span className="ml-2 text-amber-500 font-normal normal-case tracking-normal text-[10px]">
+                            (máx. 8 por reserva)
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="number" name="numero_huespedes" value={form.numero_huespedes}
+                        onChange={handleChange} min="1"
+                        max={normalize(form.hospedaje) === "dia de sol" ? "8" : "20"}
+                        required
+                        className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      />
+                    </div>
 
-                {normalize(form.hospedaje) !== "dia de sol" && (
-                  <div>
-                    <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                      Servicio adicional
-                    </label>
-                    <select
-                      name="servicio_adicional"
-                      value={form.servicio_adicional}
-                      onChange={handleChange}
-                      className={inputCls}
-                      style={{ fontFamily: "'DM Sans', sans-serif" }}
-                    >
-                      <option value="N/A">Sin servicio adicional</option>
-                      <option value="Desayuno termal">Desayuno termal</option>
-                      <option value="Cumpleaños">Cumpleaños</option>
-                      <option value="Aniversario">Aniversario</option>
-                      <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
-                      <option value="Te amo">Te amo</option>
-                    </select>
-                  </div>
+                    {normalize(form.hospedaje) !== "dia de sol" && (
+                      <div>
+                        <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                          Servicio adicional
+                        </label>
+                        <select
+                          name="servicio_adicional"
+                          value={form.servicio_adicional}
+                          onChange={handleChange}
+                          className={inputCls}
+                          style={{ fontFamily: "'DM Sans', sans-serif" }}
+                        >
+                          <option value="N/A">Sin servicio adicional</option>
+                          <option value="Desayuno termal">Desayuno termal</option>
+                          <option value="Cumpleaños">Cumpleaños</option>
+                          <option value="Aniversario">Aniversario</option>
+                          <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
+                          <option value="Te amo">Te amo</option>
+                        </select>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {error && (

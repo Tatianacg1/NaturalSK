@@ -46,21 +46,21 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
           <>
             <button
               onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/65 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
               aria-label="Foto anterior"
             >
-              <ChevronLeft size={15} />
+              <ChevronLeft size={16} />
             </button>
             <button
               onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/65 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
               aria-label="Foto siguiente"
             >
-              <ChevronRight size={15} />
+              <ChevronRight size={16} />
             </button>
 
             {/* Puntos */}
-            <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
               {acc.images.map((_, i) => (
                 <button
                   key={i}
@@ -143,15 +143,15 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
                   Tarifa por día · por persona
                 </p>
                 {/* Encabezado */}
-                <div className="grid grid-cols-[6rem_1fr_1fr] text-[8px] text-muted-foreground uppercase tracking-wider mb-1 pb-1 border-b border-primary/10"
+                <div className="grid grid-cols-[minmax(5rem,auto)_1fr_1fr] text-[8px] text-muted-foreground uppercase tracking-wider mb-1 pb-1 border-b border-primary/10"
                   style={{ fontFamily: "'DM Mono', monospace" }}>
                   <span />
                   <span className="text-center">Lun–Jue</span>
                   <span className="text-center">Fin sem · Fest</span>
                 </div>
                 {/* Filas */}
-                <div className="grid grid-cols-[6rem_1fr_1fr] items-center py-0.5 gap-x-1">
-                  <span className="text-[11px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+                <div className="grid grid-cols-[minmax(5rem,auto)_1fr_1fr] items-center py-0.5 gap-x-1">
+                  <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
                     Entrada
                   </span>
                   <span className="text-primary text-[11px] font-bold text-center"
@@ -163,8 +163,8 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
                     {formatCOP(ds.high.entrada)}
                   </span>
                 </div>
-                <div className="grid grid-cols-[6rem_1fr_1fr] items-center py-0.5 gap-x-1">
-                  <span className="text-[11px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+                <div className="grid grid-cols-[minmax(5rem,auto)_1fr_1fr] items-center py-0.5 gap-x-1">
+                  <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
                     Consumibles
                   </span>
                   <span className="text-primary text-[11px] font-bold text-center"
@@ -189,7 +189,7 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
                   Tarifa por noche
                 </p>
                 {/* Encabezado columnas */}
-                <div className="grid grid-cols-[3rem_1fr_1fr] text-[8px] text-muted-foreground uppercase tracking-wider mb-1 pb-1 border-b border-primary/10"
+                <div className="grid grid-cols-[minmax(4rem,auto)_1fr_1fr] text-[8px] text-muted-foreground uppercase tracking-wider mb-1 pb-1 border-b border-primary/10"
                   style={{ fontFamily: "'DM Mono', monospace" }}>
                   <span />
                   <span className="text-center">Lun–Jue</span>
@@ -197,8 +197,8 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
                 </div>
                 {/* Filas */}
                 {tiers.map((tier, i) => (
-                  <div key={i} className="grid grid-cols-[3rem_1fr_1fr] items-center py-0.5 gap-x-1">
-                    <span className="text-[11px] text-muted-foreground whitespace-nowrap"
+                  <div key={i} className="grid grid-cols-[minmax(4rem,auto)_1fr_1fr] items-center py-0.5 gap-x-1">
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap"
                       style={{ fontFamily: "'DM Mono', monospace" }}>
                       {i === 0 ? "1–2 per." : i === 1 ? "3–4 per." : "5–6 per."}
                     </span>
@@ -249,10 +249,13 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
           ) : null;
         })()}
 
-        <div className="flex items-center gap-1.5 pt-4 pb-4 border-t border-border">
-          <Clock size={11} className="text-primary/50 shrink-0" />
-          <span className="text-[11px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-            {isDDS ? "Ingreso 9:00 AM – 6:00 PM" : "Check-in 3:00 PM · Check-out 12:00 PM"}
+        <div className="flex items-start gap-1.5 pt-4 pb-4 border-t border-border">
+          <Clock size={11} className="text-primary/50 shrink-0 mt-0.5" />
+          <span className="text-[10px] leading-relaxed text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+            {isDDS
+              ? "Ingreso 9:00 AM – 6:00 PM"
+              : <>Check-in 3:00 PM · Check-out 12:00 PM<br />Zonas húmedas: 8:00 PM (fin de sem. 9:00 PM)<br />Decoración NO incluida</>
+            }
           </span>
         </div>
 
@@ -272,7 +275,7 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
 
 export function Accommodations() {
   return (
-    <section id="hospedaje" className="py-14 px-4 md:py-28 md:px-6 bg-card/40">
+    <section id="hospedaje" className="py-14 px-4 md:py-28 md:px-6 bg-card/40 overflow-hidden">
       <div className="max-w-7xl mx-auto">
         <div className="mb-16">
           <p

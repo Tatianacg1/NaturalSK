@@ -8,7 +8,7 @@ const stats = [
 
 export function About() {
   return (
-    <section id="nosotros" className="py-14 px-4 md:py-28 md:px-6">
+    <section id="nosotros" className="py-14 px-4 md:py-28 md:px-6 overflow-hidden">
       <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-8 md:gap-16 items-center">
         <div>
           <p
@@ -40,17 +40,17 @@ export function About() {
             con la naturaleza. Cada espacio fusiona confort, exclusividad y paisajes inspiradores,
             brindando una experiencia de descanso donde el lujo se vive de forma auténtica y natural.
           </p>
-          <div className="grid grid-cols-3 gap-3 md:gap-6">
+          <div className="grid grid-cols-3 gap-2 md:gap-6">
             {stats.map(([val, lab]) => (
-              <div key={lab} className="border-t border-border pt-5">
+              <div key={lab} className="border-t border-border pt-4">
                 <p
-                  className="text-primary text-lg md:text-2xl font-bold mb-1"
+                  className="text-primary text-base md:text-2xl font-bold mb-1 leading-tight"
                   style={{ fontFamily: "'Playfair Display', serif" }}
                 >
                   {val}
                 </p>
                 <p
-                  className="text-muted-foreground text-xs tracking-wide uppercase"
+                  className="text-muted-foreground text-[10px] md:text-xs tracking-wide uppercase leading-tight"
                   style={{ fontFamily: "'DM Mono', monospace" }}
                 >
                   {lab}

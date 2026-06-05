@@ -28,7 +28,7 @@ export function NavBar({ onLoginClick }: NavBarProps) {
         <img
           src="/images/sk.png"
           alt="Natural Sound"
-          className="h-14 sm:h-16 md:h-20 w-auto object-contain mr-4 md:mr-8"
+          className="h-14 sm:h-16 md:h-20 max-w-[120px] md:max-w-[160px] w-auto object-contain mr-4 md:mr-8"
         />
 
         <div className="hidden md:flex items-center gap-8">

@@ -211,7 +211,6 @@ export function CalendarioPublico({
     onRangeChange(checkIn, ds);
   };
 
-  const second = advance(base.year, base.month, 1);
   const canGoPrev =
     base.year > today.getFullYear() ||
     (base.year === today.getFullYear() && base.month > today.getMonth());
@@ -223,13 +222,6 @@ export function CalendarioPublico({
     const cells = buildCells(year, month);
     return (
       <div>
-        <p
-          className="text-center text-sm font-semibold text-[#3d2010] mb-4"
-          style={{ fontFamily: "'Playfair Display', serif" }}
-        >
-          {MONTHS[month]} {year}
-        </p>
-
         <div className="grid grid-cols-7 mb-1">
           {DAYS.map((d) => (
             <div
@@ -324,18 +316,6 @@ export function CalendarioPublico({
                     {day}
                   </span>
 
-                  {/* Indicador modo "por fecha" */}
-                  {modoFecha && !past && !start && !end && (
-                    <span
-                      className={cn(
-                        "text-[9px] leading-none font-bold",
-                        noneAvail ? "text-red-400" : allAvail ? "text-[#8a6038]" : "text-amber-500"
-                      )}
-                      style={{ fontFamily: "'DM Mono', monospace" }}
-                    >
-                      {avCount}/{totalAlos}
-                    </span>
-                  )}
                   {/* Cupos Día de Sol (modo por alojamiento) */}
                   {cuposDiaSol !== null && !start && !end && (
                     <span
@@ -364,7 +344,7 @@ export function CalendarioPublico({
   return (
     <div>
       {/* Navegación */}
-      <div className="flex items-center mb-3">
+      <div className="flex items-center justify-between mb-3">
         <button
           onClick={() => canGoPrev && setBase((p) => advance(p.year, p.month, -1))}
           disabled={!canGoPrev}
@@ -372,7 +352,12 @@ export function CalendarioPublico({
         >
           <ChevronLeft size={16} />
         </button>
-        <div className="flex-1" />
+        <p
+          className="text-sm font-semibold text-[#3d2010]"
+          style={{ fontFamily: "'Playfair Display', serif" }}
+        >
+          {MONTHS[base.month]} {base.year}
+        </p>
         <button
           onClick={() => setBase((p) => advance(p.year, p.month, 1))}
           className="p-2 rounded-full hover:bg-gray-100 text-[#8a6038] transition-colors"
@@ -380,6 +365,16 @@ export function CalendarioPublico({
           <ChevronRight size={16} />
         </button>
       </div>
+
+      {/* Hint para modo fecha */}
+      {modoFecha && !(checkIn && checkOut && checkOut !== checkIn) && !showEmpty && !loading && (
+        <p
+          className="text-center text-gray-400 text-xs mb-4"
+          style={{ fontFamily: "'DM Sans', sans-serif" }}
+        >
+            Para seleccionar dia de sol, elige un solo dia. Selecciona fecha de entrada y salida para alojamientos con hospedaje.                                                                                                                                                             
+        </p>
+      )}
 
       {showEmpty ? (
         <div
@@ -396,9 +391,8 @@ export function CalendarioPublico({
           Verificando disponibilidad...
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+        <div>
           {renderMonth(base.year, base.month)}
-          {renderMonth(second.year, second.month)}
         </div>
       )}
 

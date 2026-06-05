@@ -10,7 +10,7 @@ const contactInfo = [
 
 export function Contact() {
   return (
-    <section id="contacto" className="py-14 px-4 md:py-28 md:px-6">
+    <section id="contacto" className="py-14 px-4 md:py-28 md:px-6 overflow-hidden">
       <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-8 md:gap-20 items-start">
         <div>
           <p
@@ -67,7 +67,7 @@ export function Contact() {
           </p>
           <a
             href="/reservar"
-            className="inline-flex items-center justify-center rounded-full bg-[#8a6038] hover:bg-[#7a4c28] px-8 py-4 text-sm font-semibold text-white transition-colors"
+            className="inline-flex items-center justify-center rounded-full bg-[#8a6038] hover:bg-[#7a4c28] px-6 py-4 text-sm font-semibold text-white transition-colors w-full sm:w-auto text-center"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             Solicitar reserva
@@ -76,7 +76,7 @@ export function Contact() {
             href="https://wa.me/573046643574?text=Hola%20quiero%20reservar%20una%20estancia%20en%20Natural%20Sound"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-full border border-border px-8 py-4 text-sm text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+            className="inline-flex items-center justify-center rounded-full border border-border px-6 py-4 text-sm text-muted-foreground hover:text-foreground hover:border-primary transition-colors w-full sm:w-auto text-center"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             O escríbenos por WhatsApp

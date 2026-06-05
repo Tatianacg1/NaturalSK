@@ -30,8 +30,8 @@ export const accommodations: Accommodation[] = [
     ],
     description:
       "Un refugio romántico diseñado para desconectarte de la rutina y disfrutar de la naturaleza con total privacidad. Cuenta con jacuzzi privado ilimitado, malla catamarán, cama exterior tipo playera, cama King y acceso a piscina climatizada y termales. Incluye desayuno, wifi, amenities y parqueadero privado.",
-    features: ["Cama king size", "Baño privado", "Jacuzzi privado", "Desayuno incluido"],
-    badge: "Más solicitado",
+    features: ["Cama king size", "Baño privado con agua caliente", "Jacuzzi privado", "Desayuno incluido", "Parqueadero privado","Chimenea interna", "Amenities de lujo","Minibar (No incluye bebidas ni mecato)","Malla catamaran","Toallas","Ingreso a piscina climatizada y termales artificiales","Cama exterior tipo playera"],
+    badge: "Discreto",
   },
   {
     name: "Glamping Esmeralda",
@@ -50,7 +50,7 @@ export const accommodations: Accommodation[] = [
     ],
     description:
       "Un espacio exclusivo para vivir una experiencia de descanso y conexión con la naturaleza. Disfruta de jacuzzi privado ilimitado, ducha al aire libre, malla catamarán XXL, cama exterior tipo playera y una acogedora cama King. Incluye desayuno, wifi, amenities, parqueadero privado y acceso a piscina climatizada y termales artificiales.",
-    features: ["Chimenea", "Ducha al aire libre", "Jacuzzi privado", "Desayuno incluido"],
+    features: ["Parqueadero privado","Baño privado con agua caliente" ,"Amenities de lujo","Minibar (No incluye bebidas ni mecato)","Chimenea","Toallas","Wifi","Cama exterior tipo playera","Jacuzzi privado", "Desayuno incluido","Ingreso a piscina climatizada y termales artificiales","Malla catamaran XXL", "Cama King",],
     badge: "Exclusivo",
   },
   {
@@ -69,8 +69,8 @@ export const accommodations: Accommodation[] = [
     ],
     description:
       "Plataforma elevada entre las copas de los árboles. La experiencia más inmersiva de Natural Sound, con ventanales de piso a techo y ducha exterior bajo las estrellas.",
-    features: ["Desayuno incluido", "Jacuzzi privado", "Chimenea", "Cama King"],
-    badge: "Discreto",
+    features: ["Parqueadero privado","Baño privado con agua caliente" ,"Amenities de lujo","Minibar (No incluye bebidas ni mecato)","Chimenea interna","Toallas","Wifi","Cama exterior tipo playera","Jacuzzi privado", "Desayuno incluido","Ingreso a piscina climatizada y termales artificiales","Malla catamaran XXL", "Cama King","Turco privado",],
+    badge: "Mas pedido",
   },
   {
     name: "Glamping Zafiro",
@@ -91,8 +91,8 @@ export const accommodations: Accommodation[] = [
       "/images/zafiro12.jpeg",
     ],
     description:
-      "El espacio ideal para compartir momentos inolvidables en pareja, familia o con amigos. Con capacidad hasta para 6 personas, ofrece jacuzzi privado ilimitado, malla catamarán, chimenea interior y amplias zonas de descanso rodeadas de naturaleza. Incluye desayuno, wifi, amenities, parqueadero privado y acceso a piscina climatizada y termales artificiales.",
-    features: ["Chimenea interior", "Desayuno incluido", "Malla catamarán", "Jacuzzi privado"],
+      "El espacio ideal para compartir momentos inolvidables en pareja, familia o con amigos. Con capacidad hasta para 6 personas.",
+    features: ["Parqueadero privado","Baño privado con agua caliente" ,"Amenities de lujo","Minibar (No incluye bebidas ni mecato)","Chimenea interna","Toallas","Wifi","Cama exterior tipo playera","Jacuzzi privado", "Desayuno incluido","Ingreso a piscina climatizada y termales artificiales","Malla catamaran XXL", "Cama King, Cama 1.40, Cama tarima 1.20 ",],
     badge: "Comodidad",
   },
   {
@@ -109,7 +109,7 @@ export const accommodations: Accommodation[] = [
     ],
     description:
       "Una experiencia única entre la naturaleza con vistas al río. Disfruta de jacuzzi privado ilimitado, cama King, chimenea interior y una terraza privada con vistas inmejorables. Incluye desayuno, wifi, amenities y parqueadero privado.",
-    features: ["Jacuzzi privado", "Cama King", "Desayuno incluido", "Chimenea"],
+    features: ["Jacuzzi privado", "Cama King", "Desayuno incluido", "Chimenea","Amenities de lujo","Minibar (No incluye bebidas ni mecato)","Toallas","Wifi","Parqueadero privado","Ingreso a piscina climatizada y termales artificiales", "Cama exterior tipo playera",],
     badge: "Vista al río",
   },
   {
@@ -131,6 +131,10 @@ export const accommodations: Accommodation[] = [
       "Desayuno incluido para 2 personas",
       "Servicio de bar y restaurante",
       "Acceso a piscina climatizada y termales artificiales",
+      "TV",
+      "Wifi",
+      "Parqueadero privado",
+      "Servicio de bar y restaurante",
     ],
     badge: "Escapada Romántica",
   },
@@ -151,6 +155,11 @@ export const accommodations: Accommodation[] = [
       "Mayor capacidad",
       "Servicio de bar y restaurante",
       "Acceso a piscina climatizada y termales artificiales",
+      "Desayuno incluido para 4 personas",
+      "TV",
+      "Wifi",
+      "Parqueadero privado",
+      "Servicio de bar y restaurante",
     ],
     badge: "Ideal para familias",
   },

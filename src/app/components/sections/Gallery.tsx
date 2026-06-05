@@ -6,7 +6,7 @@ const STARS_IMG = "/images/glamp1.jpeg";
 
 export function Gallery() {
   return (
-    <section id="galería" className="py-14 px-4 md:py-28 md:px-6 bg-card/40">
+    <section id="galería" className="py-14 px-4 md:py-28 md:px-6 bg-card/40 overflow-hidden">
       <div className="max-w-7xl mx-auto">
         <p
           className="text-accent text-xs tracking-[0.3em] uppercase mb-4"
@@ -21,7 +21,29 @@ export function Gallery() {
           Natural Sound en imágenes.
         </h2>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 auto-rows-[130px] sm:auto-rows-[160px] md:auto-rows-[200px]">
+        {/* Mobile: columna única apilada */}
+        <div className="flex flex-col gap-2 md:hidden">
+          <div className="overflow-hidden bg-secondary h-56">
+            <img src={HERO_IMG} alt="Carpas rodeadas de bosque" className="w-full h-full object-cover" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="overflow-hidden bg-secondary h-40">
+              <img src={TENT_IMG} alt="Carpa glamping interior" className="w-full h-full object-cover" />
+            </div>
+            <div className="overflow-hidden bg-secondary h-40">
+              <img src={STARS_IMG} alt="Mesa bajo cielo estrellado" className="w-full h-full object-cover" />
+            </div>
+            <div className="overflow-hidden bg-secondary h-40">
+              <img src={RIVER_IMG} alt="Río en el bosque" className="w-full h-full object-cover" />
+            </div>
+            <div className="overflow-hidden bg-secondary h-40">
+              <img src={CABIN_IMG} alt="Cabaña frente al riachuelo" className="w-full h-full object-cover" />
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop: grid con imagen principal grande */}
+        <div className="hidden md:grid md:grid-cols-4 gap-3 auto-rows-[200px]">
           <div className="col-span-2 row-span-2 overflow-hidden bg-secondary">
             <img
               src={HERO_IMG}

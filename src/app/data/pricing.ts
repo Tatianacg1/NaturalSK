@@ -190,6 +190,23 @@ export function tarifasDiaDeSol(): { low: DiaSolTarifa; high: DiaSolTarifa } {
   return DIA_DE_SOL_RATES;
 }
 
+// ─── Servicios adicionales ────────────────────────────────────────────────────
+// Precios en COP por servicio. Actualiza los valores según tus tarifas.
+
+export const SERVICIOS_ADICIONALES: Record<string, number> = {
+  "N/A":                    0,
+  "Desayuno termal":        0,   // ← confirma el precio
+  "Cumpleaños":             0,   // ← confirma el precio
+  "Aniversario":            0,   // ← confirma el precio
+  "Quieres ser mi novia":   0,   // ← confirma el precio
+  "Te amo":                 0,   // ← confirma el precio
+};
+
+/** Precio del servicio adicional en COP. */
+export function precioServicio(servicio: string): number {
+  return SERVICIOS_ADICIONALES[servicio] ?? 0;
+}
+
 /** True si el alojamiento tiene tarifa definida. */
 export function tieneTarifa(hospedaje: string): boolean {
   return esZafiro(hospedaje) || esDiaDeSol(hospedaje) || obtenerRates(hospedaje) !== null;
