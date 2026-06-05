@@ -4,7 +4,7 @@ const HERO_IMG = "/images/galterm1.jpeg";
 
 export function Hero() {
   return (
-    <section className="relative flex flex-col min-h-[65vh] md:min-h-screen overflow-hidden">
+    <section className="relative flex flex-col min-h-[50vh] md:min-h-screen overflow-hidden">
       {/* Imagen de fondo */}
       <div className="absolute inset-0 overflow-hidden bg-[#0a1208]">
         <img

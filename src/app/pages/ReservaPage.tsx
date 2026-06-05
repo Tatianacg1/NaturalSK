@@ -308,7 +308,7 @@ export function ReservaPage() {
   const selectedLocalData = localDataFor(form.hospedaje);
   const isDiaDeSol = normalize(form.hospedaje) === "dia de sol";
   const huesped1Completo = !!form.nombre_huesped.trim() && !!form.cedula_huesped.trim() && !!form.email_huesped.trim() && !!form.telefono_huesped.trim();
-  const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre.trim() && h.cedula.trim());
+  const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre?.trim() && h.cedula?.trim());
   const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -433,16 +433,16 @@ export function ReservaPage() {
     <div className="min-h-screen bg-gray-50">
 
       {/* ── Barra superior ── */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <header className="bg-[#1a100a] border-b border-[#3d2010]/40 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <a href="/" className="flex items-center gap-3">
             <img
-              src="/images/skblack.png"
+              src="/images/sk.png"
               alt="Natural Sound"
               className="h-10 w-auto object-contain"
             />
             <span
-              className="text-lg font-semibold text-[#3d2010]"
+              className="text-lg font-semibold text-[#e8d5b7]"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               Natural Sound
@@ -450,7 +450,7 @@ export function ReservaPage() {
           </a>
           <a
             href="/"
-            className="flex items-center gap-1.5 text-gray-500 hover:text-[#3d2010] text-sm transition-colors"
+            className="flex items-center gap-1.5 text-[#c4a07a] hover:text-[#e8d5b7] text-sm transition-colors"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             <ArrowLeft size={15} />
@@ -807,7 +807,7 @@ export function ReservaPage() {
                       {Array.from({ length: numHuespedes }, (_, i) => {
                         const isIncomplete = i === 0
                           ? !form.nombre_huesped.trim() || !form.cedula_huesped.trim()
-                          : !huespedesAdicionales[i - 1]?.nombre.trim() || !huespedesAdicionales[i - 1]?.cedula.trim();
+                          : !huespedesAdicionales[i - 1]?.nombre?.trim() || !huespedesAdicionales[i - 1]?.cedula?.trim();
                         return (
                           <button
                             key={i}
@@ -836,7 +836,7 @@ export function ReservaPage() {
                     </div>
 
                     {/* Banner cuando hay acompañantes sin completar */}
-                    {huespedesAdicionales.some(h => !h.nombre.trim() || !h.cedula.trim()) && (
+                    {huespedesAdicionales.some(h => !h.nombre?.trim() || !h.cedula?.trim()) && (
                       <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2.5 mt-1">
                         <AlertCircle size={14} className="text-amber-500 mt-0.5 shrink-0" />
                         <div>

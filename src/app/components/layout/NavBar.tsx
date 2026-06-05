@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
 interface NavBarProps {
@@ -7,28 +7,16 @@ interface NavBarProps {
 
 export function NavBar({ onLoginClick }: NavBarProps) {
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 60);
-    handler();
-    window.addEventListener("scroll", handler);
-    return () => window.removeEventListener("scroll", handler);
-  }, []);
 
   const links = ["Nosotros", "Hospedaje", "Galería", "Contacto"];
 
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? "bg-[#1a100a]/95 backdrop-blur-md border-b border-border" : "bg-transparent"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
+    <nav className="sticky top-0 z-50 bg-[#1a100a]/95 backdrop-blur-md border-b border-[#3d2010]/40">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-2 flex items-center justify-between">
         <img
           src="/images/sk.png"
           alt="Natural Sound"
-          className="h-14 sm:h-16 md:h-20 max-w-[120px] md:max-w-[160px] w-auto object-contain mr-4 md:mr-8"
+          className="h-14 md:h-16 max-w-[120px] md:max-w-[140px] w-auto object-contain mr-4 md:mr-8"
         />
 
         <div className="hidden md:flex items-center gap-8">
@@ -57,7 +45,7 @@ export function NavBar({ onLoginClick }: NavBarProps) {
       </div>
 
       {open && (
-        <div className="md:hidden bg-[#1a100a]/98 backdrop-blur-md border-t border-border px-6 py-6 flex flex-col gap-5">
+        <div className="md:hidden bg-[#1a100a] border-t border-[#3d2010]/40 px-6 py-6 flex flex-col gap-5">
           {links.map((l) => (
             <a
               key={l}

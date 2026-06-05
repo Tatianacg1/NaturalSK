@@ -213,11 +213,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const mapReserva = (reserva: any) => {
-    let additionalGuests = [];
+    let additionalGuests: HuespedAdicional[] = [];
     try {
-      additionalGuests = typeof reserva.huespedes_adicionales === "string"
+      const raw = typeof reserva.huespedes_adicionales === "string"
         ? JSON.parse(reserva.huespedes_adicionales || "[]")
         : (reserva.huespedes_adicionales || []);
+      additionalGuests = (raw as any[]).map(g => ({
+        nombre: g?.nombre ?? "",
+        cedula: g?.cedula ?? "",
+        email:  g?.email  ?? "",
+      }));
     } catch { additionalGuests = []; }
 
     return {
@@ -354,7 +359,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         valor_servicio_adicional: reserva.additionalServiceValue || 0,
         abono: reserva.deposit || 0,
         estado: reserva.status,
-        huespedes_adicionales: reserva.additionalGuests || [],
+        huespedes_adicionales: (() => {
+          const numGuests = reserva.guests || 1;
+          const existing = reserva.additionalGuests || [];
+          return Array.from(
+            { length: Math.max(0, numGuests - 1) },
+            (_, i) => existing[i] || { nombre: "", cedula: "", email: "" }
+          );
+        })(),
       });
     } else {
       setEditingReserva(null);
@@ -437,7 +449,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       if (
         reservaForm.numero_huespedes > 1 &&
         reservaForm.huespedes_adicionales.some(
-          huesped => !huesped.nombre.trim() || !huesped.cedula.trim() || !huesped.email.trim()
+          huesped => !huesped.nombre?.trim() || !huesped.cedula?.trim()
         )
       ) {
         setReservaModalTab("adicionales");
@@ -3328,16 +3340,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                               value={huesped.cedula}
                               onChange={e => handleHuespedAdicionalChange(index, "cedula", e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm mb-1 text-[#7a4828]">Email del huésped</label>
-                            <input
-                              type="email"
-                              className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
-                              value={huesped.email || ""}
-                              onChange={e => handleHuespedAdicionalChange(index, "email", e.target.value)}
                               required
                             />
                           </div>

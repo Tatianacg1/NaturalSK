@@ -13,7 +13,7 @@ interface AppProps {
 
 export default function App({ onLoginClick }: AppProps) {
   return (
-    <div className="bg-background text-foreground min-h-screen overflow-x-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="bg-background text-foreground min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <NavBar onLoginClick={onLoginClick} />
       <Hero />
       <About />
