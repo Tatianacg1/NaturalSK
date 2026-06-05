@@ -42,18 +42,18 @@ export function Hero() {
           </p>
           <div className="flex flex-wrap gap-4">
             <a
-              href="#hospedaje"
+              href="/reservar"
               className="bg-primary text-primary-foreground px-6 py-3 md:px-8 md:py-4 text-xs md:text-sm tracking-widest uppercase hover:bg-primary/80 transition-colors"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
-              Ver hospedaje
+              Reservar ahora
             </a>
             <a
-              href="#galería"
+              href="#hospedaje"
               className="border border-border text-foreground px-6 py-3 md:px-8 md:py-4 text-xs md:text-sm tracking-widest uppercase hover:border-primary hover:text-primary transition-colors"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
-              Experiencias
+              Ver hospedaje
             </a>
           </div>
         </div>

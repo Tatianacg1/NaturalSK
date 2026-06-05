@@ -31,6 +31,16 @@ export default defineConfig({
     },
   },
 
+  // Proxy /api → backend en puerto 5000 (evita problemas CORS/fetch en dev)
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })

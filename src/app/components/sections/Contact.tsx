@@ -25,7 +25,7 @@ export function Contact() {
           >
             Contáctanos.
             <br />
-            Reserva por WhatsApp.
+            Reserva en línea.
           </h2>
           <div className="space-y-4 mb-8 md:mb-12 bg-card/70 border border-border rounded-3xl p-5 md:p-8">
             {contactInfo.map(({ Icon, text }) => (
@@ -62,17 +62,24 @@ export function Contact() {
             className="text-muted-foreground text-base leading-relaxed"
             style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300 }}
           >
-            Para reservar o pedir información rápida, escríbenos por WhatsApp. Responderemos lo
-            antes posible.
+            Solicita tu reserva directamente desde aquí. El equipo de Natural Sound revisará
+            la disponibilidad y te confirmará a la brevedad.
           </p>
+          <a
+            href="/reservar"
+            className="inline-flex items-center justify-center rounded-full bg-[#607651] hover:bg-[#4e6142] px-8 py-4 text-sm font-semibold text-white transition-colors"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+          >
+            Solicitar reserva
+          </a>
           <a
             href="https://wa.me/573127131999?text=Hola%20quiero%20reservar%20una%20estancia%20en%20Natural%20Sound"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-full bg-[#607651] px-8 py-4 text-sm font-semibold text-white transition-colors"
+            className="inline-flex items-center justify-center rounded-full border border-border px-8 py-4 text-sm text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
-            Reservar
+            O escríbenos por WhatsApp
           </a>
         </div>
       </div>

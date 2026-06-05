@@ -1,5 +1,5 @@
-// API_BASE_URL - Cambia según tu ambiente
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// API_BASE_URL — usa ruta relativa para que Vite proxy enrute al backend
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Helper para hacer requests autenticadas
 export const fetchAPI = async (endpoint, options = {}) => {
@@ -20,8 +20,9 @@ export const fetchAPI = async (endpoint, options = {}) => {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Error en la solicitud');
+    let errMsg = 'Error en la solicitud';
+    try { errMsg = (await response.json()).error || errMsg; } catch {}
+    throw new Error(errMsg);
   }
 
   return response.json();
@@ -189,6 +190,30 @@ export const reservaPublicaAPI = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar los datos');
+    return res.json();
+  },
+
+  async disponibilidadGeneral() {
+    const res = await fetch(`${API_BASE_URL}/reservas/publica/disponibilidad-general`);
+    if (!res.ok) {
+      let msg = 'Error al consultar disponibilidad';
+      try { msg = (await res.json()).error || msg; } catch {}
+      throw new Error(msg);
+    }
+    return res.json();
+  },
+
+  async crearPublica(data) {
+    const res = await fetch(`${API_BASE_URL}/reservas/publica`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      let msg = 'Error al registrar la solicitud. Verifica tu conexión e intenta de nuevo.';
+      try { msg = (await res.json()).error || msg; } catch {}
+      throw new Error(msg);
+    }
     return res.json();
   },
 };

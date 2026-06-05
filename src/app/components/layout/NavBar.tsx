@@ -42,10 +42,8 @@ export function NavBar({ onLoginClick }: NavBarProps) {
             </a>
           ))}
           <a
-            href="https://wa.me/573127131999?text=Hola%20quiero%20reservar%20una%20estancia%20en%20Natural%20Sound"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-[#607651] text-white px-5 py-2 text-sm tracking-wide transition-colors"
+            href="/reservar"
+            className="bg-[#607651] hover:bg-[#4e6142] text-white px-5 py-2 text-sm tracking-wide transition-colors"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             Reservar
@@ -71,11 +69,10 @@ export function NavBar({ onLoginClick }: NavBarProps) {
             </a>
           ))}
           <a
-            href="https://wa.me/573127131999?text=Hola%20quiero%20reservar%20una%20estancia%20en%20Natural%20Sound"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-[#607651] text-white px-5 py-3 text-center text-sm tracking-wide mt-2"
+            href="/reservar"
+            className="bg-[#607651] hover:bg-[#4e6142] text-white px-5 py-3 text-center text-sm tracking-wide mt-2 transition-colors"
             onClick={() => setOpen(false)}
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             Reservar
           </a>

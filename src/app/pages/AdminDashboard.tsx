@@ -1893,12 +1893,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             const calAloData = calFiltroAlojamiento ? alojamientos.find(a => a.nombre === calFiltroAlojamiento) : null;
             const calLimite: number = calAloData?.limite_reservas ?? 1;
 
+            const parseLocalDate = (dateStr: string) => {
+              const [y, m, d] = dateStr.split('-').map(Number);
+              return new Date(y, m - 1, d);
+            };
+
             const getDayReservations = (day: number) => {
               const date = new Date(year, month, day);
-              date.setHours(0, 0, 0, 0);
               return reservasActivas.filter(r => {
-                const ci = new Date(r.checkIn); ci.setHours(0, 0, 0, 0);
-                const co = new Date(r.checkOut); co.setHours(0, 0, 0, 0);
+                const ci = parseLocalDate(r.checkIn);
+                const co = parseLocalDate(r.checkOut);
                 return date >= ci && date < co;
               });
             };
@@ -2099,8 +2103,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   const isPastDay = selDate < hoy;
                   const selDateStr = `${sy}-${String(sm + 1).padStart(2, "0")}-${String(sd).padStart(2, "0")}`;
                   const selRes = reservasActivas.filter(r => {
-                    const ci = new Date(r.checkIn); ci.setHours(0, 0, 0, 0);
-                    const co = new Date(r.checkOut); co.setHours(0, 0, 0, 0);
+                    const ci = parseLocalDate(r.checkIn);
+                    const co = parseLocalDate(r.checkOut);
                     return selDate >= ci && selDate < co;
                   });
 

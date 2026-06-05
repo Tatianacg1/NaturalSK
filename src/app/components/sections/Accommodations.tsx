@@ -1,4 +1,142 @@
-import { accommodations } from "../../data/accommodations";
+import { useState, useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { accommodations, type Accommodation } from "../../data/accommodations";
+
+function AccommodationCard({ acc }: { acc: Accommodation }) {
+  const [idx, setIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const total = acc.images.length;
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (total <= 1 || paused) return;
+    intervalRef.current = setInterval(() => {
+      setIdx((i) => (i + 1) % total);
+    }, 2000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [total, paused]);
+
+  const prev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPaused(true);
+    setIdx((i) => (i - 1 + total) % total);
+  };
+
+  const next = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPaused(true);
+    setIdx((i) => (i + 1) % total);
+  };
+
+  return (
+    <div className="group bg-card border border-border overflow-hidden flex flex-col hover:border-primary/40 transition-colors duration-300">
+      {/* Imagen con carrusel */}
+      <div className="relative h-56 overflow-hidden bg-secondary">
+        <img
+          src={acc.images[idx]}
+          alt={`${acc.name} ${idx + 1}`}
+          className="w-full h-full object-cover transition-opacity duration-300"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0f1a0e]/60 to-transparent" />
+
+        {/* Flechas — solo si hay más de 1 imagen */}
+        {total > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/65 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label="Foto anterior"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/65 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label="Foto siguiente"
+            >
+              <ChevronRight size={15} />
+            </button>
+
+            {/* Puntos */}
+            <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              {acc.images.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={(e) => { e.stopPropagation(); setPaused(true); setIdx(i); }}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    i === idx ? "bg-white" : "bg-white/40"
+                  }`}
+                  aria-label={`Foto ${i + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Badge tipo */}
+        <span
+          className="absolute top-4 right-4 bg-accent text-accent-foreground text-xs px-3 py-1 tracking-widest uppercase"
+          style={{ fontFamily: "'DM Mono', monospace" }}
+        >
+          {acc.badge}
+        </span>
+        <span
+          className="absolute bottom-4 left-4 text-muted-foreground text-xs tracking-widest uppercase"
+          style={{ fontFamily: "'DM Mono', monospace" }}
+        >
+          {acc.type}
+        </span>
+
+        {/* Contador de fotos */}
+        {total > 1 && (
+          <span
+            className="absolute bottom-4 right-4 text-white/70 text-[10px] font-medium"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            {idx + 1}/{total}
+          </span>
+        )}
+      </div>
+
+      {/* Contenido */}
+      <div className="p-6 flex flex-col flex-1">
+        <h3
+          className="text-foreground text-xl font-semibold mb-3"
+          style={{ fontFamily: "'Playfair Display', serif" }}
+        >
+          {acc.name}
+        </h3>
+        <p
+          className="text-muted-foreground text-sm leading-relaxed mb-5 flex-1"
+          style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300 }}
+        >
+          {acc.description}
+        </p>
+        <ul className="space-y-1 mb-6">
+          {acc.features.map((f) => (
+            <li
+              key={f}
+              className="text-muted-foreground text-xs flex items-center gap-2"
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
+            >
+              <span className="w-1 h-1 rounded-full bg-primary inline-block" />
+              {f}
+            </li>
+          ))}
+        </ul>
+        <div className="flex justify-end border-t border-border pt-5">
+          <a
+            href={`/reservar?alojamiento=${encodeURIComponent(acc.name)}`}
+            className="text-xs tracking-widest uppercase bg-[#607651] hover:bg-[#4e6142] text-white px-4 py-2 transition-colors"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            Reservar
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function Accommodations() {
   return (
@@ -23,69 +161,7 @@ export function Accommodations() {
 
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
           {accommodations.map((acc) => (
-            <div
-              key={acc.name}
-              className="group bg-card border border-border overflow-hidden flex flex-col hover:border-primary/40 transition-colors duration-300"
-            >
-              <div className="relative h-56 overflow-hidden bg-secondary">
-                <img
-                  src={acc.image}
-                  alt={acc.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0f1a0e]/60 to-transparent" />
-                <span
-                  className="absolute top-4 right-4 bg-accent text-accent-foreground text-xs px-3 py-1 tracking-widest uppercase"
-                  style={{ fontFamily: "'DM Mono', monospace" }}
-                >
-                  {acc.badge}
-                </span>
-                <span
-                  className="absolute bottom-4 left-4 text-muted-foreground text-xs tracking-widest uppercase"
-                  style={{ fontFamily: "'DM Mono', monospace" }}
-                >
-                  {acc.type}
-                </span>
-              </div>
-
-              <div className="p-6 flex flex-col flex-1">
-                <h3
-                  className="text-foreground text-xl font-semibold mb-3"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
-                >
-                  {acc.name}
-                </h3>
-                <p
-                  className="text-muted-foreground text-sm leading-relaxed mb-5 flex-1"
-                  style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300 }}
-                >
-                  {acc.description}
-                </p>
-                <ul className="space-y-1 mb-6">
-                  {acc.features.map((f) => (
-                    <li
-                      key={f}
-                      className="text-muted-foreground text-xs flex items-center gap-2"
-                      style={{ fontFamily: "'DM Sans', sans-serif" }}
-                    >
-                      <span className="w-1 h-1 rounded-full bg-primary inline-block" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex justify-end border-t border-border pt-5">
-                  <a
-                    href="https://wa.me/573127131999?text=Hola%20quiero%20reservar%20una%20estancia%20en%20Natural%20Sound"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs tracking-widest uppercase bg-[#607651] text-white px-4 py-2 transition-colors"
-                    style={{ fontFamily: "'DM Mono', monospace" }}
-                  >
-                    Reservar
-                  </a>
-                </div>
-              </div>
-            </div>
+            <AccommodationCard key={acc.name} acc={acc} />
           ))}
         </div>
       </div>
