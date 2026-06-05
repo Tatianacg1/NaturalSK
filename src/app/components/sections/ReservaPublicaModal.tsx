@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { X, CheckCircle, AlertCircle, Loader, ChevronLeft } from "lucide-react";
+import { X, CheckCircle, AlertCircle, Loader, ChevronLeft, Info } from "lucide-react";
 import { accommodations } from "../../data/accommodations";
 import { reservaPublicaAPI } from "../../../services/api";
 import { CalendarioPublico, type AloData } from "./CalendarioPublico";
 import { cn } from "../ui/utils";
+import { precioTotal, tarifasBase, formatCOP, tieneTarifa } from "../../data/pricing";
 
 interface Props {
   open: boolean;
@@ -54,6 +55,7 @@ const emptyForm = (alojamiento = "") => ({
   email_huesped: "",
   telefono_huesped: "",
   numero_huespedes: "2",
+  servicio_adicional: "N/A",
 });
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -480,6 +482,35 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                 <span className="text-[#607651] font-medium">{nights} {nights === 1 ? "noche" : "noches"}</span>
               </div>
 
+              {/* Precio estimado */}
+              {tieneTarifa(form.hospedaje) && (() => {
+                const total = precioTotal(form.hospedaje, form.check_in, form.check_out);
+                const bases = tarifasBase(form.hospedaje)!;
+                return (
+                  <div className="bg-[#f7f9f5] border border-[#607651]/20 rounded-xl px-4 py-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[#607651] text-[10px] tracking-widest uppercase font-semibold"
+                        style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Precio estimado
+                      </span>
+                      <span className="text-[#284735] text-base font-bold"
+                        style={{ fontFamily: "'Playfair Display', serif" }}>
+                        {formatCOP(total)}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-[10px] mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      Lun–Jue {formatCOP(bases.low)} · Fin de semana/festivo/temp. alta {formatCOP(bases.high)} — por noche
+                    </p>
+                    <div className="flex items-start gap-1.5">
+                      <Info size={10} className="text-amber-500 mt-0.5 shrink-0" />
+                      <p className="text-amber-700 text-[10px] leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                        Precio referencial en pesos colombianos. Sujeto a cambios según disponibilidad.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div>
                 <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
                   Nombre completo
@@ -515,6 +546,26 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                   onChange={handleChange} min="1" max="20" required
                   className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
                 />
+              </div>
+
+              <div>
+                <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                  Servicio adicional
+                </label>
+                <select
+                  name="servicio_adicional"
+                  value={form.servicio_adicional}
+                  onChange={handleChange}
+                  className={inputCls}
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  <option value="N/A">Sin servicio adicional</option>
+                  <option value="Desayuno termal">Desayuno termal</option>
+                  <option value="Cumpleaños">Cumpleaños</option>
+                  <option value="Aniversario">Aniversario</option>
+                  <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
+                  <option value="Te amo">Te amo</option>
+                </select>
               </div>
 
               {error && (

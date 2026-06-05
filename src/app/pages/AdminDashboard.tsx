@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
+import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo } from "../data/pricing";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -373,6 +374,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       setReservaModalTab("principal");
     }
   };
+
+  // Auto-calcula valor_alojamiento cuando se crea una reserva nueva y hay tarifa definida
+  useEffect(() => {
+    if (editingReserva) return;
+    const { hospedaje, check_in, check_out } = reservaForm;
+    const calc = precioTotal(hospedaje, check_in, check_out);
+    if (calc > 0) {
+      setReservaForm(f => ({ ...f, valor_alojamiento: calc }));
+    }
+  // Solo se ejecuta cuando cambian los campos clave, no cuando cambia valor_alojamiento
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservaForm.hospedaje, reservaForm.check_in, reservaForm.check_out, editingReserva]);
 
   const handleHuespedAdicionalChange = (index: number, campo: keyof HuespedAdicional, valor: string) => {
     setReservaForm(form => ({
@@ -1960,6 +1973,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <span className="text-slate-500">{l.label}</span>
                     </div>
                   ))}
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-orange-400" />
+                    <span className="text-slate-500">Festivo</span>
+                  </div>
                 </div>
 
                 {/* Tarjeta del calendario */}
@@ -2003,6 +2020,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       const dayRes = getDayReservations(day);
                       const isFullyBooked = dayRes.length >= calLimite;
                       const isPartiallyBooked = dayRes.length > 0 && !isFullyBooked;
+                      const calDateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                      const esFestivoDay = !isPast && esFestivo(calDateStr);
 
                       const base = "rounded-lg p-1 min-h-[52px] border text-xs transition-all text-left w-full ";
                       const color = isToday
@@ -2024,12 +2043,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           onClick={() => setCalSelectedDay({ year, month, day })}
                           title={
                             isPast ? `${day}/${month + 1}/${year}`
-                            : isFullyBooked ? `Sin disponibilidad (${dayRes.length}/${calLimite})`
-                            : isPartiallyBooked ? `${dayRes.length}/${calLimite} ocupados — crear reserva`
+                            : isFullyBooked ? `Sin disponibilidad (${dayRes.length}/${calLimite})${esFestivoDay ? " · Festivo" : ""}`
+                            : isPartiallyBooked ? `${dayRes.length}/${calLimite} ocupados — crear reserva${esFestivoDay ? " · Festivo" : ""}`
+                            : esFestivoDay ? "Festivo — crear reserva"
                             : "Crear reserva"
                           }
                         >
-                          <div className={`text-right font-semibold mb-0.5 ${numColor}`}>{day}</div>
+                          <div className={`flex items-center justify-end gap-1 font-semibold mb-0.5 ${numColor}`}>
+                            {esFestivoDay && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />}
+                            {day}
+                          </div>
                           {dayRes.length > 0 && (
                             <div className="space-y-0.5">
                               {dayRes.slice(0, 2).map(r => (
@@ -2868,7 +2891,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Valor del alojamiento</label>
+                        <label className="block text-sm mb-1 text-[#46654f]">
+                          Valor del alojamiento
+                          {tieneTarifa(reservaForm.hospedaje) && reservaForm.check_in && reservaForm.check_out && (() => {
+                            const calc = precioTotal(reservaForm.hospedaje, reservaForm.check_in, reservaForm.check_out);
+                            const bases = tarifasBase(reservaForm.hospedaje)!;
+                            return calc > 0 ? (
+                              <span className="ml-2 text-[10px] font-normal text-[#607651] bg-[#e8f0e6] px-1.5 py-0.5 rounded">
+                                Tarifa: {formatCOP(bases.low)}/noche lun–jue · {formatCOP(bases.high)}/noche fin sem/festivo/temp. alta
+                              </span>
+                            ) : null;
+                          })()}
+                        </label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
                           <input
@@ -2881,6 +2915,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             onChange={e => setReservaForm(f => ({ ...f, valor_alojamiento: parseCOP(e.target.value) }))}
                           />
                         </div>
+                        <p className="text-[10px] text-amber-600 mt-1">
+                          ⚠ Precio en pesos colombianos. Puede modificarse según disponibilidad o condiciones especiales.
+                        </p>
                       </div>
                       <div>
                         <label className="block text-sm mb-1 text-[#46654f]">Valor del servicio adicional</label>

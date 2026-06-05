@@ -11,6 +11,7 @@ export function NavBar({ onLoginClick }: NavBarProps) {
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 60);
+    handler();
     window.addEventListener("scroll", handler);
     return () => window.removeEventListener("scroll", handler);
   }, []);

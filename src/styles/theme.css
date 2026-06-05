@@ -135,6 +135,14 @@
 
   html {
     font-size: var(--font-size);
+    scroll-padding-top: 80px;
+    scroll-behavior: smooth;
+  }
+
+  @media (min-width: 768px) {
+    html {
+      scroll-padding-top: 112px;
+    }
   }
 
   h1 {

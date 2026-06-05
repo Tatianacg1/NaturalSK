@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { accommodations, type Accommodation } from "../../data/accommodations";
+import { tarifasBase, formatCOP } from "../../data/pricing";
 
 function AccommodationCard({ acc }: { acc: Accommodation }) {
   const [idx, setIdx] = useState(0);
@@ -112,7 +113,7 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
         >
           {acc.description}
         </p>
-        <ul className="space-y-1 mb-6">
+        <ul className="space-y-1 mb-5">
           {acc.features.map((f) => (
             <li
               key={f}
@@ -124,6 +125,42 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
             </li>
           ))}
         </ul>
+
+        {/* Precio por noche */}
+        {(() => {
+          const rates = tarifasBase(acc.name);
+          return rates ? (
+            <div className="mb-5 px-3 py-2.5 bg-primary/10 rounded-lg border border-primary/20">
+              <p className="text-[10px] text-primary/70 tracking-widest uppercase mb-1"
+                style={{ fontFamily: "'DM Mono', monospace" }}>
+                Tarifa por noche
+              </p>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-primary text-lg font-bold"
+                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                    {formatCOP(rates.low)}
+                  </span>
+                  <span className="text-muted-foreground text-xs"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    lun–jue
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-primary/80 text-lg font-bold"
+                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                    {formatCOP(rates.high)}
+                  </span>
+                  <span className="text-muted-foreground text-xs"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    fin de sem / festivo / temp. alta
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : null;
+        })()}
+
         <div className="flex justify-end border-t border-border pt-5">
           <a
             href={`/reservar?alojamiento=${encodeURIComponent(acc.name)}`}

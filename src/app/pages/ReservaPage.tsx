@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, CheckCircle, AlertCircle, Loader, CalendarDays, MapPin, Expand } from "lucide-react";
+import { ArrowLeft, CheckCircle, AlertCircle, Loader, CalendarDays, MapPin, Expand, Info } from "lucide-react";
 import { accommodations } from "../data/accommodations";
 import { reservaPublicaAPI } from "../../services/api";
 import { CalendarioPublico, type AloData } from "../components/sections/CalendarioPublico";
 import { AccommodationLightbox } from "../components/sections/AccommodationLightbox";
 import { cn } from "../components/ui/utils";
+import { precioTotal, tarifasBase, formatCOP, tieneTarifa } from "../data/pricing";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -189,6 +190,7 @@ export function ReservaPage() {
     email_huesped: "",
     telefono_huesped: "",
     numero_huespedes: "2",
+    servicio_adicional: "N/A",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -633,6 +635,39 @@ export function ReservaPage() {
                 )}
               </div>
 
+              {/* Bloque de precio estimado */}
+              {form.hospedaje && form.check_in && form.check_out && normalize(form.hospedaje) !== "dia de sol" && tieneTarifa(form.hospedaje) && (() => {
+                const total = precioTotal(form.hospedaje, form.check_in, form.check_out);
+                const bases = tarifasBase(form.hospedaje)!;
+                return (
+                  <div className="px-6 py-4 border-b border-gray-100 bg-[#f7f9f5]">
+                    <p className="text-[#607651] text-[10px] tracking-[0.2em] uppercase font-semibold mb-3"
+                      style={{ fontFamily: "'DM Mono', monospace" }}>
+                      Precio estimado
+                    </p>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-500 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                        {nights} {nights === 1 ? "noche" : "noches"}
+                      </span>
+                      <span className="text-[#284735] text-sm font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        {formatCOP(total)}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 text-[11px] text-gray-400 mb-3" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      <span>Lun–Jue {formatCOP(bases.low)}/noche</span>
+                      <span>·</span>
+                      <span>Fin de semana / festivo / temp. alta {formatCOP(bases.high)}/noche</span>
+                    </div>
+                    <div className="flex items-start gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <Info size={11} className="text-amber-500 mt-0.5 shrink-0" />
+                      <p className="text-amber-700 text-[10px] leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                        Precio referencial en pesos colombianos. Sujeto a cambios según disponibilidad y condiciones especiales.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Formulario de datos personales */}
               <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
                 <p
@@ -738,6 +773,35 @@ export function ReservaPage() {
                   />
                 </div>
 
+                <div>
+                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                    Servicio adicional
+                  </label>
+                  <select
+                    name="servicio_adicional"
+                    value={form.servicio_adicional}
+                    onChange={handleChange}
+                    className={inputCls}
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    {normalize(form.hospedaje) === "dia de sol" ? (
+                      <>
+                        <option value="N/A">Sin servicio adicional</option>
+                        <option value="Desayuno termal">Desayuno termal</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="N/A">Sin servicio adicional</option>
+                        <option value="Desayuno termal">Desayuno termal</option>
+                        <option value="Cumpleaños">Cumpleaños</option>
+                        <option value="Aniversario">Aniversario</option>
+                        <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
+                        <option value="Te amo">Te amo</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
                 {error && (
                   <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
                     <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
@@ -792,6 +856,9 @@ export function ReservaPage() {
             accommodation={aloLocal}
             disponible={aloData?.disponible ?? true}
             isSelected={form.hospedaje === lightbox}
+            checkIn={form.check_in}
+            checkOut={form.check_out}
+            nights={nights}
             onClose={() => setLightbox(null)}
             onSelect={() => setForm((p) => ({ ...p, hospedaje: lightbox }))}
           />

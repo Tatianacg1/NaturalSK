@@ -2,11 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { cn } from "../ui/utils";
 import type { Accommodation } from "../../data/accommodations";
+import { tarifasBase, precioTotal, formatCOP } from "../../data/pricing";
 
 interface Props {
   accommodation: Accommodation;
   disponible?: boolean;
   isSelected?: boolean;
+  checkIn?: string;
+  checkOut?: string;
+  nights?: number;
   onClose: () => void;
   onSelect: () => void;
 }
@@ -15,6 +19,9 @@ export function AccommodationLightbox({
   accommodation,
   disponible = true,
   isSelected = false,
+  checkIn,
+  checkOut,
+  nights,
   onClose,
   onSelect,
 }: Props) {
@@ -194,6 +201,39 @@ export function AccommodationLightbox({
               </ul>
             </div>
           </div>
+
+          {/* Precio */}
+          {(() => {
+            const rates = tarifasBase(accommodation.name);
+            if (!rates) return null;
+            const hasRange = checkIn && checkOut && nights && nights > 0;
+            const total = hasRange ? precioTotal(accommodation.name, checkIn!, checkOut!) : null;
+            return (
+              <div className="px-6 py-4 border-t border-gray-100 bg-[#f7f9f5]">
+                <p className="text-[10px] text-[#607651] tracking-widest uppercase font-semibold mb-2"
+                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                  {hasRange ? `Precio · ${nights} ${nights === 1 ? "noche" : "noches"}` : "Tarifa por noche"}
+                </p>
+                {hasRange && total ? (
+                  <p className="text-[#284735] text-xl font-bold mb-1"
+                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                    {formatCOP(total)}
+                    <span className="text-sm font-normal text-gray-400 ml-1"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}>total estimado</span>
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-500"
+                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                  <span>{formatCOP(rates.low)} lun–jue</span>
+                  <span>·</span>
+                  <span>{formatCOP(rates.high)} fin de sem / festivo / temp. alta</span>
+                </div>
+                <p className="text-[10px] text-amber-600 mt-2" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  Precios en pesos colombianos · Sujetos a cambios
+                </p>
+              </div>
+            );
+          })()}
 
           {/* CTA */}
           <div className="px-6 pb-6 pt-4 border-t border-gray-100">

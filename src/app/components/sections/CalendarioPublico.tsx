@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../ui/utils";
 import { API_BASE_URL } from "../../../services/api";
+import { esFestivo } from "../../data/pricing";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -257,6 +258,7 @@ export function CalendarioPublico({
             const bookedAlo = !modoFecha && !past && isBookedAlo(year, month, day);
             const cuposDiaSol = !modoFecha && esDiaDeSol && !past ? getCuposDiaDeSol(year, month, day) : null;
             const avCount = modoFecha && !past ? availableCountAt(year, month, day) : 0;
+            const festivo = !past && esFestivo(ds);
             const allAvail = avCount === totalAlos;
             const noneAvail = avCount === 0;
 
@@ -346,6 +348,10 @@ export function CalendarioPublico({
                       {cuposDiaSol === 0 ? "Lleno" : `${cuposDiaSol} cupos`}
                     </span>
                   )}
+                  {/* Indicador festivo */}
+                  {festivo && !start && !end && (
+                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-orange-400 pointer-events-none" />
+                  )}
                 </button>
               </div>
             );
@@ -416,6 +422,10 @@ export function CalendarioPublico({
                 <div className="w-3 h-3 rounded-full bg-red-400" />
                 <span className="text-gray-500">Sin disponibilidad</span>
               </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-orange-400" />
+                <span className="text-gray-500">Festivo</span>
+              </div>
             </>
           ) : (
             <>
@@ -430,6 +440,10 @@ export function CalendarioPublico({
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-full bg-red-200" />
                 <span className="text-gray-500">No disponible</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-orange-400" />
+                <span className="text-gray-500">Festivo</span>
               </div>
             </>
           )}
