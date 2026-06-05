@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { reservaPublicaAPI } from "../../services/api";
 
 interface Props {
@@ -106,18 +106,18 @@ export function CompletarReserva({ token }: Props) {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-[#f4f7f4] flex items-center justify-center">
-        <p className="text-[#46654f]" style={{ fontFamily: "'DM Sans', sans-serif" }}>Cargando...</p>
+      <div className="min-h-screen bg-[#f7ede0] flex items-center justify-center">
+        <p className="text-[#7a4828]" style={{ fontFamily: "'DM Sans', sans-serif" }}>Cargando...</p>
       </div>
     );
   }
 
   if (error && !reservaInfo) {
     return (
-      <div className="min-h-screen bg-[#f4f7f4] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#f7ede0] flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow p-8 max-w-md w-full text-center">
           <p className="text-2xl mb-2">🔗</p>
-          <h2 className="text-xl font-semibold text-[#284735] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h2 className="text-xl font-semibold text-[#3d2010] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
             Enlace no válido
           </h2>
           <p className="text-slate-500 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>{error}</p>
@@ -128,28 +128,28 @@ export function CompletarReserva({ token }: Props) {
 
   if (enviado) {
     return (
-      <div className="min-h-screen bg-[#f4f7f4] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#f7ede0] flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow p-8 max-w-md w-full text-center">
-          <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-amber-700" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-[#284735] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h2 className="text-xl font-semibold text-[#3d2010] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
             ¡Datos registrados!
           </h2>
           <p className="text-slate-500 text-sm mb-6" style={{ fontFamily: "'DM Sans', sans-serif" }}>
             {mensajeExito || "Tu reserva ha sido completada. El equipo de Natural Sound te contactará pronto."}
           </p>
           {reservaInfo && (
-            <div className="bg-[#f0f7f1] rounded-xl p-4 text-left text-sm space-y-1 mb-6" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-              <p className="font-semibold text-[#284735]">{reservaInfo.hospedaje}</p>
-              <p className="text-[#55735d]">{formatFecha(reservaInfo.check_in)} → {formatFecha(reservaInfo.check_out)}</p>
+            <div className="bg-[#f5e8d5] rounded-xl p-4 text-left text-sm space-y-1 mb-6" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <p className="font-semibold text-[#3d2010]">{reservaInfo.hospedaje}</p>
+              <p className="text-[#8b5e38]">{formatFecha(reservaInfo.check_in)} → {formatFecha(reservaInfo.check_out)}</p>
             </div>
           )}
           <button
             onClick={() => window.location.href = "/"}
-            className="w-full py-3 bg-[#365b43] text-white rounded-xl font-medium hover:bg-[#284735] transition-colors"
+            className="w-full py-3 bg-[#5a3518] text-white rounded-xl font-medium hover:bg-[#3d2010] transition-colors"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             Volver a la página principal
@@ -165,7 +165,7 @@ export function CompletarReserva({ token }: Props) {
     : 0;
 
   return (
-    <div className="min-h-screen bg-[#f4f7f4] relative" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#f7ede0] relative" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* Logo de fondo con opacidad */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
@@ -179,7 +179,7 @@ export function CompletarReserva({ token }: Props) {
       />
       {/* Header */}
       <div className="relative z-10">
-      <header className="bg-[#365b43] px-6 py-4">
+      <header className="bg-[#5a3518] px-6 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-center gap-3">
           <img src="/images/sk.png" alt="Natural Sound" className="w-14 h-14 object-contain" />
           <span className="font-semibold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -191,7 +191,7 @@ export function CompletarReserva({ token }: Props) {
       <main className="max-w-2xl mx-auto p-6 space-y-6">
         {/* Datos bloqueados de la reserva */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="bg-[#365b43] px-6 py-4">
+          <div className="bg-[#5a3518] px-6 py-4">
             <h1 className="text-xl font-semibold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
               Completa tu reserva
             </h1>
@@ -199,32 +199,32 @@ export function CompletarReserva({ token }: Props) {
           <div className="px-6 py-5 grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Alojamiento</p>
-              <p className="font-semibold text-[#284735]">{reservaInfo?.hospedaje}</p>
+              <p className="font-semibold text-[#3d2010]">{reservaInfo?.hospedaje}</p>
             </div>
             <div>
               <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Tipo</p>
-              <p className="text-[#284735]">{reservaInfo?.tipo_hospedaje}</p>
+              <p className="text-[#3d2010]">{reservaInfo?.tipo_hospedaje}</p>
             </div>
             <div>
               <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Check-in</p>
-              <p className="font-medium text-[#284735]">{formatFecha(reservaInfo?.check_in || "")}</p>
+              <p className="font-medium text-[#3d2010]">{formatFecha(reservaInfo?.check_in || "")}</p>
             </div>
             <div>
               <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
                 {reservaInfo?.tipo_hospedaje === "Día de Sol" ? "Fecha" : "Check-out"}
               </p>
-              <p className="font-medium text-[#284735]">{formatFecha(reservaInfo?.check_out || "")}</p>
+              <p className="font-medium text-[#3d2010]">{formatFecha(reservaInfo?.check_out || "")}</p>
             </div>
             {n > 0 && (
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Noches</p>
-                <p className="text-[#284735]">{n}</p>
+                <p className="text-[#3d2010]">{n}</p>
               </div>
             )}
             {valorTotal > 0 && (
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Valor total</p>
-                <p className="font-semibold text-[#284735]">
+                <p className="font-semibold text-[#3d2010]">
                   {new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(valorTotal)}
                 </p>
               </div>
@@ -232,7 +232,7 @@ export function CompletarReserva({ token }: Props) {
             {reservaInfo && reservaInfo.abono > 0 && (
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Abono</p>
-                <p className="font-semibold text-green-600">
+                <p className="font-semibold text-amber-700">
                   {new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(reservaInfo.abono)}
                 </p>
               </div>
@@ -250,15 +250,15 @@ export function CompletarReserva({ token }: Props) {
 
         {/* Formulario del huésped */}
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h2 className="text-lg font-semibold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
             Tus datos
           </h2>
 
           <div>
-            <label className="block text-sm mb-1 text-[#46654f]">Nombre completo *</label>
+            <label className="block text-sm mb-1 text-[#7a4828]">Nombre completo *</label>
             <input
               type="text"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#284735] focus:outline-none focus:border-[#365b43]"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] focus:outline-none focus:border-[#5a3518]"
               value={nombre}
               onChange={e => setNombre(e.target.value)}
               required
@@ -267,10 +267,10 @@ export function CompletarReserva({ token }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm mb-1 text-[#46654f]">Cédula / documento *</label>
+            <label className="block text-sm mb-1 text-[#7a4828]">Cédula / documento *</label>
             <input
               type="text"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#284735] focus:outline-none focus:border-[#365b43]"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] focus:outline-none focus:border-[#5a3518]"
               value={cedula}
               onChange={e => setCedula(e.target.value)}
               required
@@ -279,10 +279,10 @@ export function CompletarReserva({ token }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm mb-1 text-[#46654f]">Correo electrónico *</label>
+            <label className="block text-sm mb-1 text-[#7a4828]">Correo electrónico *</label>
             <input
               type="email"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#284735] focus:outline-none focus:border-[#365b43]"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] focus:outline-none focus:border-[#5a3518]"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
@@ -291,10 +291,10 @@ export function CompletarReserva({ token }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm mb-1 text-[#46654f]">WhatsApp *</label>
+            <label className="block text-sm mb-1 text-[#7a4828]">WhatsApp *</label>
             <input
               type="tel"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#284735] focus:outline-none focus:border-[#365b43]"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] focus:outline-none focus:border-[#5a3518]"
               value={telefono}
               onChange={e => setTelefono(e.target.value)}
               required
@@ -303,12 +303,12 @@ export function CompletarReserva({ token }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm mb-1 text-[#46654f]">Número de personas *</label>
+            <label className="block text-sm mb-1 text-[#7a4828]">Número de personas *</label>
             <input
               type="number"
               min={1}
               max={20}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#284735] focus:outline-none focus:border-[#365b43]"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] focus:outline-none focus:border-[#5a3518]"
               value={cantPersonas}
               onChange={e => handleCantChange(Number(e.target.value))}
               required
@@ -318,13 +318,13 @@ export function CompletarReserva({ token }: Props) {
           {/* Datos de huéspedes adicionales */}
           {adicionales.length > 0 && (
             <div className="space-y-4">
-              <p className="text-sm font-medium text-[#365b43]">Demás huéspedes</p>
+              <p className="text-sm font-medium text-[#5a3518]">Demás huéspedes</p>
               {adicionales.map((h, i) => (
-                <div key={i} className="bg-[#f4f7f4] rounded-xl p-4 space-y-3">
-                  <p className="text-xs font-semibold text-[#55735d] uppercase tracking-wide">Huésped {i + 2}</p>
+                <div key={i} className="bg-[#f7ede0] rounded-xl p-4 space-y-3">
+                  <p className="text-xs font-semibold text-[#8b5e38] uppercase tracking-wide">Huésped {i + 2}</p>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#284735] bg-white focus:outline-none focus:border-[#365b43]"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] bg-white focus:outline-none focus:border-[#5a3518]"
                     placeholder="Nombre completo"
                     value={h.nombre}
                     onChange={e => handleAdicionalChange(i, "nombre", e.target.value)}
@@ -332,7 +332,7 @@ export function CompletarReserva({ token }: Props) {
                   />
                   <input
                     type="text"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#284735] bg-white focus:outline-none focus:border-[#365b43]"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] bg-white focus:outline-none focus:border-[#5a3518]"
                     placeholder="Número de documento"
                     value={h.cedula}
                     onChange={e => handleAdicionalChange(i, "cedula", e.target.value)}
@@ -340,7 +340,7 @@ export function CompletarReserva({ token }: Props) {
                   />
                   <input
                     type="email"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#284735] bg-white focus:outline-none focus:border-[#365b43]"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] bg-white focus:outline-none focus:border-[#5a3518]"
                     placeholder="Correo electrónico"
                     value={h.email}
                     onChange={e => handleAdicionalChange(i, "email", e.target.value)}
@@ -361,7 +361,7 @@ export function CompletarReserva({ token }: Props) {
           <button
             type="submit"
             disabled={enviando}
-            className="w-full py-3 bg-[#365b43] text-white rounded-xl font-medium hover:bg-[#284735] transition-colors disabled:opacity-50"
+            className="w-full py-3 bg-[#5a3518] text-white rounded-xl font-medium hover:bg-[#3d2010] transition-colors disabled:opacity-50"
           >
             {enviando ? "Enviando..." : "Confirmar mis datos"}
           </button>

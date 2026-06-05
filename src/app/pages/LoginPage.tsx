@@ -1,4 +1,4 @@
-// Página de login y registro de usuarios.
+﻿// Página de login y registro de usuarios.
 // Incluye formularios para iniciar sesión o crear cuenta, y alterna entre ambos modos.
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
@@ -71,8 +71,8 @@ export function LoginPage({ onSwitchToApp }: LoginPageProps) {
 
       {/* Elementos decorativos de fondo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 right-20 w-72 h-72 bg-green-900/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 left-20 w-72 h-72 bg-green-800/10 rounded-full blur-3xl" />
+        <div className="absolute top-20 right-20 w-72 h-72 bg-amber-900/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-20 w-72 h-72 bg-amber-800/10 rounded-full blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-md">

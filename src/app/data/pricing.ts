@@ -2,13 +2,45 @@
 // Tarifa baja: lunes a jueves (sin festivo ni temporada alta)
 // Tarifa alta: viernes, sábado, domingo, festivos colombianos y temporada alta
 
-const RATES: Record<string, { low: number; high: number }> = {
-  "habitacion pareja":  { low: 370_000, high: 450_000 },
-  "glamping turquesa":  { low: 480_000, high: 650_000 },
-  "glamping esmeralda": { low: 480_000, high: 650_000 },
-  "glamping perla":     { low: 480_000, high: 650_000 },
-  "glamping diamante":  { low: 530_000, high: 690_000 },
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+interface SimpleRates { low: number; high: number }
+
+// Zafiro: 2 franjas tarifarias (lun–jue / fin sem·festivos) según número de huéspedes
+interface ZafiroTier {
+  minGuests: number;
+  maxGuests: number;
+  low: number;   // lun–jue, no festivo, no temporada
+  high: number;  // vie, sáb, dom, festivos, temporada alta
+}
+
+// ─── Tarifas simples ──────────────────────────────────────────────────────────
+
+const RATES: Record<string, SimpleRates> = {
+  "habitacion pareja":     { low: 370_000, high: 450_000 },
+  "habitacion cuadruple":  { low: 620_000, high: 750_000 },
+  "glamping turquesa":     { low: 480_000, high: 650_000 },
+  "glamping esmeralda":    { low: 480_000, high: 650_000 },
+  "glamping perla":        { low: 480_000, high: 650_000 },
+  "glamping diamante":     { low: 530_000, high: 690_000 },
 };
+
+// ─── Tarifa Día de Sol (entrada + consumibles por persona) ───────────────────
+
+interface DiaSolTarifa { entrada: number; consumibles: number }
+
+const DIA_DE_SOL_RATES: { low: DiaSolTarifa; high: DiaSolTarifa } = {
+  low:  { entrada: 120_000, consumibles: 30_000 },  // lun–jue
+  high: { entrada: 170_000, consumibles: 50_000 },  // fin sem, festivos, temporada alta
+};
+
+// ─── Tarifas Zafiro (por número de huéspedes) ─────────────────────────────────
+
+const ZAFIRO_TIERS: ZafiroTier[] = [
+  { minGuests: 1, maxGuests: 2, low: 590_000,   high: 850_000   },
+  { minGuests: 3, maxGuests: 4, low: 850_000,   high: 950_000   },
+  { minGuests: 5, maxGuests: 6, low: 1_290_000, high: 1_390_000 },
+];
 
 // Festivos colombianos observados 2025-2027
 const FESTIVOS = new Set([
@@ -54,9 +86,17 @@ function normalizar(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 }
 
-function obtenerRates(hospedaje: string): { low: number; high: number } | null {
+function obtenerRates(hospedaje: string): SimpleRates | null {
   const n = normalizar(hospedaje);
   return RATES[n] ?? null;
+}
+
+function esZafiro(hospedaje: string): boolean {
+  return normalizar(hospedaje) === "glamping zafiro";
+}
+
+function esDiaDeSol(hospedaje: string): boolean {
+  return normalizar(hospedaje) === "dia de sol";
 }
 
 function esTarifaAlta(dateStr: string): boolean {
@@ -68,24 +108,55 @@ function esTarifaAlta(dateStr: string): boolean {
   return esFinDeSemana || esTemporadaAlta || esFestivo;
 }
 
+/** Devuelve el tier de Zafiro según número de huéspedes. */
+function getZafiroTier(guests: number): ZafiroTier {
+  return (
+    ZAFIRO_TIERS.find(t => guests >= t.minGuests && guests <= t.maxGuests) ??
+    ZAFIRO_TIERS[ZAFIRO_TIERS.length - 1]
+  );
+}
+
+/** Precio de una noche en Zafiro según día y número de huéspedes. */
+function precioNocheZafiro(dateStr: string, guests: number): number {
+  const tier = getZafiroTier(guests);
+  return esTarifaAlta(dateStr) ? tier.high : tier.low;
+}
+
 // ─── API pública ──────────────────────────────────────────────────────────────
 
 /** Precio de UNA noche (la que comienza en `dateStr`) en COP. 0 si no hay tarifa. */
-export function precioNoche(hospedaje: string, dateStr: string): number {
+export function precioNoche(hospedaje: string, dateStr: string, guests = 2): number {
+  if (esZafiro(hospedaje)) return precioNocheZafiro(dateStr, guests);
   const rates = obtenerRates(hospedaje);
   if (!rates) return 0;
   return esTarifaAlta(dateStr) ? rates.high : rates.low;
 }
 
 /** Precio TOTAL del rango check_in → check_out (suma de noches) en COP. */
-export function precioTotal(hospedaje: string, checkIn: string, checkOut: string): number {
-  if (!hospedaje || !checkIn || !checkOut) return 0;
-  const rates = obtenerRates(hospedaje);
-  if (!rates) return 0;
+export function precioTotal(hospedaje: string, checkIn: string, checkOut: string, guests = 2): number {
+  if (!hospedaje || !checkIn) return 0;
+
+  if (esDiaDeSol(hospedaje)) {
+    const rates = esTarifaAlta(checkIn) ? DIA_DE_SOL_RATES.high : DIA_DE_SOL_RATES.low;
+    return rates.entrada * guests;
+  }
+
+  if (!checkOut) return 0;
 
   let total = 0;
   const cur = parseLocal(checkIn);
   const end = parseLocal(checkOut);
+
+  if (esZafiro(hospedaje)) {
+    while (cur < end) {
+      total += precioNocheZafiro(toDateStr(cur), guests);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return total;
+  }
+
+  const rates = obtenerRates(hospedaje);
+  if (!rates) return 0;
   while (cur < end) {
     const s = toDateStr(cur);
     total += esTarifaAlta(s) ? rates.high : rates.low;
@@ -95,13 +166,33 @@ export function precioTotal(hospedaje: string, checkIn: string, checkOut: string
 }
 
 /** Devuelve las tarifas base del alojamiento para mostrar en UI, o null si no está definido. */
-export function tarifasBase(hospedaje: string): { low: number; high: number } | null {
+export function tarifasBase(hospedaje: string, guests = 2): SimpleRates | null {
+  if (esZafiro(hospedaje)) {
+    const tier = getZafiroTier(guests);
+    return { low: tier.low, high: tier.high };
+  }
+  if (esDiaDeSol(hospedaje)) {
+    return {
+      low: DIA_DE_SOL_RATES.low.entrada,
+      high: DIA_DE_SOL_RATES.high.entrada,
+    };
+  }
   return obtenerRates(hospedaje);
+}
+
+/** Devuelve todos los tiers de Zafiro (para mostrar tabla de tarifas en UI). */
+export function tarifasZafiroTiers(): ZafiroTier[] {
+  return ZAFIRO_TIERS;
+}
+
+/** Devuelve las tarifas de Día de Sol (entrada + consumibles) para mostrar en UI. */
+export function tarifasDiaDeSol(): { low: DiaSolTarifa; high: DiaSolTarifa } {
+  return DIA_DE_SOL_RATES;
 }
 
 /** True si el alojamiento tiene tarifa definida. */
 export function tieneTarifa(hospedaje: string): boolean {
-  return obtenerRates(hospedaje) !== null;
+  return esZafiro(hospedaje) || esDiaDeSol(hospedaje) || obtenerRates(hospedaje) !== null;
 }
 
 /** Formatea un número como moneda COP. */

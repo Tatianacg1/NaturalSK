@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+﻿import { useState, useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { accommodations, type Accommodation } from "../../data/accommodations";
-import { tarifasBase, formatCOP } from "../../data/pricing";
+import { tarifasBase, tarifasZafiroTiers, tarifasDiaDeSol, formatCOP } from "../../data/pricing";
 
 function AccommodationCard({ acc }: { acc: Accommodation }) {
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
+  const isDDS = acc.name.toLowerCase().includes("dia de sol") || acc.name.toLowerCase().includes("día de sol");
   const total = acc.images.length;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -107,53 +108,140 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
         >
           {acc.name}
         </h3>
-        <p
-          className="text-muted-foreground text-sm leading-relaxed mb-5 flex-1"
-          style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300 }}
-        >
-          {acc.description}
-        </p>
-        <ul className="space-y-1 mb-5">
-          {acc.features.map((f) => (
-            <li
-              key={f}
-              className="text-muted-foreground text-xs flex items-center gap-2"
-              style={{ fontFamily: "'DM Sans', sans-serif" }}
-            >
-              <span className="w-1 h-1 rounded-full bg-primary inline-block" />
-              {f}
-            </li>
-          ))}
-        </ul>
+        <div className="flex-1">
+          <p
+            className="text-muted-foreground text-sm leading-relaxed mb-5"
+            style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300 }}
+          >
+            {acc.description}
+          </p>
+          <ul className="space-y-1 mb-5">
+            {acc.features.map((f) => (
+              <li
+                key={f}
+                className="text-muted-foreground text-xs flex items-center gap-2"
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
+                <span className="w-1 h-1 rounded-full bg-primary inline-block" />
+                {f}
+              </li>
+            ))}
+          </ul>
+        </div>
 
         {/* Precio por noche */}
         {(() => {
+          const isZafiro = acc.name.toLowerCase().includes("zafiro");
+          const isDiaDeSol = acc.name.toLowerCase().includes("dia de sol") || acc.name.toLowerCase().includes("día de sol");
+
+          if (isDiaDeSol) {
+            const ds = tarifasDiaDeSol();
+            return (
+              <div className="mb-5 px-3 py-2.5 bg-primary/10 rounded-lg border border-primary/20">
+                <p className="text-[10px] text-primary/70 tracking-widest uppercase mb-2"
+                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                  Tarifa por día · por persona
+                </p>
+                {/* Encabezado */}
+                <div className="grid grid-cols-[6rem_1fr_1fr] text-[8px] text-muted-foreground uppercase tracking-wider mb-1 pb-1 border-b border-primary/10"
+                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                  <span />
+                  <span className="text-center">Lun–Jue</span>
+                  <span className="text-center">Fin sem · Fest</span>
+                </div>
+                {/* Filas */}
+                <div className="grid grid-cols-[6rem_1fr_1fr] items-center py-0.5 gap-x-1">
+                  <span className="text-[11px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+                    Entrada
+                  </span>
+                  <span className="text-primary text-[11px] font-bold text-center"
+                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                    {formatCOP(ds.low.entrada)}
+                  </span>
+                  <span className="text-primary/80 text-[11px] font-bold text-center"
+                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                    {formatCOP(ds.high.entrada)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-[6rem_1fr_1fr] items-center py-0.5 gap-x-1">
+                  <span className="text-[11px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+                    Consumibles
+                  </span>
+                  <span className="text-primary text-[11px] font-bold text-center"
+                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                    {formatCOP(ds.low.consumibles)}
+                  </span>
+                  <span className="text-primary/80 text-[11px] font-bold text-center"
+                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                    {formatCOP(ds.high.consumibles)}
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
+          if (isZafiro) {
+            const tiers = tarifasZafiroTiers();
+            return (
+              <div className="mb-5 px-3 py-2.5 bg-primary/10 rounded-lg border border-primary/20">
+                <p className="text-[10px] text-primary/70 tracking-widest uppercase mb-2"
+                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                  Tarifa por noche
+                </p>
+                {/* Encabezado columnas */}
+                <div className="grid grid-cols-[3rem_1fr_1fr] text-[8px] text-muted-foreground uppercase tracking-wider mb-1 pb-1 border-b border-primary/10"
+                  style={{ fontFamily: "'DM Mono', monospace" }}>
+                  <span />
+                  <span className="text-center">Lun–Jue</span>
+                  <span className="text-center">Fin sem · Fest</span>
+                </div>
+                {/* Filas */}
+                {tiers.map((tier, i) => (
+                  <div key={i} className="grid grid-cols-[3rem_1fr_1fr] items-center py-0.5 gap-x-1">
+                    <span className="text-[11px] text-muted-foreground whitespace-nowrap"
+                      style={{ fontFamily: "'DM Mono', monospace" }}>
+                      {i === 0 ? "1–2 per." : i === 1 ? "3–4 per." : "5–6 per."}
+                    </span>
+                    <span className="text-primary text-[11px] font-bold text-center"
+                      style={{ fontFamily: "'Playfair Display', serif" }}>
+                      {formatCOP(tier.low)}
+                    </span>
+                    <span className="text-primary/80 text-[11px] font-bold text-center"
+                      style={{ fontFamily: "'Playfair Display', serif" }}>
+                      {formatCOP(tier.high)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          }
+
           const rates = tarifasBase(acc.name);
           return rates ? (
             <div className="mb-5 px-3 py-2.5 bg-primary/10 rounded-lg border border-primary/20">
-              <p className="text-[10px] text-primary/70 tracking-widest uppercase mb-1"
+              <p className="text-[10px] text-primary/70 tracking-widest uppercase mb-2"
                 style={{ fontFamily: "'DM Mono', monospace" }}>
                 Tarifa por noche
               </p>
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-primary text-lg font-bold"
+              <div className="grid grid-cols-2 gap-x-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[8px] text-muted-foreground uppercase tracking-wider"
+                    style={{ fontFamily: "'DM Mono', monospace" }}>
+                    Lun – Jue
+                  </span>
+                  <span className="text-primary text-base font-bold"
                     style={{ fontFamily: "'Playfair Display', serif" }}>
                     {formatCOP(rates.low)}
                   </span>
-                  <span className="text-muted-foreground text-xs"
-                    style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    lun–jue
-                  </span>
                 </div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-primary/80 text-lg font-bold"
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[8px] text-muted-foreground uppercase tracking-wider"
+                    style={{ fontFamily: "'DM Mono', monospace" }}>
+                    Fin sem · Fest
+                  </span>
+                  <span className="text-primary/80 text-base font-bold"
                     style={{ fontFamily: "'Playfair Display', serif" }}>
                     {formatCOP(rates.high)}
-                  </span>
-                  <span className="text-muted-foreground text-xs"
-                    style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    fin de sem / festivo / temp. alta
                   </span>
                 </div>
               </div>
@@ -161,10 +249,17 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
           ) : null;
         })()}
 
-        <div className="flex justify-end border-t border-border pt-5">
+        <div className="flex items-center gap-1.5 pt-4 pb-4 border-t border-border">
+          <Clock size={11} className="text-primary/50 shrink-0" />
+          <span className="text-[11px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+            {isDDS ? "Ingreso 9:00 AM – 6:00 PM" : "Check-in 3:00 PM · Check-out 12:00 PM"}
+          </span>
+        </div>
+
+        <div className="flex justify-end">
           <a
             href={`/reservar?alojamiento=${encodeURIComponent(acc.name)}`}
-            className="text-xs tracking-widest uppercase bg-[#607651] hover:bg-[#4e6142] text-white px-4 py-2 transition-colors"
+            className="text-xs tracking-widest uppercase bg-[#8a6038] hover:bg-[#7a4c28] text-white px-4 py-2 transition-colors"
             style={{ fontFamily: "'DM Mono', monospace" }}
           >
             Reservar

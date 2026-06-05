@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { X, CheckCircle, AlertCircle, Loader, ChevronLeft, Info, MessageCircle } from "lucide-react";
 import { accommodations } from "../../data/accommodations";
 import { reservaPublicaAPI } from "../../../services/api";
@@ -68,7 +68,7 @@ function buildWaUrl(
     ``,
     `Quiero confirmar los detalles del pago.`,
   ];
-  return `https://wa.me/573127131999?text=${encodeURIComponent(lines.join("\n"))}`;
+  return `https://wa.me/573046643574?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
 const emptyForm = (alojamiento = "") => ({
@@ -85,10 +85,18 @@ const emptyForm = (alojamiento = "") => ({
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
+const INDICATIVOS_MODAL = [
+  { code: "+57", flag: "🇨🇴" }, { code: "+1",   flag: "🇺🇸" }, { code: "+52",  flag: "🇲🇽" },
+  { code: "+54", flag: "🇦🇷" }, { code: "+55",  flag: "🇧🇷" }, { code: "+56",  flag: "🇨🇱" },
+  { code: "+51", flag: "🇵🇪" }, { code: "+58",  flag: "🇻🇪" }, { code: "+593", flag: "🇪🇨" },
+  { code: "+507", flag: "🇵🇦" }, { code: "+34", flag: "🇪🇸" }, { code: "+44",  flag: "🇬🇧" },
+];
+
 export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props) {
   const [modoVista, setModoVista] = useState<"alojamiento" | "fecha">("fecha");
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState(emptyForm(alojamientoInicial));
+  const [indicativo, setIndicativo] = useState("+57");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState(false);
@@ -107,6 +115,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
       setForm(emptyForm());
     }
     setStep(1);
+    setIndicativo("+57");
     setError("");
     setExito(false);
   }, [open, alojamientoInicial]);
@@ -163,8 +172,14 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
     setLoading(true);
     setError("");
     try {
+      const local = form.telefono_huesped.trim().replace(/^\+/, "");
+      const codSin = indicativo.replace("+", "");
+      const telefonoCombinado = local
+        ? (local.startsWith(codSin) ? `+${local}` : `${indicativo}${local}`)
+        : "";
       await reservaPublicaAPI.crearPublica({
         ...form,
+        telefono_huesped: telefonoCombinado,
         numero_huespedes: Number(form.numero_huespedes),
       });
       setExito(true);
@@ -177,9 +192,9 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
 
   // ─── Estilos de input reutilizables ──────────────────────────────────────────
   const inputCls =
-    "w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2.5 placeholder:text-gray-400 focus:outline-none focus:border-[#607651] focus:ring-1 focus:ring-[#607651]/20 transition-colors";
+    "w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2.5 placeholder:text-gray-400 focus:outline-none focus:border-[#8a6038] focus:ring-1 focus:ring-[#8a6038]/20 transition-colors";
   const labelCls =
-    "block text-[#607651] text-[10px] tracking-widest uppercase mb-1.5";
+    "block text-[#8a6038] text-[10px] tracking-widest uppercase mb-1.5";
 
   return (
     <div
@@ -196,20 +211,20 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
             {step === 2 && !exito && (
               <button
                 onClick={() => { setStep(1); setError(""); }}
-                className="text-[#607651] hover:text-[#284735] transition-colors p-1 -ml-1"
+                className="text-[#8a6038] hover:text-[#3d2010] transition-colors p-1 -ml-1"
               >
                 <ChevronLeft size={18} />
               </button>
             )}
             <div>
               <p
-                className="text-[#607651] text-[10px] tracking-[0.3em] uppercase"
+                className="text-[#8a6038] text-[10px] tracking-[0.3em] uppercase"
                 style={{ fontFamily: "'DM Mono', monospace" }}
               >
                 Natural Sound {!exito && `· Paso ${step} de 2`}
               </p>
               <h2
-                className="text-[#284735] text-xl font-semibold leading-tight"
+                className="text-[#3d2010] text-xl font-semibold leading-tight"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
                 {exito
@@ -234,7 +249,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
           {/* ── ÉXITO ── */}
           {exito && (() => {
             const exitoTotal = tieneTarifa(form.hospedaje) && form.check_in && form.check_out
-              ? precioTotal(form.hospedaje, form.check_in, form.check_out)
+              ? precioTotal(form.hospedaje, form.check_in, form.check_out, Number(form.numero_huespedes))
               : null;
             const waUrl = buildWaUrl(
               form.hospedaje, form.check_in, form.check_out, nights,
@@ -242,15 +257,15 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
             );
             return (
               <div className="text-center py-8">
-                <CheckCircle size={52} className="text-[#607651] mx-auto mb-4" />
+                <CheckCircle size={52} className="text-[#8a6038] mx-auto mb-4" />
                 <p
-                  className="text-[#284735] text-lg font-semibold mb-2"
+                  className="text-[#3d2010] text-lg font-semibold mb-2"
                   style={{ fontFamily: "'Playfair Display', serif" }}
                 >
                   Tu solicitud fue recibida
                 </p>
                 <p className="text-gray-600 text-sm mb-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                  <span className="text-[#284735] font-medium">{form.hospedaje}</span>
+                  <span className="text-[#3d2010] font-medium">{form.hospedaje}</span>
                   {" · "}
                   {formatDateEs(form.check_in)} → {formatDateEs(form.check_out)}
                   {" · "}
@@ -269,7 +284,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                     href={waUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white px-6 py-3 rounded-full text-sm font-semibold transition-colors shadow-sm"
+                    className="flex items-center justify-center gap-2 bg-[#7c4a28] hover:bg-[#c4813f] text-white px-6 py-3 rounded-full text-sm font-semibold transition-colors shadow-sm"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
                     <MessageCircle size={16} />
@@ -300,7 +315,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                     className={cn(
                       "flex-1 py-2 text-xs rounded-lg transition-all",
                       modoVista === modo
-                        ? "bg-[#607651] text-white font-semibold shadow-sm"
+                        ? "bg-[#8a6038] text-white font-semibold shadow-sm"
                         : "text-gray-500 hover:text-gray-700"
                     )}
                     style={{ fontFamily: "'DM Mono', monospace", letterSpacing: "0.05em" }}
@@ -363,7 +378,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                   {form.check_in && form.check_out && alosDisponibles.length > 0 && (
                     <div className="space-y-2">
                       <p
-                        className="text-[#607651] text-[10px] tracking-widest uppercase"
+                        className="text-[#8a6038] text-[10px] tracking-widest uppercase"
                         style={{ fontFamily: "'DM Mono', monospace" }}
                       >
                         Alojamientos · {formatDateEs(form.check_in)} → {formatDateEs(form.check_out)}
@@ -389,8 +404,8 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                             !alo.disponible
                               ? "border-red-100 bg-red-50/60 cursor-not-allowed"
                               : selected
-                                ? "border-[#607651] bg-[#f0f5ec] cursor-pointer shadow-sm"
-                                : "border-gray-200 bg-white hover:border-[#607651]/50 hover:bg-gray-50 cursor-pointer"
+                                ? "border-[#8a6038] bg-[#f0f5ec] cursor-pointer shadow-sm"
+                                : "border-gray-200 bg-white hover:border-[#8a6038]/50 hover:bg-gray-50 cursor-pointer"
                           )}
                         >
                           {/* Imagen */}
@@ -425,7 +440,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                                 className={cn(
                                   "shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full",
                                   alo.disponible
-                                    ? "text-[#607651] bg-[#607651]/10"
+                                    ? "text-[#8a6038] bg-[#8a6038]/10"
                                     : "text-red-500 bg-red-100"
                                 )}
                                 style={{ fontFamily: "'DM Mono', monospace" }}
@@ -459,7 +474,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
 
                           {/* Check de seleccionado */}
                           {selected && alo.disponible && (
-                            <div className="shrink-0 w-5 h-5 rounded-full bg-[#607651] flex items-center justify-center">
+                            <div className="shrink-0 w-5 h-5 rounded-full bg-[#8a6038] flex items-center justify-center">
                               <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
                                 <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                               </svg>
@@ -487,12 +502,12 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                 <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
                   <div className="text-center">
                     <p
-                      className="text-[#607651] text-[9px] tracking-widest uppercase mb-0.5"
+                      className="text-[#8a6038] text-[9px] tracking-widest uppercase mb-0.5"
                       style={{ fontFamily: "'DM Mono', monospace" }}
                     >
                       Llegada
                     </p>
-                    <p className="text-[#284735] text-sm font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    <p className="text-[#3d2010] text-sm font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
                       {formatDateEs(form.check_in)}
                     </p>
                   </div>
@@ -505,12 +520,12 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                   </div>
                   <div className="text-center">
                     <p
-                      className="text-[#607651] text-[9px] tracking-widest uppercase mb-0.5"
+                      className="text-[#8a6038] text-[9px] tracking-widest uppercase mb-0.5"
                       style={{ fontFamily: "'DM Mono', monospace" }}
                     >
                       Salida
                     </p>
-                    <p className="text-[#284735] text-sm font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    <p className="text-[#3d2010] text-sm font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
                       {formatDateEs(form.check_out)}
                     </p>
                   </div>
@@ -525,25 +540,26 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
               {/* Resumen compacto */}
               <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                <span className="text-[#284735] font-medium">{form.hospedaje}</span>
+                <span className="text-[#3d2010] font-medium">{form.hospedaje}</span>
                 <span className="text-gray-400"> · </span>
                 <span className="text-gray-600">{formatDateEs(form.check_in)} → {formatDateEs(form.check_out)}</span>
                 <span className="text-gray-400"> · </span>
-                <span className="text-[#607651] font-medium">{nights} {nights === 1 ? "noche" : "noches"}</span>
+                <span className="text-[#8a6038] font-medium">{nights} {nights === 1 ? "noche" : "noches"}</span>
               </div>
 
               {/* Precio estimado */}
               {tieneTarifa(form.hospedaje) && (() => {
-                const total = precioTotal(form.hospedaje, form.check_in, form.check_out);
-                const bases = tarifasBase(form.hospedaje)!;
+                const g = Number(form.numero_huespedes);
+                const total = precioTotal(form.hospedaje, form.check_in, form.check_out, g);
+                const bases = tarifasBase(form.hospedaje, g)!;
                 return (
-                  <div className="bg-[#f7f9f5] border border-[#607651]/20 rounded-xl px-4 py-3">
+                  <div className="bg-[#f9f2e8] border border-[#8a6038]/20 rounded-xl px-4 py-3">
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-[#607651] text-[10px] tracking-widest uppercase font-semibold"
+                      <span className="text-[#8a6038] text-[10px] tracking-widest uppercase font-semibold"
                         style={{ fontFamily: "'DM Mono', monospace" }}>
                         Precio estimado
                       </span>
-                      <span className="text-[#284735] text-base font-bold"
+                      <span className="text-[#3d2010] text-base font-bold"
                         style={{ fontFamily: "'Playfair Display', serif" }}>
                         {formatCOP(total)}
                       </span>
@@ -592,10 +608,29 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                 </div>
                 <div>
                   <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>WhatsApp</label>
-                  <input type="tel" name="telefono_huesped" value={form.telefono_huesped}
-                    onChange={handleChange} required placeholder="+57 300 000 0000"
-                    className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  />
+                  <div className="flex rounded-xl border border-gray-200 overflow-hidden focus-within:border-[#8a6038] focus-within:ring-2 focus-within:ring-[#8a6038]/10 transition-all bg-white">
+                    <select
+                      value={indicativo}
+                      onChange={(e) => setIndicativo(e.target.value)}
+                      className="w-[96px] shrink-0 bg-gray-50 border-r border-gray-200 text-gray-700 text-sm pl-2 pr-1 py-3 focus:outline-none cursor-pointer"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      {INDICATIVOS_MODAL.map(({ code, flag }) => (
+                        <option key={code} value={code}>{flag} {code}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      inputMode="tel"
+                      name="telefono_huesped"
+                      value={form.telefono_huesped}
+                      onChange={handleChange}
+                      required
+                      placeholder="300 000 0000"
+                      className="flex-1 min-w-0 px-3 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none bg-white"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -655,7 +690,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
               <button
                 onClick={() => setStep(2)}
                 disabled={!canContinue}
-                className="w-full bg-[#607651] hover:bg-[#4e6142] disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-full text-sm tracking-wide transition-colors font-medium"
+                className="w-full bg-[#8a6038] hover:bg-[#7a4c28] disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-full text-sm tracking-wide transition-colors font-medium"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
                 {!form.hospedaje
@@ -671,7 +706,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                 type="submit"
                 form="form-datos"
                 disabled={loading}
-                className="w-full bg-[#607651] hover:bg-[#4e6142] disabled:opacity-60 text-white py-3 rounded-full text-sm tracking-wide transition-colors font-medium flex items-center justify-center gap-2"
+                className="w-full bg-[#8a6038] hover:bg-[#7a4c28] disabled:opacity-60 text-white py-3 rounded-full text-sm tracking-wide transition-colors font-medium flex items-center justify-center gap-2"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
                 {loading ? (

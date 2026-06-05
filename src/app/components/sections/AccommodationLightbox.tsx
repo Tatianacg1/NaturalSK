@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { cn } from "../ui/utils";
 import type { Accommodation } from "../../data/accommodations";
@@ -151,7 +151,7 @@ export function AccommodationLightbox({
             {/* Badge + tipo */}
             <div className="flex items-center gap-2 mb-3">
               <span
-                className="text-[10px] bg-[#607651]/10 text-[#607651] px-2.5 py-1 rounded-full font-semibold"
+                className="text-[10px] bg-[#8a6038]/10 text-[#8a6038] px-2.5 py-1 rounded-full font-semibold"
                 style={{ fontFamily: "'DM Mono', monospace" }}
               >
                 {accommodation.type}
@@ -166,7 +166,7 @@ export function AccommodationLightbox({
 
             {/* Nombre */}
             <h2
-              className="text-[#284735] text-2xl font-semibold mb-3 leading-tight"
+              className="text-[#3d2010] text-2xl font-semibold mb-3 leading-tight"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
               {accommodation.name}
@@ -183,7 +183,7 @@ export function AccommodationLightbox({
             {/* Características */}
             <div>
               <p
-                className="text-[#607651] text-[10px] tracking-[0.2em] uppercase font-semibold mb-2"
+                className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold mb-2"
                 style={{ fontFamily: "'DM Mono', monospace" }}
               >
                 Incluye
@@ -192,8 +192,8 @@ export function AccommodationLightbox({
                 {accommodation.features.map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-gray-600"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    <span className="w-4 h-4 rounded-full bg-[#607651]/10 flex items-center justify-center shrink-0">
-                      <Check size={9} className="text-[#607651]" strokeWidth={3} />
+                    <span className="w-4 h-4 rounded-full bg-[#8a6038]/10 flex items-center justify-center shrink-0">
+                      <Check size={9} className="text-[#8a6038]" strokeWidth={3} />
                     </span>
                     {f}
                   </li>
@@ -209,13 +209,13 @@ export function AccommodationLightbox({
             const hasRange = checkIn && checkOut && nights && nights > 0;
             const total = hasRange ? precioTotal(accommodation.name, checkIn!, checkOut!) : null;
             return (
-              <div className="px-6 py-4 border-t border-gray-100 bg-[#f7f9f5]">
-                <p className="text-[10px] text-[#607651] tracking-widest uppercase font-semibold mb-2"
+              <div className="px-6 py-4 border-t border-gray-100 bg-[#f9f2e8]">
+                <p className="text-[10px] text-[#8a6038] tracking-widest uppercase font-semibold mb-2"
                   style={{ fontFamily: "'DM Mono', monospace" }}>
                   {hasRange ? `Precio · ${nights} ${nights === 1 ? "noche" : "noches"}` : "Tarifa por noche"}
                 </p>
                 {hasRange && total ? (
-                  <p className="text-[#284735] text-xl font-bold mb-1"
+                  <p className="text-[#3d2010] text-xl font-bold mb-1"
                     style={{ fontFamily: "'Playfair Display', serif" }}>
                     {formatCOP(total)}
                     <span className="text-sm font-normal text-gray-400 ml-1"
@@ -243,8 +243,8 @@ export function AccommodationLightbox({
                 className={cn(
                   "w-full py-3 rounded-full text-sm font-semibold transition-all flex items-center justify-center gap-2",
                   isSelected
-                    ? "bg-[#4e6142] text-white"
-                    : "bg-[#607651] hover:bg-[#4e6142] text-white shadow-sm"
+                    ? "bg-[#7a4c28] text-white"
+                    : "bg-[#8a6038] hover:bg-[#7a4c28] text-white shadow-sm"
                 )}
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >

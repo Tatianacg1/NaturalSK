@@ -11,8 +11,8 @@ export function Hero() {
           alt="Carpas de glamping rodeadas de bosque en Natural Sound"
           className="w-full h-full object-cover opacity-55"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0f1a0e] via-[#0f1a0e]/30 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0f1a0e]/70 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1a100a] via-[#1a100a]/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a100a]/70 via-transparent to-transparent" />
       </div>
 
       <div className="relative mt-auto z-10 max-w-7xl mx-auto px-6 w-full">

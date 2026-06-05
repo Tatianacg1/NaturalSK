@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../ui/utils";
 import { API_BASE_URL } from "../../../services/api";
@@ -224,7 +224,7 @@ export function CalendarioPublico({
     return (
       <div>
         <p
-          className="text-center text-sm font-semibold text-[#284735] mb-4"
+          className="text-center text-sm font-semibold text-[#3d2010] mb-4"
           style={{ fontFamily: "'Playfair Display', serif" }}
         >
           {MONTHS[month]} {year}
@@ -269,7 +269,7 @@ export function CalendarioPublico({
               <div key={day} className="relative h-11">
                 {showBand && (
                   <div
-                    className="absolute inset-y-[3px] bg-[#607651]/15 pointer-events-none"
+                    className="absolute inset-y-[3px] bg-[#8a6038]/15 pointer-events-none"
                     style={{
                       left: showStartBand ? "50%" : "0",
                       right: showEndBand ? "50%" : "0",
@@ -295,9 +295,9 @@ export function CalendarioPublico({
                     className={cn(
                       "h-8 w-8 flex items-center justify-center rounded-full text-[13px] transition-colors relative z-10",
                       start || end
-                        ? "bg-[#607651] text-white font-semibold"
+                        ? "bg-[#8a6038] text-white font-semibold"
                         : ranged
-                          ? "text-[#607651] font-medium"
+                          ? "text-[#8a6038] font-medium"
                           : past
                             ? "text-gray-300 cursor-default"
                             : bookedAlo
@@ -309,16 +309,16 @@ export function CalendarioPublico({
                                     ? "text-orange-500 font-bold ring-2 ring-orange-400 bg-orange-50 hover:bg-orange-100 cursor-pointer"
                                     : allAvail
                                       ? todayCell
-                                        ? "text-[#607651] ring-1 ring-[#607651] hover:bg-[#607651]/10"
-                                        : "text-gray-800 hover:bg-[#607651]/10 cursor-pointer"
+                                        ? "text-[#8a6038] ring-1 ring-[#8a6038] hover:bg-[#8a6038]/10"
+                                        : "text-gray-800 hover:bg-[#8a6038]/10 cursor-pointer"
                                       : "text-amber-600 hover:bg-amber-50 cursor-pointer"
                                 : festivo
                                   ? todayCell
                                     ? "text-orange-500 font-bold ring-2 ring-orange-400 bg-orange-50 hover:bg-orange-100"
                                     : "text-orange-500 font-bold ring-2 ring-orange-400 bg-orange-50 hover:bg-orange-100 cursor-pointer"
                                   : todayCell
-                                    ? "text-[#607651] ring-1 ring-[#607651] hover:bg-[#607651]/10"
-                                    : "text-gray-700 hover:bg-[#607651]/10 hover:text-[#284735] cursor-pointer"
+                                    ? "text-[#8a6038] ring-1 ring-[#8a6038] hover:bg-[#8a6038]/10"
+                                    : "text-gray-700 hover:bg-[#8a6038]/10 hover:text-[#3d2010] cursor-pointer"
                     )}
                   >
                     {day}
@@ -329,7 +329,7 @@ export function CalendarioPublico({
                     <span
                       className={cn(
                         "text-[9px] leading-none font-bold",
-                        noneAvail ? "text-red-400" : allAvail ? "text-[#607651]" : "text-amber-500"
+                        noneAvail ? "text-red-400" : allAvail ? "text-[#8a6038]" : "text-amber-500"
                       )}
                       style={{ fontFamily: "'DM Mono', monospace" }}
                     >
@@ -345,7 +345,7 @@ export function CalendarioPublico({
                           ? "text-red-400"
                           : cuposDiaSol <= 8
                             ? "text-amber-500"
-                            : "text-[#607651]"
+                            : "text-[#8a6038]"
                       )}
                       style={{ fontFamily: "'DM Mono', monospace" }}
                     >
@@ -368,14 +368,14 @@ export function CalendarioPublico({
         <button
           onClick={() => canGoPrev && setBase((p) => advance(p.year, p.month, -1))}
           disabled={!canGoPrev}
-          className="p-2 rounded-full hover:bg-gray-100 text-[#607651] disabled:opacity-20 transition-colors"
+          className="p-2 rounded-full hover:bg-gray-100 text-[#8a6038] disabled:opacity-20 transition-colors"
         >
           <ChevronLeft size={16} />
         </button>
         <div className="flex-1" />
         <button
           onClick={() => setBase((p) => advance(p.year, p.month, 1))}
-          className="p-2 rounded-full hover:bg-gray-100 text-[#607651] transition-colors"
+          className="p-2 rounded-full hover:bg-gray-100 text-[#8a6038] transition-colors"
         >
           <ChevronRight size={16} />
         </button>
@@ -411,7 +411,7 @@ export function CalendarioPublico({
           {modoFecha ? (
             <>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[#607651]" />
+                <div className="w-3 h-3 rounded-full bg-[#8a6038]" />
                 <span className="text-gray-500">Todos disponibles</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -430,11 +430,11 @@ export function CalendarioPublico({
           ) : (
             <>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[#607651]" />
+                <div className="w-3 h-3 rounded-full bg-[#8a6038]" />
                 <span className="text-gray-500">Disponible</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[#607651]/20 ring-1 ring-[#607651]/40" />
+                <div className="w-3 h-3 rounded-full bg-[#8a6038]/20 ring-1 ring-[#8a6038]/40" />
                 <span className="text-gray-500">Seleccionado</span>
               </div>
               <div className="flex items-center gap-1.5">

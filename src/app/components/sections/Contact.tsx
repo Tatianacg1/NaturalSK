@@ -1,9 +1,9 @@
-import { MapPin, Phone, Instagram } from "lucide-react";
+﻿import { MapPin, Phone, Instagram } from "lucide-react";
 
 const VALLEY_IMG = "/images/pisc1.jpeg";
 
 const contactInfo = [
-  { Icon: Phone, text: "+57 (312) 713 1999" },
+  { Icon: Phone, text: "+57 (304) 664 3574" },
   { Icon: Instagram, text: "@glampingnaturalsound" },
   { Icon: MapPin, text: "San Felix, Bello, Antioquia" },
 ] as const;
@@ -67,13 +67,13 @@ export function Contact() {
           </p>
           <a
             href="/reservar"
-            className="inline-flex items-center justify-center rounded-full bg-[#607651] hover:bg-[#4e6142] px-8 py-4 text-sm font-semibold text-white transition-colors"
+            className="inline-flex items-center justify-center rounded-full bg-[#8a6038] hover:bg-[#7a4c28] px-8 py-4 text-sm font-semibold text-white transition-colors"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             Solicitar reserva
           </a>
           <a
-            href="https://wa.me/573127131999?text=Hola%20quiero%20reservar%20una%20estancia%20en%20Natural%20Sound"
+            href="https://wa.me/573046643574?text=Hola%20quiero%20reservar%20una%20estancia%20en%20Natural%20Sound"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center rounded-full border border-border px-8 py-4 text-sm text-muted-foreground hover:text-foreground hover:border-primary transition-colors"

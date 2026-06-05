@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, CheckCircle, AlertCircle, Loader, CalendarDays, MapPin, Expand, Info, MessageCircle } from "lucide-react";
+﻿import { useState, useEffect, useRef } from "react";
+import { ArrowLeft, CheckCircle, AlertCircle, Loader, CalendarDays, MapPin, Expand, Info, MessageCircle, Clock } from "lucide-react";
 import { accommodations } from "../data/accommodations";
 import { reservaPublicaAPI } from "../../services/api";
 import { CalendarioPublico, type AloData } from "../components/sections/CalendarioPublico";
@@ -80,7 +80,7 @@ function buildWaUrl(
     ``,
     `Quiero confirmar los detalles del pago.`,
   ];
-  return `https://wa.me/573127131999?text=${encodeURIComponent(lines.join("\n"))}`;
+  return `https://wa.me/573046643574?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
 // ─── Tarjeta de alojamiento (reutilizable) ────────────────────────────────────
@@ -105,8 +105,8 @@ function AloCard({ alo, local, selected, esDiaSol, maxPersonas, onSelect, onLigh
         !alo.disponible
           ? "border-red-100 bg-red-50/40 cursor-not-allowed"
           : selected
-            ? "border-[#607651] bg-white shadow-md ring-1 ring-[#607651]/20"
-            : "border-gray-200 bg-white hover:border-[#607651]/50 hover:shadow-md cursor-pointer"
+            ? "border-[#8a6038] bg-white shadow-md ring-1 ring-[#8a6038]/20"
+            : "border-gray-200 bg-white hover:border-[#8a6038]/50 hover:shadow-md cursor-pointer"
       )}
     >
       {/* Imagen */}
@@ -140,7 +140,7 @@ function AloCard({ alo, local, selected, esDiaSol, maxPersonas, onSelect, onLigh
 
         {/* Badge tipo */}
         <span
-          className="absolute top-3 left-3 bg-white/90 text-[#607651] text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          className="absolute top-3 left-3 bg-white/90 text-[#8a6038] text-[10px] font-semibold px-2 py-0.5 rounded-full"
           style={{ fontFamily: "'DM Mono', monospace" }}
         >
           {esDiaSol ? "Día de Sol" : alo.tipo}
@@ -150,7 +150,7 @@ function AloCard({ alo, local, selected, esDiaSol, maxPersonas, onSelect, onLigh
         <span
           className={cn(
             "absolute top-3 right-3 text-[10px] font-semibold px-2 py-0.5 rounded-full",
-            alo.disponible ? "bg-[#607651] text-white" : "bg-red-500 text-white"
+            alo.disponible ? "bg-[#8a6038] text-white" : "bg-red-500 text-white"
           )}
           style={{ fontFamily: "'DM Mono', monospace" }}
         >
@@ -159,7 +159,7 @@ function AloCard({ alo, local, selected, esDiaSol, maxPersonas, onSelect, onLigh
 
         {/* Check de seleccionado */}
         {selected && alo.disponible && (
-          <div className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-[#607651] flex items-center justify-center shadow">
+          <div className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-[#8a6038] flex items-center justify-center shadow">
             <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
               <path d="M1 5L4.5 8.5L11 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -170,7 +170,7 @@ function AloCard({ alo, local, selected, esDiaSol, maxPersonas, onSelect, onLigh
       {/* Info */}
       <div className="p-4 flex flex-col flex-1">
         <h3
-          className={cn("font-semibold text-base mb-1 leading-snug", !alo.disponible ? "text-gray-400" : "text-[#284735]")}
+          className={cn("font-semibold text-base mb-1 leading-snug", !alo.disponible ? "text-gray-400" : "text-[#3d2010]")}
           style={{ fontFamily: "'Playfair Display', serif" }}
         >
           {alo.nombre}
@@ -190,6 +190,15 @@ function AloCard({ alo, local, selected, esDiaSol, maxPersonas, onSelect, onLigh
                 {f}
               </span>
             ))}
+          </div>
+        )}
+
+        {alo.disponible && (
+          <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100">
+            <Clock size={10} className="text-gray-400 shrink-0" />
+            <span className="text-[10px] text-gray-400" style={{ fontFamily: "'DM Mono', monospace" }}>
+              {esDiaSol ? "Ingreso 9:00 AM – 6:00 PM" : "Check-in 3:00 PM · Check-out 12:00 PM"}
+            </span>
           </div>
         )}
       </div>
@@ -223,6 +232,8 @@ export function ReservaPage() {
   const [error, setError] = useState("");
   const [exito, setExito] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [huespedesAdicionales, setHuespedesAdicionales] = useState<Array<{ nombre: string; cedula: string }>>([]);
+  const [tabActivo, setTabActivo] = useState(0);
   const alosRef = useRef<HTMLDivElement>(null);
 
   const [datosGenerales, setDatosGenerales] = useState<AloData[] | undefined>(undefined);
@@ -246,6 +257,18 @@ export function ReservaPage() {
     }, 100);
     return () => clearTimeout(timer);
   }, [form.check_in, form.check_out, modoVista]);
+
+  const numHuespedes = parseInt(form.numero_huespedes) || 1;
+
+  useEffect(() => {
+    const extra = Math.max(0, numHuespedes - 1);
+    setHuespedesAdicionales(prev => {
+      const next = [...prev];
+      while (next.length < extra) next.push({ nombre: "", cedula: "" });
+      return next.slice(0, extra);
+    });
+    setTabActivo(prev => Math.min(prev, Math.max(0, numHuespedes - 1)));
+  }, [numHuespedes]);
 
   const nights = nightsBetween(form.check_in, form.check_out);
 
@@ -276,7 +299,9 @@ export function ReservaPage() {
 
   const selectedLocalData = localDataFor(form.hospedaje);
   const isDiaDeSol = normalize(form.hospedaje) === "dia de sol";
-  const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out);
+  const huesped1Completo = !!form.nombre_huesped.trim() && !!form.cedula_huesped.trim() && !!form.email_huesped.trim() && !!form.telefono_huesped.trim();
+  const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre.trim() && h.cedula.trim());
+  const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -309,8 +334,13 @@ export function ReservaPage() {
       await reservaPublicaAPI.crearPublica({
         ...form,
         check_out: isDiaDeSol ? form.check_in : form.check_out,
-        telefono_huesped: `${indicativo}${form.telefono_huesped.replace(/^\+?\d{1,3}/, "").trim()}`,
+        telefono_huesped: (() => {
+          const local = form.telefono_huesped.trim().replace(/^\+/, "");
+          const codSin = indicativo.replace("+", "");
+          return local.startsWith(codSin) ? `+${local}` : `${indicativo}${local}`;
+        })(),
         numero_huespedes: Number(form.numero_huespedes),
+        ...(huespedesAdicionales.length > 0 && { huespedes_adicionales: huespedesAdicionales }),
       });
       setExito(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -322,13 +352,13 @@ export function ReservaPage() {
   };
 
   const inputCls =
-    "w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-xl px-4 py-3 placeholder:text-gray-400 focus:outline-none focus:border-[#607651] focus:ring-2 focus:ring-[#607651]/10 transition-all";
-  const labelCls = "block text-[#607651] text-[10px] tracking-[0.2em] uppercase font-semibold mb-1.5";
+    "w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-xl px-4 py-3 placeholder:text-gray-400 focus:outline-none focus:border-[#8a6038] focus:ring-2 focus:ring-[#8a6038]/10 transition-all";
+  const labelCls = "block text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold mb-1.5";
 
   // ─── ÉXITO ───────────────────────────────────────────────────────────────────
   if (exito) {
     const exitoTotal = tieneTarifa(form.hospedaje) && form.check_in && form.check_out
-      ? precioTotal(form.hospedaje, form.check_in, form.check_out)
+      ? precioTotal(form.hospedaje, form.check_in, form.check_out, Number(form.numero_huespedes))
       : null;
     const waUrl = buildWaUrl(
       form.hospedaje, form.check_in, form.check_out, nights,
@@ -337,17 +367,17 @@ export function ReservaPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-3xl shadow-lg border border-gray-200 p-10 max-w-md w-full text-center">
-          <div className="w-16 h-16 rounded-full bg-[#607651]/10 flex items-center justify-center mx-auto mb-5">
-            <CheckCircle size={32} className="text-[#607651]" />
+          <div className="w-16 h-16 rounded-full bg-[#8a6038]/10 flex items-center justify-center mx-auto mb-5">
+            <CheckCircle size={32} className="text-[#8a6038]" />
           </div>
           <h2
-            className="text-[#284735] text-2xl font-semibold mb-2"
+            className="text-[#3d2010] text-2xl font-semibold mb-2"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             ¡Solicitud enviada!
           </h2>
           <p className="text-gray-500 text-sm mb-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            <span className="text-[#284735] font-medium">{form.hospedaje}</span>
+            <span className="text-[#3d2010] font-medium">{form.hospedaje}</span>
             {" · "}
             {formatDateLong(form.check_in)}
             {" → "}
@@ -370,7 +400,7 @@ export function ReservaPage() {
               href={waUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white px-7 py-3 rounded-full text-sm font-semibold transition-colors shadow-sm"
+              className="inline-flex items-center justify-center gap-2 bg-[#7c4a28] hover:bg-[#c4813f] text-white px-7 py-3 rounded-full text-sm font-semibold transition-colors shadow-sm"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
               <MessageCircle size={16} />
@@ -378,7 +408,7 @@ export function ReservaPage() {
             </a>
             <a
               href="/"
-              className="inline-flex items-center justify-center gap-2 border border-gray-200 text-gray-500 hover:text-[#284735] hover:border-[#607651]/40 px-7 py-3 rounded-full text-sm font-medium transition-colors"
+              className="inline-flex items-center justify-center gap-2 border border-gray-200 text-gray-500 hover:text-[#3d2010] hover:border-[#8a6038]/40 px-7 py-3 rounded-full text-sm font-medium transition-colors"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
               <ArrowLeft size={15} />
@@ -397,27 +427,21 @@ export function ReservaPage() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <a href="/" className="flex items-center gap-3">
-            {/* Logo para fondo claro — sube tu imagen en: public/images/logo-light.png */}
             <img
-              src="/images/logo-light.png"
+              src="/images/skblack.png"
               alt="Natural Sound"
               className="h-10 w-auto object-contain"
-              onError={(e) => {
-                // Mientras no exista logo-light.png, muestra texto
-                (e.target as HTMLImageElement).style.display = "none";
-                const span = document.createElement("span");
-                span.textContent = "Natural Sound";
-                span.style.fontFamily = "'Playfair Display', serif";
-                span.style.color = "#284735";
-                span.style.fontSize = "18px";
-                span.style.fontWeight = "600";
-                (e.target as HTMLImageElement).parentElement?.appendChild(span);
-              }}
             />
+            <span
+              className="text-lg font-semibold text-[#3d2010]"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              Natural Sound
+            </span>
           </a>
           <a
             href="/"
-            className="flex items-center gap-1.5 text-gray-500 hover:text-[#284735] text-sm transition-colors"
+            className="flex items-center gap-1.5 text-gray-500 hover:text-[#3d2010] text-sm transition-colors"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             <ArrowLeft size={15} />
@@ -430,13 +454,13 @@ export function ReservaPage() {
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
           <p
-            className="text-[#607651] text-[10px] tracking-[0.3em] uppercase mb-2"
+            className="text-[#8a6038] text-[10px] tracking-[0.3em] uppercase mb-2"
             style={{ fontFamily: "'DM Mono', monospace" }}
           >
             Natural Sound — Reservas
           </p>
           <h1
-            className="text-[#284735] text-3xl md:text-4xl font-semibold"
+            className="text-[#3d2010] text-3xl md:text-4xl font-semibold"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             Solicita tu reserva
@@ -466,7 +490,7 @@ export function ReservaPage() {
                   className={cn(
                     "flex-1 py-2.5 text-sm rounded-xl transition-all font-medium",
                     modoVista === modo
-                      ? "bg-[#607651] text-white shadow-sm"
+                      ? "bg-[#8a6038] text-white shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
                   )}
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
@@ -518,7 +542,7 @@ export function ReservaPage() {
                       </div>
                     </button>
                     <div>
-                      <p className="text-[#284735] font-semibold text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      <p className="text-[#3d2010] font-semibold text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>
                         {selectedLocalData.name}
                       </p>
                       <p className="text-gray-400 text-xs mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -526,7 +550,7 @@ export function ReservaPage() {
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {selectedLocalData.features.slice(0, 3).map((f) => (
-                          <span key={f} className="text-[10px] bg-[#607651]/10 text-[#607651] px-2 py-0.5 rounded-full">
+                          <span key={f} className="text-[10px] bg-[#8a6038]/10 text-[#8a6038] px-2 py-0.5 rounded-full">
                             {f}
                           </span>
                         ))}
@@ -565,7 +589,7 @@ export function ReservaPage() {
                 {/* ── Grid de alojamientos disponibles (por fecha, rango de noches) ── */}
                 {form.check_in && form.check_out && alosDisponibles.length > 0 && (
                   <div>
-                    <p className="text-[#607651] text-[10px] tracking-[0.2em] uppercase font-semibold mb-4"
+                    <p className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold mb-4"
                       style={{ fontFamily: "'DM Mono', monospace" }}>
                       Alojamientos · {formatDateLong(form.check_in)} → {formatDateLong(form.check_out)}
                     </p>
@@ -587,7 +611,7 @@ export function ReservaPage() {
                 {/* ── Grid Día de Sol ── */}
                 {diaSolDisponible.length > 0 && (
                   <div>
-                    <p className="text-[#607651] text-[10px] tracking-[0.2em] uppercase font-semibold mb-4"
+                    <p className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold mb-4"
                       style={{ fontFamily: "'DM Mono', monospace" }}>
                       Día de Sol · {formatDateLong(form.check_in)}
                     </p>
@@ -626,7 +650,7 @@ export function ReservaPage() {
               {/* Resumen de la selección */}
               <div className="px-6 py-5 border-b border-gray-100">
                 <p
-                  className="text-[#607651] text-[10px] tracking-[0.2em] uppercase font-semibold mb-3"
+                  className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold mb-3"
                   style={{ fontFamily: "'DM Mono', monospace" }}
                 >
                   Tu reserva
@@ -643,7 +667,7 @@ export function ReservaPage() {
                     )}
                     <div>
                       <p
-                        className="text-[#284735] font-semibold text-sm leading-snug"
+                        className="text-[#3d2010] font-semibold text-sm leading-snug"
                         style={{ fontFamily: "'Playfair Display', serif" }}
                       >
                         {form.hospedaje}
@@ -659,12 +683,16 @@ export function ReservaPage() {
                             </p>
                           )}
                           <p
-                            className="text-[#607651] text-xs font-semibold mt-1"
+                            className="text-[#8a6038] text-xs font-semibold mt-1"
                             style={{ fontFamily: "'DM Mono', monospace" }}
                           >
                             {isDiaDeSol
                               ? "Día de Sol · 1 día"
                               : `${nights} ${nights === 1 ? "noche" : "noches"}`}
+                          </p>
+                          <p className="flex items-center gap-1 text-gray-400 text-[11px] mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+                            <Clock size={10} className="shrink-0" />
+                            {isDiaDeSol ? "Ingreso 9:00 AM – 6:00 PM" : "Check-in 3:00 PM · Check-out 12:00 PM"}
                           </p>
                         </>
                       ) : (
@@ -689,11 +717,12 @@ export function ReservaPage() {
 
               {/* Bloque de precio estimado */}
               {form.hospedaje && form.check_in && form.check_out && normalize(form.hospedaje) !== "dia de sol" && tieneTarifa(form.hospedaje) && (() => {
-                const total = precioTotal(form.hospedaje, form.check_in, form.check_out);
-                const bases = tarifasBase(form.hospedaje)!;
+                const g = Number(form.numero_huespedes);
+                const total = precioTotal(form.hospedaje, form.check_in, form.check_out, g);
+                const bases = tarifasBase(form.hospedaje, g)!;
                 return (
-                  <div className="px-6 py-4 border-b border-gray-100 bg-[#f7f9f5]">
-                    <p className="text-[#607651] text-[10px] tracking-[0.2em] uppercase font-semibold mb-3"
+                  <div className="px-6 py-4 border-b border-gray-100 bg-[#f9f2e8]">
+                    <p className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold mb-3"
                       style={{ fontFamily: "'DM Mono', monospace" }}>
                       Precio estimado
                     </p>
@@ -701,7 +730,7 @@ export function ReservaPage() {
                       <span className="text-gray-500 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         {nights} {nights === 1 ? "noche" : "noches"}
                       </span>
-                      <span className="text-[#284735] text-sm font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      <span className="text-[#3d2010] text-sm font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
                         {formatCOP(total)}
                       </span>
                     </div>
@@ -722,90 +751,194 @@ export function ReservaPage() {
 
               {/* Formulario de datos personales */}
               <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-                <p
-                  className="text-[#607651] text-[10px] tracking-[0.2em] uppercase font-semibold"
-                  style={{ fontFamily: "'DM Mono', monospace" }}
-                >
-                  Tus datos
-                </p>
 
-                <div>
-                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                    Nombre completo
-                  </label>
-                  <input
-                    type="text" name="nombre_huesped" value={form.nombre_huesped}
-                    onChange={handleChange} required placeholder="Tu nombre completo"
-                    className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  />
-                </div>
-
-                <div>
-                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                    Cédula
-                  </label>
-                  <input
-                    type="text" name="cedula_huesped" value={form.cedula_huesped}
-                    onChange={handleChange} required placeholder="Número de cédula"
-                    className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  />
-                </div>
-
-                <div>
-                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                    Email
-                  </label>
-                  <input
-                    type="email" name="email_huesped" value={form.email_huesped}
-                    onChange={handleChange} required placeholder="correo@ejemplo.com"
-                    className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  />
-                </div>
-
-                <div>
-                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                    WhatsApp
-                  </label>
-                  <div className="flex rounded-xl border border-gray-200 overflow-hidden focus-within:border-[#607651] focus-within:ring-2 focus-within:ring-[#607651]/10 transition-all bg-white">
-                    {/* Selector de indicativo — ancho fijo, muestra solo bandera + código */}
-                    <select
-                      value={indicativo}
-                      onChange={(e) => setIndicativo(e.target.value)}
-                      className="w-[96px] shrink-0 bg-gray-50 border-r border-gray-200 text-gray-700 text-sm pl-2 pr-1 py-3 focus:outline-none cursor-pointer"
-                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                {/* Header: tabs para múltiples huéspedes, etiqueta simple para uno solo */}
+                {numHuespedes > 1 ? (
+                  <div className="space-y-3">
+                    <p
+                      className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold"
+                      style={{ fontFamily: "'DM Mono', monospace" }}
                     >
-                      {[
-                        { code: "+57",  flag: "🇨🇴", name: "Colombia" },
-                        { code: "+1",   flag: "🇺🇸", name: "EE.UU." },
-                        { code: "+52",  flag: "🇲🇽", name: "México" },
-                        { code: "+54",  flag: "🇦🇷", name: "Argentina" },
-                        { code: "+55",  flag: "🇧🇷", name: "Brasil" },
-                        { code: "+56",  flag: "🇨🇱", name: "Chile" },
-                        { code: "+51",  flag: "🇵🇪", name: "Perú" },
-                        { code: "+58",  flag: "🇻🇪", name: "Venezuela" },
-                        { code: "+593", flag: "🇪🇨", name: "Ecuador" },
-                        { code: "+507", flag: "🇵🇦", name: "Panamá" },
-                        { code: "+34",  flag: "🇪🇸", name: "España" },
-                        { code: "+44",  flag: "🇬🇧", name: "Reino Unido" },
-                      ].map(({ code, flag, name }) => (
-                        <option key={code} value={code} title={name}>
-                          {flag} {code}
-                        </option>
-                      ))}
-                    </select>
-                    {/* Número sin indicativo */}
-                    <input
-                      type="tel"
-                      name="telefono_huesped"
-                      value={form.telefono_huesped}
-                      onChange={handleChange}
-                      required
-                      placeholder="300 000 0000"
-                      className="flex-1 min-w-0 px-3 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none bg-white"
-                      style={{ fontFamily: "'DM Sans', sans-serif" }}
-                    />
+                      Datos de huéspedes
+                    </p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {Array.from({ length: numHuespedes }, (_, i) => {
+                        const isIncomplete = i === 0
+                          ? !form.nombre_huesped.trim() || !form.cedula_huesped.trim()
+                          : !huespedesAdicionales[i - 1]?.nombre.trim() || !huespedesAdicionales[i - 1]?.cedula.trim();
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setTabActivo(i)}
+                            className={cn(
+                              "flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                              tabActivo === i
+                                ? "bg-[#8a6038] text-white shadow-sm"
+                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            )}
+                            style={{ fontFamily: "'DM Sans', sans-serif" }}
+                          >
+                            Huésped {i + 1}
+                            {isIncomplete && (
+                              <span className={cn(
+                                "w-1.5 h-1.5 rounded-full shrink-0",
+                                tabActivo === i ? "bg-white/60" : "bg-amber-400"
+                              )} />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <p
+                    className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold"
+                    style={{ fontFamily: "'DM Mono', monospace" }}
+                  >
+                    Tus datos
+                  </p>
+                )}
+
+                {/* Huésped 1 — persona de contacto */}
+                {(tabActivo === 0 || numHuespedes === 1) && (
+                  <>
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Nombre completo
+                      </label>
+                      <input
+                        type="text" name="nombre_huesped" value={form.nombre_huesped}
+                        onChange={handleChange} required placeholder="Tu nombre completo"
+                        className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Cédula
+                      </label>
+                      <input
+                        type="text" name="cedula_huesped" value={form.cedula_huesped}
+                        onChange={handleChange} required placeholder="Número de cédula"
+                        className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Email
+                      </label>
+                      <input
+                        type="email" name="email_huesped" value={form.email_huesped}
+                        onChange={handleChange} required placeholder="correo@ejemplo.com"
+                        className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        WhatsApp
+                      </label>
+                      <div className="flex rounded-xl border border-gray-200 overflow-hidden focus-within:border-[#8a6038] focus-within:ring-2 focus-within:ring-[#8a6038]/10 transition-all bg-white">
+                        <select
+                          value={indicativo}
+                          onChange={(e) => setIndicativo(e.target.value)}
+                          className="w-[96px] shrink-0 bg-gray-50 border-r border-gray-200 text-gray-700 text-sm pl-2 pr-1 py-3 focus:outline-none cursor-pointer"
+                          style={{ fontFamily: "'DM Sans', sans-serif" }}
+                        >
+                          {[
+                            { code: "+57",  flag: "🇨🇴", name: "Colombia" },
+                            { code: "+1",   flag: "🇺🇸", name: "EE.UU." },
+                            { code: "+52",  flag: "🇲🇽", name: "México" },
+                            { code: "+54",  flag: "🇦🇷", name: "Argentina" },
+                            { code: "+55",  flag: "🇧🇷", name: "Brasil" },
+                            { code: "+56",  flag: "🇨🇱", name: "Chile" },
+                            { code: "+51",  flag: "🇵🇪", name: "Perú" },
+                            { code: "+58",  flag: "🇻🇪", name: "Venezuela" },
+                            { code: "+593", flag: "🇪🇨", name: "Ecuador" },
+                            { code: "+507", flag: "🇵🇦", name: "Panamá" },
+                            { code: "+34",  flag: "🇪🇸", name: "España" },
+                            { code: "+44",  flag: "🇬🇧", name: "Reino Unido" },
+                          ].map(({ code, flag, name }) => (
+                            <option key={code} value={code} title={name}>
+                              {flag} {code}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          inputMode="tel"
+                          name="telefono_huesped"
+                          value={form.telefono_huesped}
+                          onChange={handleChange}
+                          required
+                          placeholder="300 000 0000"
+                          className="flex-1 min-w-0 px-3 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none bg-white"
+                          style={{ fontFamily: "'DM Sans', sans-serif" }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Huéspedes adicionales */}
+                {tabActivo > 0 && numHuespedes > 1 && (
+                  <>
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Nombre completo
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={huespedesAdicionales[tabActivo - 1]?.nombre ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setHuespedesAdicionales(prev => {
+                            const next = [...prev];
+                            next[tabActivo - 1] = { ...next[tabActivo - 1], nombre: val };
+                            return next;
+                          });
+                          setError("");
+                        }}
+                        placeholder="Nombre completo del acompañante"
+                        className={inputCls}
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Cédula
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={huespedesAdicionales[tabActivo - 1]?.cedula ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setHuespedesAdicionales(prev => {
+                            const next = [...prev];
+                            next[tabActivo - 1] = { ...next[tabActivo - 1], cedula: val };
+                            return next;
+                          });
+                          setError("");
+                        }}
+                        placeholder="Número de cédula del acompañante"
+                        className={inputCls}
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      />
+                    </div>
+
+                    <div className="flex items-start gap-2 bg-gray-50 rounded-xl px-3 py-2.5">
+                      <Info size={11} className="text-gray-400 mt-0.5 shrink-0" />
+                      <p className="text-gray-400 text-[11px]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                        Solo se requiere nombre y cédula para los acompañantes.
+                      </p>
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -862,7 +995,7 @@ export function ReservaPage() {
                   className={cn(
                     "w-full py-3.5 rounded-full text-sm font-semibold transition-all flex items-center justify-center gap-2",
                     canSubmit
-                      ? "bg-[#607651] hover:bg-[#4e6142] text-white shadow-sm hover:shadow"
+                      ? "bg-[#8a6038] hover:bg-[#7a4c28] text-white shadow-sm hover:shadow"
                       : "bg-gray-100 text-gray-400 cursor-not-allowed"
                   )}
                   style={{ fontFamily: "'DM Sans', sans-serif" }}

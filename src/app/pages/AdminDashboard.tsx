@@ -1,4 +1,4 @@
-// Página del panel administrativo.
+﻿// Página del panel administrativo.
 // Muestra estadísticas, gestiona reservas, usuarios y configuración en un dashboard.
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
@@ -39,6 +39,30 @@ interface UsuarioForm {
   contrasena: string;
   rol: "admin" | "user";
   activo: boolean;
+}
+
+const INDICATIVOS_ADMIN = [
+  { code: "+57", flag: "🇨🇴" }, { code: "+1",   flag: "🇺🇸" }, { code: "+52",  flag: "🇲🇽" },
+  { code: "+54", flag: "🇦🇷" }, { code: "+55",  flag: "🇧🇷" }, { code: "+56",  flag: "🇨🇱" },
+  { code: "+51", flag: "🇵🇪" }, { code: "+58",  flag: "🇻🇪" }, { code: "+593", flag: "🇪🇨" },
+  { code: "+507", flag: "🇵🇦" }, { code: "+34", flag: "🇪🇸" }, { code: "+44",  flag: "🇬🇧" },
+];
+
+function parsearTelefono(phone: string): { indicativo: string; numero: string } {
+  if (!phone) return { indicativo: "+57", numero: "" };
+  // Con prefijo +
+  const codigos = ["+593", "+507", "+57", "+1", "+52", "+54", "+55", "+56", "+51", "+58", "+34", "+44"];
+  for (const c of codigos) {
+    if (phone.startsWith(c)) return { indicativo: c, numero: phone.slice(c.length) };
+  }
+  // Sin prefijo + (ej: "573046643574" guardado desde el admin anterior)
+  const codigosSin = ["593", "507", "57", "1", "52", "54", "55", "56", "51", "58", "34", "44"];
+  for (const c of codigosSin) {
+    if (phone.startsWith(c) && phone.length > c.length + 5) {
+      return { indicativo: "+" + c, numero: phone.slice(c.length) };
+    }
+  }
+  return { indicativo: "+57", numero: phone };
 }
 
 // Dashboard administrativo del sistema.
@@ -103,6 +127,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [showEnlaceModal, setShowEnlaceModal] = useState(false);
   const [enlaceCopiado, setEnlaceCopiado] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
+  const [indicativoAdmin, setIndicativoAdmin] = useState("+57");
   const [showUsuarioModal, setShowUsuarioModal] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<any>(null);
   const [usuarioForm, setUsuarioForm] = useState<UsuarioForm>({
@@ -308,17 +333,24 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const handleOpenReservaModal = (reserva?: any, prefillDate?: string) => {
     if (reserva) {
       setEditingReserva(reserva);
+      const isDiaSol = reserva.accommodation.toLowerCase().includes("de sol");
+      const calcOut = isDiaSol ? reserva.checkIn : reserva.checkOut;
+      const calc = tieneTarifa(reserva.accommodation)
+        ? precioTotal(reserva.accommodation, reserva.checkIn, calcOut, reserva.guests || 1)
+        : 0;
+      const parsed = parsearTelefono(reserva.phone || "");
+      setIndicativoAdmin(parsed.indicativo);
       setReservaForm({
         nombre_huesped: reserva.guest,
         cedula_huesped: reserva.document,
         email_huesped: reserva.email,
-        telefono_huesped: reserva.phone || "",
+        telefono_huesped: parsed.numero,
         hospedaje: reserva.accommodation,
         check_in: reserva.checkIn,
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests || 1,
         servicio_adicional: reserva.additionalService || "N/A",
-        valor_alojamiento: reserva.accommodationValue || 0,
+        valor_alojamiento: calc > 0 ? calc : (reserva.accommodationValue || 0),
         valor_servicio_adicional: reserva.additionalServiceValue || 0,
         abono: reserva.deposit || 0,
         estado: reserva.status,
@@ -342,6 +374,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         estado: "Pendiente",
         huespedes_adicionales: [],
       });
+      setIndicativoAdmin("+57");
     }
     setReservaModalTab("principal");
     setShowReservaModal(true);
@@ -379,13 +412,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   useEffect(() => {
     if (editingReserva) return;
     const { hospedaje, check_in, check_out } = reservaForm;
-    const calc = precioTotal(hospedaje, check_in, check_out);
+    const isDiaSol = hospedaje.toLowerCase().includes("de sol");
+    const calcOut = isDiaSol ? check_in : check_out;
+    const calc = precioTotal(hospedaje, check_in, calcOut, reservaForm.numero_huespedes);
     if (calc > 0) {
       setReservaForm(f => ({ ...f, valor_alojamiento: calc }));
     }
-  // Solo se ejecuta cuando cambian los campos clave, no cuando cambia valor_alojamiento
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservaForm.hospedaje, reservaForm.check_in, reservaForm.check_out, editingReserva]);
+  }, [reservaForm.hospedaje, reservaForm.check_in, reservaForm.check_out, reservaForm.numero_huespedes, editingReserva]);
 
   const handleHuespedAdicionalChange = (index: number, campo: keyof HuespedAdicional, valor: string) => {
     setReservaForm(form => ({
@@ -414,8 +448,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         alert("El abono no puede superar el total de la reserva");
         return;
       }
+      const localTel = reservaForm.telefono_huesped.trim().replace(/^\+/, "");
+      const codSinPlus = indicativoAdmin.replace("+", "");
+      const telefonoCombinado = localTel
+        ? (localTel.startsWith(codSinPlus) ? `+${localTel}` : `${indicativoAdmin}${localTel}`)
+        : "";
       const reservaPayload = {
         ...reservaForm,
+        telefono_huesped: telefonoCombinado,
         valor_alojamiento: valorAlojamiento,
         valor_servicio_adicional: valorServicioAdicional,
         abono,
@@ -457,12 +497,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const seleccionarHuesped = (r: any) => {
+    const parsed = parsearTelefono(r.phone || "");
+    setIndicativoAdmin(parsed.indicativo);
     setReservaForm(f => ({
       ...f,
       nombre_huesped: r.guest || "",
       cedula_huesped: r.document || "",
       email_huesped: r.email || "",
-      telefono_huesped: r.phone || "",
+      telefono_huesped: parsed.numero,
     }));
     setSugerenciasHuesped([]);
   };
@@ -558,12 +600,52 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
+  const handleRecalcularValorReserva = async (reserva: any) => {
+    const isDiaSol = reserva.accommodation.toLowerCase().includes("de sol");
+    const calcOut = isDiaSol ? reserva.checkIn : reserva.checkOut;
+    const calc = precioTotal(reserva.accommodation, reserva.checkIn, calcOut, reserva.guests);
+    if (calc <= 0) return;
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+      await reservasAPI.editarReserva(reserva.id, {
+        nombre_huesped: reserva.guest,
+        cedula_huesped: reserva.document,
+        email_huesped: reserva.email,
+        telefono_huesped: reserva.phone,
+        hospedaje: reserva.accommodation,
+        check_in: reserva.checkIn,
+        check_out: reserva.checkOut,
+        numero_huespedes: reserva.guests,
+        servicio_adicional: reserva.additionalService,
+        valor_alojamiento: calc,
+        valor_servicio_adicional: reserva.additionalServiceValue,
+        abono: reserva.deposit,
+        estado: reserva.status,
+        huespedes_adicionales: reserva.additionalGuests,
+        usuario_id: user?.id,
+        tipo_hospedaje: "Glamping",
+      }, token);
+      await reloadReservas();
+      setToastMsg(`Precio actualizado a ${formatCurrency(calc)}`);
+      setTimeout(() => setToastMsg(""), 2500);
+    } catch (error: any) {
+      alert(error.message || "Error al actualizar precio");
+    }
+  };
+
   const handleConfirmarReserva = async (reservaId: number) => {
     try {
       const token = localStorage.getItem("authToken");
       if (!token) return;
       const reserva = reservas.find(r => r.id === reservaId);
       if (!reserva) return;
+      const isDiaSol = reserva.accommodation.toLowerCase().includes("de sol");
+      const calcOut = isDiaSol ? reserva.checkIn : reserva.checkOut;
+      const calc = tieneTarifa(reserva.accommodation)
+        ? precioTotal(reserva.accommodation, reserva.checkIn, calcOut, reserva.guests)
+        : 0;
+      const valorAloj = calc > 0 ? calc : reserva.accommodationValue;
       await reservasAPI.editarReserva(reservaId, {
         nombre_huesped: reserva.guest,
         cedula_huesped: reserva.document,
@@ -574,7 +656,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests,
         servicio_adicional: reserva.additionalService,
-        valor_alojamiento: reserva.accommodationValue,
+        valor_alojamiento: valorAloj,
         valor_servicio_adicional: reserva.additionalServiceValue,
         abono: reserva.deposit,
         estado: "Confirmada",
@@ -685,7 +767,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Confirmada":
-        return "bg-green-500/20 text-green-400 border-green-500/30";
+        return "bg-amber-600/20 text-amber-400 border-amber-600/30";
       case "Pendiente":
         return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
       case "Cancelada":
@@ -696,7 +778,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-[#284735] overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 text-[#3d2010] overflow-x-hidden">
       {/* Encabezado principal */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 md:px-6 py-4 flex items-center justify-between min-w-0">
@@ -704,47 +786,54 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             {/* Botón de volver atrás */}
             <button
               onClick={handleLogout}
-              className="text-[#46654f] hover:text-primary transition-colors hidden md:block"
+              className="text-[#7a4828] hover:text-primary transition-colors hidden md:block"
               title="Volver a la página principal"
             >
               <ArrowLeft size={20} />
             </button>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden text-[#46654f] hover:text-primary transition-colors"
+              className="md:hidden text-[#7a4828] hover:text-primary transition-colors"
             >
               {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
             {/* Logo y título clickeables */}
             <button
               onClick={handleLogout}
-              className="flex flex-col hover:opacity-80 transition-opacity cursor-pointer"
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
               title="Volver a la página principal"
             >
-              <h1
-                className="text-lg sm:text-2xl font-semibold text-[#365b43]"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
-                Natural Sound Admin
-              </h1>
-              <p
-                className="hidden sm:block text-xs text-[#55735d] tracking-wide"
-                style={{ fontFamily: "'DM Mono', monospace" }}
-              >
-                Panel de Control
-              </p>
+              <img
+                src="/images/skblack.png"
+                alt="Natural Sound"
+                className="h-9 sm:h-11 w-auto object-contain"
+              />
+              <div className="flex flex-col text-left">
+                <h1
+                  className="text-lg sm:text-2xl font-semibold text-[#5a3518]"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  Natural Sound Admin
+                </h1>
+                <p
+                  className="hidden sm:block text-xs text-[#8b5e38] tracking-wide"
+                  style={{ fontFamily: "'DM Mono', monospace" }}
+                >
+                  Panel de Control
+                </p>
+              </div>
             </button>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden md:flex flex-col items-end">
               <p
-                className="text-sm text-[#365b43]"
+                className="text-sm text-[#5a3518]"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
                 {user?.name}
               </p>
               <p
-                className="text-xs text-[#55735d]"
+                className="text-xs text-[#8b5e38]"
                 style={{ fontFamily: "'DM Mono', monospace" }}
               >
                 {user?.role === "admin" ? "Administrador" : "Usuario"}
@@ -752,7 +841,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </div>
             <button
               onClick={handleLogout}
-              className="p-2 text-[#55735d] hover:text-[#284735] hover:bg-primary/10 rounded transition-colors"
+              className="p-2 text-[#8b5e38] hover:text-[#3d2010] hover:bg-primary/10 rounded transition-colors"
               title="Cerrar sesión"
             >
               <LogOut size={20} />
@@ -801,7 +890,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-colors ${
                     activeTab === item.id
                       ? "bg-primary/15 border border-primary text-primary"
-                      : "text-slate-600 hover:text-[#284735] hover:bg-slate-100"
+                      : "text-slate-600 hover:text-[#3d2010] hover:bg-slate-100"
                   }`}
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
@@ -827,7 +916,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2
-                    className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2"
+                    className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-2"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
                     Panel General
@@ -843,7 +932,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <button
                     onClick={() => loadData()}
                     disabled={isRefreshing}
-                    className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded bg-white hover:bg-slate-50 text-[#46654f] transition-colors disabled:opacity-60"
+                    className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded bg-white hover:bg-slate-50 text-[#7a4828] transition-colors disabled:opacity-60"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
                     <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
@@ -882,7 +971,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <stat.icon size={24} className="text-primary/60" />
                     </div>
                     <p
-                      className="text-xs text-green-400"
+                      className="text-xs text-amber-400"
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
                       {stat.change}
@@ -900,7 +989,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     className={`px-5 py-4 text-sm font-medium transition-colors border-b-2 -mb-px ${
                       overviewSubTab === "proximas"
                         ? "border-primary text-primary"
-                        : "border-transparent text-slate-500 hover:text-[#284735]"
+                        : "border-transparent text-slate-500 hover:text-[#3d2010]"
                     }`}
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
@@ -911,7 +1000,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     className={`px-5 py-4 text-sm font-medium transition-colors border-b-2 -mb-px ${
                       overviewSubTab === "concluidas"
                         ? "border-primary text-primary"
-                        : "border-transparent text-slate-500 hover:text-[#284735]"
+                        : "border-transparent text-slate-500 hover:text-[#3d2010]"
                     }`}
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
@@ -947,7 +1036,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             </tr>
                           ) : proximas.map((r) => (
                             <tr key={r.id} onClick={() => setOverviewDetailReserva(r)} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
-                              <td className="py-3 px-3 font-medium text-[#284735]">{r.guest}</td>
+                              <td className="py-3 px-3 font-medium text-[#3d2010]">{r.guest}</td>
                               <td className="py-3 px-3 text-slate-700 hidden sm:table-cell">{r.accommodation}</td>
                               <td className="py-3 px-3 text-slate-700">{r.checkIn}</td>
                               <td className="py-3 px-3 text-slate-700 hidden md:table-cell">{r.checkOut}</td>
@@ -990,13 +1079,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             </tr>
                           ) : concluidas.map((r) => (
                             <tr key={r.id} onClick={() => setOverviewDetailReserva(r)} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
-                              <td className="py-3 px-3 font-medium text-[#284735]">{r.guest}</td>
+                              <td className="py-3 px-3 font-medium text-[#3d2010]">{r.guest}</td>
                               <td className="py-3 px-3 text-slate-700 hidden sm:table-cell">{r.accommodation}</td>
                               <td className="py-3 px-3 text-slate-700 hidden md:table-cell">{r.checkIn}</td>
                               <td className="py-3 px-3 text-slate-700">{r.checkOut}</td>
                               <td className="py-3 px-3 hidden sm:table-cell">
-                                <p className="font-medium text-[#284735] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
-                                <span className="text-xs text-green-600 font-medium">✓ Completado</span>
+                                <p className="font-medium text-[#3d2010] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
+                                <span className="text-xs text-amber-700 font-medium">✓ Completado</span>
                               </td>
                               <td className="py-3 px-3">
                                 <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
@@ -1024,7 +1113,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   >
                     <div className="flex items-start justify-between p-6 border-b border-slate-200">
                       <div>
-                        <h3 className="text-xl font-semibold text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        <h3 className="text-xl font-semibold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
                           Detalle de Reserva
                         </h3>
                         <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -1044,10 +1133,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <div>
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Huésped Principal</p>
                         <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Nombre</span><span className="font-medium text-[#284735]">{overviewDetailReserva.guest}</span></div>
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Cédula</span><span className="text-[#284735]">{overviewDetailReserva.document || "—"}</span></div>
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Email</span><span className="text-[#284735] break-all text-right max-w-[60%]">{overviewDetailReserva.email}</span></div>
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Personas</span><span className="text-[#284735]">{overviewDetailReserva.guests}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Nombre</span><span className="font-medium text-[#3d2010]">{overviewDetailReserva.guest}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Cédula</span><span className="text-[#3d2010]">{overviewDetailReserva.document || "—"}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Email</span><span className="text-[#3d2010] break-all text-right max-w-[60%]">{overviewDetailReserva.email}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Personas</span><span className="text-[#3d2010]">{overviewDetailReserva.guests}</span></div>
                         </div>
                       </div>
                       {overviewDetailReserva.additionalGuests?.length > 0 && (
@@ -1056,9 +1145,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           <div className="space-y-2">
                             {overviewDetailReserva.additionalGuests.map((h: any, i: number) => (
                               <div key={i} className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
-                                <div className="flex justify-between"><span className="text-slate-500">Nombre</span><span className="text-[#284735] font-medium">{h.nombre}</span></div>
-                                <div className="flex justify-between"><span className="text-slate-500">Cédula</span><span className="text-[#284735]">{h.cedula}</span></div>
-                                <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="text-[#284735] break-all text-right max-w-[60%]">{h.email}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-500">Nombre</span><span className="text-[#3d2010] font-medium">{h.nombre}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-500">Cédula</span><span className="text-[#3d2010]">{h.cedula}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="text-[#3d2010] break-all text-right max-w-[60%]">{h.email}</span></div>
                               </div>
                             ))}
                           </div>
@@ -1067,37 +1156,37 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <div>
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Alojamiento y Fechas</p>
                         <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Alojamiento</span><span className="font-medium text-[#284735]">{overviewDetailReserva.accommodation}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Alojamiento</span><span className="font-medium text-[#3d2010]">{overviewDetailReserva.accommodation}</span></div>
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-500">{overviewDetailReserva.accommodation === "Día de Sol" ? "Fecha" : "Check-in"}</span>
-                            <span className="text-[#284735]">{overviewDetailReserva.checkIn}</span>
+                            <span className="text-[#3d2010]">{overviewDetailReserva.checkIn}</span>
                           </div>
                           {overviewDetailReserva.accommodation !== "Día de Sol" && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Check-out</span><span className="text-[#284735]">{overviewDetailReserva.checkOut}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Check-out</span><span className="text-[#3d2010]">{overviewDetailReserva.checkOut}</span></div>
                           )}
                           {overviewDetailReserva.additionalService && overviewDetailReserva.additionalService !== "N/A" && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#284735]">{overviewDetailReserva.additionalService}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{overviewDetailReserva.additionalService}</span></div>
                           )}
                         </div>
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Resumen Financiero</p>
                         <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Valor alojamiento</span><span className="text-[#284735]">{formatCurrency(overviewDetailReserva.accommodationValue)}</span></div>
+                          <div className="flex justify-between text-sm"><span className="text-slate-500">Valor alojamiento</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.accommodationValue)}</span></div>
                           {overviewDetailReserva.additionalServiceValue > 0 && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#284735]">{formatCurrency(overviewDetailReserva.additionalServiceValue)}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.additionalServiceValue)}</span></div>
                           )}
                           {overviewDetailReserva.deposit > 0 && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Abono</span><span className="text-green-600">− {formatCurrency(overviewDetailReserva.deposit)}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Abono</span><span className="text-amber-700">− {formatCurrency(overviewDetailReserva.deposit)}</span></div>
                           )}
                           <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2 mt-1">
-                            <span className="text-[#284735]">Total</span>
-                            <span className="text-[#284735]">{formatCurrency(overviewDetailReserva.fullValue)}</span>
+                            <span className="text-[#3d2010]">Total</span>
+                            <span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.fullValue)}</span>
                           </div>
                           {overviewDetailReserva.checkOut < new Date().toISOString().slice(0, 10) && (
-                            <div className="mt-3 flex items-center gap-2 py-2.5 px-3 bg-green-50 border border-green-200 rounded-lg">
-                              <span className="text-green-600 font-bold text-base leading-none">✓</span>
-                              <span className="text-sm font-medium text-green-700">Pago completado</span>
+                            <div className="mt-3 flex items-center gap-2 py-2.5 px-3 bg-amber-50 border border-amber-200 rounded-lg">
+                              <span className="text-amber-700 font-bold text-base leading-none">✓</span>
+                              <span className="text-sm font-medium text-amber-800">Pago completado</span>
                             </div>
                           )}
                         </div>
@@ -1142,7 +1231,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     >
                       {/* Cabecera */}
                       <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                        <h3 className="text-xl font-semibold text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        <h3 className="text-xl font-semibold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
                           {modalTitles[overviewModal.type]}
                         </h3>
                         <button onClick={() => setOverviewModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -1157,7 +1246,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           <select
                             value={filtroAlo}
                             onChange={e => setOverviewModal(m => m ? { ...m, filtroAlojamiento: e.target.value } : null)}
-                            className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#284735] bg-white focus:outline-none focus:border-primary transition-colors"
+                            className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#3d2010] bg-white focus:outline-none focus:border-primary transition-colors"
                             style={{ fontFamily: "'DM Sans', sans-serif" }}
                           >
                             <option value="">Todos los alojamientos</option>
@@ -1170,7 +1259,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <select
                               value={filtroEst}
                               onChange={e => setOverviewModal(m => m ? { ...m, filtroEstado: e.target.value } : null)}
-                              className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#284735] bg-white focus:outline-none focus:border-primary transition-colors"
+                              className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#3d2010] bg-white focus:outline-none focus:border-primary transition-colors"
                               style={{ fontFamily: "'DM Sans', sans-serif" }}
                             >
                               <option value="">Todos los estados</option>
@@ -1201,7 +1290,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               {[
                                 { label: "Total", value: modalReservas.length, color: "text-slate-900" },
                                 { label: "Pendientes", value: modalReservas.filter(r => r.status === "Pendiente").length, color: "text-yellow-600" },
-                                { label: "Confirmadas", value: modalReservas.filter(r => r.status === "Confirmada").length, color: "text-green-600" },
+                                { label: "Confirmadas", value: modalReservas.filter(r => r.status === "Confirmada").length, color: "text-amber-700" },
                                 { label: "Canceladas", value: modalReservas.filter(r => r.status === "Cancelada").length, color: "text-red-600" },
                               ].map(s => (
                                 <div key={s.label} className="bg-slate-50 rounded-lg p-3 text-center">
@@ -1227,14 +1316,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     <tr><td colSpan={6} className="py-6 text-center text-slate-400">Sin reservas</td></tr>
                                   ) : modalReservas.map(r => (
                                     <tr key={r.id} onClick={() => setOverviewDetailReserva(r)} className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
-                                      <td className="py-3 px-4 font-medium text-[#284735]">{r.guest}</td>
+                                      <td className="py-3 px-4 font-medium text-[#3d2010]">{r.guest}</td>
                                       <td className="py-3 px-4 text-slate-600 hidden sm:table-cell">{r.accommodation}</td>
                                       <td className="py-3 px-4 text-slate-600">{r.checkIn}</td>
                                       <td className="py-3 px-4 text-slate-600 hidden sm:table-cell">{r.checkOut}</td>
                                       <td className="py-3 px-4">
                                         <span className={`px-2 py-0.5 rounded-full text-xs border ${getStatusColor(r.status)}`}>{r.status}</span>
                                       </td>
-                                      <td className="py-3 px-4 text-[#284735] font-medium hidden md:table-cell whitespace-nowrap">{formatCurrency(r.fullValue)}</td>
+                                      <td className="py-3 px-4 text-[#3d2010] font-medium hidden md:table-cell whitespace-nowrap">{formatCurrency(r.fullValue)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -1257,11 +1346,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                                 <div className="bg-slate-50 rounded-lg p-4 col-span-2 sm:col-span-1">
                                   <p className="text-xs text-slate-500 mb-1">Ingresos recibidos</p>
-                                  <p className="text-xl font-bold text-[#284735]" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalIngresos)}</p>
+                                  <p className="text-xl font-bold text-[#3d2010]" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalIngresos)}</p>
                                 </div>
                                 <div className="bg-slate-50 rounded-lg p-4">
                                   <p className="text-xs text-slate-500 mb-1">Completadas</p>
-                                  <p className="text-xl font-bold text-green-600" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalCompletadas)}</p>
+                                  <p className="text-xl font-bold text-amber-700" style={{ fontFamily: "'Playfair Display', serif" }}>{formatCurrency(totalCompletadas)}</p>
                                   <p className="text-xs text-slate-400 mt-0.5">{completadas.length} reserva{completadas.length !== 1 ? "s" : ""}</p>
                                 </div>
                                 <div className="bg-slate-50 rounded-lg p-4">
@@ -1292,10 +1381,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                           className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                                         >
                                           <div>
-                                            <p className="text-sm font-medium text-[#284735]">{a.nombre}</p>
+                                            <p className="text-sm font-medium text-[#3d2010]">{a.nombre}</p>
                                             <p className="text-xs text-slate-500">{aRes.length} reserva{aRes.length !== 1 ? "s" : ""} confirmada{aRes.length !== 1 ? "s" : ""}</p>
                                           </div>
-                                          <p className="text-sm font-semibold text-[#284735] whitespace-nowrap">{formatCurrency(aTotal)}</p>
+                                          <p className="text-sm font-semibold text-[#3d2010] whitespace-nowrap">{formatCurrency(aTotal)}</p>
                                         </div>
                                       );
                                     })}
@@ -1311,10 +1400,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                       <div key={r.id} onClick={() => setOverviewDetailReserva(r)} className="p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
                                         <div className="flex justify-between items-start">
                                           <div>
-                                            <p className="text-sm font-medium text-[#284735]">{r.guest}</p>
+                                            <p className="text-sm font-medium text-[#3d2010]">{r.guest}</p>
                                             <p className="text-xs text-slate-500">{r.checkIn}{r.accommodation !== "Día de Sol" ? ` → ${r.checkOut}` : ""}</p>
                                           </div>
-                                          <p className="text-sm font-semibold text-[#284735] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
+                                          <p className="text-sm font-semibold text-[#3d2010] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
                                         </div>
                                       </div>
                                     ))}
@@ -1352,15 +1441,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     return acc + (n > 0 ? n : 0);
                                   }, 0);
                                   const pct = Math.min(100, Math.round((noches / daysInMonthOcup) * 100));
-                                  const barColor = pct > 80 ? "bg-red-500" : pct > 50 ? "bg-yellow-500" : pct > 0 ? "bg-green-500" : "bg-slate-300";
+                                  const barColor = pct > 80 ? "bg-red-500" : pct > 50 ? "bg-yellow-500" : pct > 0 ? "bg-amber-500" : "bg-slate-300";
                                   return (
                                     <div key={a.id} className="bg-slate-50 rounded-lg p-4">
                                       <div className="flex justify-between items-start mb-2">
                                         <div>
-                                          <p className="text-sm font-medium text-[#284735]">{a.nombre}</p>
+                                          <p className="text-sm font-medium text-[#3d2010]">{a.nombre}</p>
                                           <p className="text-xs text-slate-500">{a.tipo} · {aRes.length} reserva{aRes.length !== 1 ? "s" : ""} activa{aRes.length !== 1 ? "s" : ""}</p>
                                         </div>
-                                        <span className="text-xl font-bold text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>{pct}%</span>
+                                        <span className="text-xl font-bold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>{pct}%</span>
                                       </div>
                                       <div className="w-full bg-slate-200 rounded-full h-2 mb-1">
                                         <div className={`h-2 rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
@@ -1414,7 +1503,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2
-                    className="text-xl md:text-3xl font-semibold text-[#365b43] mb-1"
+                    className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-1"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
                     Gestión de Reservas
@@ -1463,7 +1552,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     placeholder="Buscar por huésped, cédula o alojamiento..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm text-[#284735] placeholder:text-slate-400 focus:outline-none focus:border-primary transition-colors bg-white"
+                    className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm text-[#3d2010] placeholder:text-slate-400 focus:outline-none focus:border-primary transition-colors bg-white"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   />
                   {searchQuery && (
@@ -1488,7 +1577,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       onChange={e => setOrdenarPorFecha(e.target.checked)}
                       className="w-4 h-4 accent-primary"
                     />
-                    <span className="text-sm text-[#284735]">Fecha más cercana</span>
+                    <span className="text-sm text-[#3d2010]">Fecha más cercana</span>
                   </label>
 
                   {/* Filtro por alojamiento */}
@@ -1499,7 +1588,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <select
                       value={filtroAlojamiento}
                       onChange={e => setFiltroAlojamiento(e.target.value)}
-                      className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#284735] focus:outline-none focus:border-primary transition-colors bg-white"
+                      className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#3d2010] focus:outline-none focus:border-primary transition-colors bg-white"
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
                       <option value="">Todos</option>
@@ -1517,7 +1606,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <select
                       value={filtroEstado}
                       onChange={e => setFiltroEstado(e.target.value)}
-                      className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#284735] focus:outline-none focus:border-primary transition-colors bg-white"
+                      className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#3d2010] focus:outline-none focus:border-primary transition-colors bg-white"
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
                       <option value="">Todos</option>
@@ -1580,17 +1669,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <tbody>
                       {reservasFiltradas.map((r) => (
                         <tr key={r.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                          <td className="py-4 px-6 font-medium text-[#284735]">{r.guest}</td>
+                          <td className="py-4 px-6 font-medium text-[#3d2010]">{r.guest}</td>
                           <td className="py-4 px-6 text-slate-700 hidden md:table-cell">{r.email}</td>
                           <td className="py-4 px-6 text-slate-700">{r.accommodation}</td>
                           <td className="py-4 px-6 text-slate-700 text-sm hidden sm:table-cell">
                             {r.checkIn} → {r.checkOut}
                           </td>
-                          <td className="py-4 px-6 text-[#284735] hidden lg:table-cell">{r.guests}</td>
-                          <td className="py-4 px-6 text-[#284735] font-medium whitespace-nowrap hidden sm:table-cell">
+                          <td className="py-4 px-6 text-[#3d2010] hidden lg:table-cell">{r.guests}</td>
+                          <td className="py-4 px-6 text-[#3d2010] font-medium whitespace-nowrap hidden sm:table-cell">
                             {formatCurrency(r.fullValue)}
                           </td>
-                          <td className="py-4 px-6 text-[#284735] font-medium whitespace-nowrap hidden md:table-cell">
+                          <td className="py-4 px-6 text-[#3d2010] font-medium whitespace-nowrap hidden md:table-cell">
                             {formatCurrency(r.remainingValue)}
                           </td>
                           <td className="py-4 px-6">
@@ -1616,7 +1705,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     setToastMsg("¡Enlace copiado!");
                                     setTimeout(() => setToastMsg(""), 2000);
                                   }}
-                                  className={`p-2 rounded transition-colors ${r.datosCompletados ? "text-slate-300 cursor-not-allowed" : "text-[#365b43] hover:bg-[#e8f0ea] cursor-pointer"}`}
+                                  className={`p-2 rounded transition-colors ${r.datosCompletados ? "text-slate-300 cursor-not-allowed" : "text-[#5a3518] hover:bg-[#f0e4d0] cursor-pointer"}`}
                                   title={r.datosCompletados ? "El huésped ya completó sus datos" : "Copiar enlace para el huésped"}
                                 >
                                   <Link size={16} />
@@ -1625,7 +1714,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               {r.phone && (
                                 <button
                                   onClick={() => handleEnviarWhatsApp(r.id)}
-                                  className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
+                                  className="p-2 text-amber-700 hover:bg-amber-50 rounded transition-colors"
                                   title="Enviar WhatsApp al huésped"
                                 >
                                   <MessageCircle size={16} />
@@ -1674,7 +1763,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <div>
                 <div className="mb-6 md:mb-8">
                   <h2
-                    className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2"
+                    className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-2"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
                     Historial de Reservas
@@ -1743,18 +1832,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             onClick={() => setHistorialReserva(r)}
                             className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
                           >
-                            <td className="py-4 px-4 font-medium text-[#284735]">
+                            <td className="py-4 px-4 font-medium text-[#3d2010]">
                               <div>{r.guest}</div>
                               <div className="text-xs text-slate-500 sm:hidden">{r.accommodation}</div>
                             </td>
                             <td className="py-4 px-4 text-slate-700 hidden sm:table-cell">{r.accommodation}</td>
                             <td className="py-4 px-4 text-slate-700 hidden md:table-cell">{r.checkIn}</td>
                             <td className="py-4 px-4 text-slate-700">{r.checkOut}</td>
-                            <td className="py-4 px-4 text-[#284735] hidden sm:table-cell">{r.guests}</td>
+                            <td className="py-4 px-4 text-[#3d2010] hidden sm:table-cell">{r.guests}</td>
                             <td className="py-4 px-4 text-slate-600 hidden lg:table-cell">{r.additionalService}</td>
                             <td className="py-4 px-4 hidden sm:table-cell">
-                              <p className="font-medium text-[#284735] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
-                              <span className="text-xs text-green-600 font-medium">✓ Completado</span>
+                              <p className="font-medium text-[#3d2010] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
+                              <span className="text-xs text-amber-700 font-medium">✓ Completado</span>
                             </td>
                             <td className="py-4 px-4">
                               <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
@@ -1781,7 +1870,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     {/* Cabecera */}
                     <div className="flex items-start justify-between p-6 border-b border-slate-200">
                       <div>
-                        <h3 className="text-xl font-semibold text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        <h3 className="text-xl font-semibold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
                           Detalle de Reserva
                         </h3>
                         <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -1807,19 +1896,19 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Nombre</span>
-                            <span className="font-medium text-[#284735]">{historialReserva.guest}</span>
+                            <span className="font-medium text-[#3d2010]">{historialReserva.guest}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Cédula</span>
-                            <span className="text-[#284735]">{historialReserva.document || "—"}</span>
+                            <span className="text-[#3d2010]">{historialReserva.document || "—"}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Email</span>
-                            <span className="text-[#284735] break-all text-right max-w-[60%]">{historialReserva.email}</span>
+                            <span className="text-[#3d2010] break-all text-right max-w-[60%]">{historialReserva.email}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Personas</span>
-                            <span className="text-[#284735]">{historialReserva.guests}</span>
+                            <span className="text-[#3d2010]">{historialReserva.guests}</span>
                           </div>
                         </div>
                       </div>
@@ -1835,15 +1924,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               <div key={i} className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
                                 <div className="flex justify-between">
                                   <span className="text-slate-500">Nombre</span>
-                                  <span className="text-[#284735] font-medium">{h.nombre}</span>
+                                  <span className="text-[#3d2010] font-medium">{h.nombre}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-slate-500">Cédula</span>
-                                  <span className="text-[#284735]">{h.cedula}</span>
+                                  <span className="text-[#3d2010]">{h.cedula}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-slate-500">Email</span>
-                                  <span className="text-[#284735] break-all text-right max-w-[60%]">{h.email}</span>
+                                  <span className="text-[#3d2010] break-all text-right max-w-[60%]">{h.email}</span>
                                 </div>
                               </div>
                             ))}
@@ -1859,22 +1948,22 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Alojamiento</span>
-                            <span className="font-medium text-[#284735]">{historialReserva.accommodation}</span>
+                            <span className="font-medium text-[#3d2010]">{historialReserva.accommodation}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Check-in</span>
-                            <span className="text-[#284735]">{historialReserva.checkIn}</span>
+                            <span className="text-[#3d2010]">{historialReserva.checkIn}</span>
                           </div>
                           {historialReserva.accommodation !== "Día de Sol" && (
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-500">Check-out</span>
-                              <span className="text-[#284735]">{historialReserva.checkOut}</span>
+                              <span className="text-[#3d2010]">{historialReserva.checkOut}</span>
                             </div>
                           )}
                           {historialReserva.additionalService && historialReserva.additionalService !== "N/A" && (
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-500">Servicio adicional</span>
-                              <span className="text-[#284735]">{historialReserva.additionalService}</span>
+                              <span className="text-[#3d2010]">{historialReserva.additionalService}</span>
                             </div>
                           )}
                         </div>
@@ -1888,27 +1977,27 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Valor alojamiento</span>
-                            <span className="text-[#284735]">{formatCurrency(historialReserva.accommodationValue)}</span>
+                            <span className="text-[#3d2010]">{formatCurrency(historialReserva.accommodationValue)}</span>
                           </div>
                           {historialReserva.additionalServiceValue > 0 && (
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-500">Servicio adicional</span>
-                              <span className="text-[#284735]">{formatCurrency(historialReserva.additionalServiceValue)}</span>
+                              <span className="text-[#3d2010]">{formatCurrency(historialReserva.additionalServiceValue)}</span>
                             </div>
                           )}
                           {historialReserva.deposit > 0 && (
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-500">Abono</span>
-                              <span className="text-green-600">− {formatCurrency(historialReserva.deposit)}</span>
+                              <span className="text-amber-700">− {formatCurrency(historialReserva.deposit)}</span>
                             </div>
                           )}
                           <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2 mt-1">
-                            <span className="text-[#284735]">Total</span>
-                            <span className="text-[#284735]">{formatCurrency(historialReserva.fullValue)}</span>
+                            <span className="text-[#3d2010]">Total</span>
+                            <span className="text-[#3d2010]">{formatCurrency(historialReserva.fullValue)}</span>
                           </div>
-                          <div className="mt-3 flex items-center gap-2 py-2.5 px-3 bg-green-50 border border-green-200 rounded-lg">
-                            <span className="text-green-600 font-bold text-base leading-none">✓</span>
-                            <span className="text-sm font-medium text-green-700">Pago completado</span>
+                          <div className="mt-3 flex items-center gap-2 py-2.5 px-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <span className="text-amber-700 font-bold text-base leading-none">✓</span>
+                            <span className="text-sm font-medium text-amber-800">Pago completado</span>
                           </div>
                         </div>
                       </div>
@@ -1983,7 +2072,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 {/* Encabezado */}
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    <h2 className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
                       Calendario de Disponibilidad
                     </h2>
                     <p className="text-slate-700 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -1993,7 +2082,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <select
                     value={calFiltroAlojamiento}
                     onChange={e => setCalFiltroAlojamiento(e.target.value)}
-                    className="px-3 py-2 border border-slate-200 rounded text-sm text-[#284735] focus:outline-none focus:border-primary bg-white"
+                    className="px-3 py-2 border border-slate-200 rounded text-sm text-[#3d2010] focus:outline-none focus:border-primary bg-white"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
                     <option value="">Todos los alojamientos</option>
@@ -2006,7 +2095,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 {/* Leyenda */}
                 <div className="flex flex-wrap gap-4 mb-4 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                   {[
-                    { color: "bg-green-100 border-green-300", label: "Disponible" },
+                    { color: "bg-amber-100 border-amber-300", label: "Disponible" },
                     ...(calLimite > 1 ? [{ color: "bg-amber-100 border-amber-300", label: "Parcialmente ocupado" }] : []),
                     { color: "bg-red-100 border-red-300", label: calLimite > 1 ? "Sin disponibilidad" : "Reservado" },
                     { color: "bg-primary/10 border-primary border-2", label: "Hoy" },
@@ -2036,16 +2125,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <div className="flex items-center justify-between mb-5">
                     <button
                       onClick={() => setCalMonth(m => { const d = new Date(m.year, m.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
-                      className="p-2 rounded hover:bg-slate-100 text-slate-600 hover:text-[#284735] transition-colors"
+                      className="p-2 rounded hover:bg-slate-100 text-slate-600 hover:text-[#3d2010] transition-colors"
                     >
                       <ChevronLeft size={18} />
                     </button>
-                    <h3 className="text-base md:text-lg font-semibold text-[#365b43] capitalize" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    <h3 className="text-base md:text-lg font-semibold text-[#5a3518] capitalize" style={{ fontFamily: "'Playfair Display', serif" }}>
                       {monthNames[month]} {year}
                     </h3>
                     <button
                       onClick={() => setCalMonth(m => { const d = new Date(m.year, m.month + 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
-                      className="p-2 rounded hover:bg-slate-100 text-slate-600 hover:text-[#284735] transition-colors"
+                      className="p-2 rounded hover:bg-slate-100 text-slate-600 hover:text-[#3d2010] transition-colors"
                     >
                       <ChevronRight size={18} />
                     </button>
@@ -2083,9 +2172,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             ? "bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer"
                             : isPartiallyBooked
                               ? "bg-amber-50 border-amber-200 hover:bg-amber-100 cursor-pointer"
-                              : "bg-green-50 border-green-200 hover:bg-green-100 cursor-pointer";
+                              : "bg-amber-50 border-amber-200 hover:bg-amber-100 cursor-pointer";
 
-                      const numColor = isToday ? "text-primary" : isPast ? "text-slate-400" : isFullyBooked ? "text-red-600" : isPartiallyBooked ? "text-amber-600" : "text-green-700";
+                      const numColor = isToday ? "text-primary" : isPast ? "text-slate-400" : isFullyBooked ? "text-red-600" : isPartiallyBooked ? "text-amber-600" : "text-amber-800";
 
                       return (
                         <button
@@ -2146,7 +2235,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 {reservasMes.length > 0 && (
                   <div className="mt-6 bg-white border border-slate-200 rounded-lg overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-[#365b43]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      <p className="text-sm font-semibold text-[#5a3518]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         Reservas en {monthNames[month]}
                       </p>
                       <div className="flex items-center gap-2">
@@ -2168,7 +2257,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           className="w-full px-4 py-3 flex flex-wrap items-center gap-3 text-sm hover:bg-slate-50 transition-colors text-left"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-[#284735] truncate" style={{ fontFamily: "'DM Sans', sans-serif" }}>{r.guest}</p>
+                            <p className="font-medium text-[#3d2010] truncate" style={{ fontFamily: "'DM Sans', sans-serif" }}>{r.guest}</p>
                             <p className="text-slate-500 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{r.accommodation}</p>
                           </div>
                           <div className="text-slate-500 text-xs whitespace-nowrap" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -2199,6 +2288,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   const selRes = reservasActivas.filter(r => {
                     const ci = parseLocalDate(r.checkIn);
                     const co = parseLocalDate(r.checkOut);
+                    if (ci.getTime() === co.getTime()) return selDate.getTime() === ci.getTime();
                     return selDate >= ci && selDate < co;
                   });
 
@@ -2215,7 +2305,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <div className="flex items-start justify-between mb-5">
                           <div>
                             <h3
-                              className="text-lg font-semibold text-[#365b43]"
+                              className="text-lg font-semibold text-[#5a3518]"
                               style={{ fontFamily: "'Playfair Display', serif" }}
                             >
                               {sd} de {monthNames[sm]} {sy}
@@ -2246,7 +2336,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                 className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:border-slate-300 transition-colors"
                               >
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-[#284735] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                                  <p className="font-medium text-[#3d2010] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                                     {r.guest}
                                   </p>
                                   <p className="text-xs text-slate-500 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -2259,16 +2349,31 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     {r.status}
                                   </span>
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    setCalSelectedDay(null);
-                                    handleOpenReservaModal(r);
-                                  }}
-                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors shrink-0"
-                                  title="Editar reserva"
-                                >
-                                  <Edit2 size={15} />
-                                </button>
+                                  <div className="flex flex-col gap-1 shrink-0">
+                                  {r.status === "Pendiente" && (
+                                    <button
+                                      onClick={() => {
+                                        setCalSelectedDay(null);
+                                        handleConfirmarReserva(r);
+                                      }}
+                                      className="px-2 py-1 text-[11px] bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors font-medium"
+                                      style={{ fontFamily: "'DM Mono', monospace" }}
+                                      title="Confirmar reserva"
+                                    >
+                                      Confirmar
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      setCalSelectedDay(null);
+                                      handleOpenReservaModal(r);
+                                    }}
+                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                    title="Editar reserva"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -2303,7 +2408,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <div>
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    <h2 className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
                       Reservas Pendientes
                     </h2>
                     <p className="text-slate-700 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -2313,7 +2418,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <button
                     onClick={() => loadData()}
                     disabled={isRefreshing}
-                    className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded bg-white hover:bg-slate-50 text-[#46654f] transition-colors disabled:opacity-60"
+                    className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded bg-white hover:bg-slate-50 text-[#7a4828] transition-colors disabled:opacity-60"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
                     <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
@@ -2323,7 +2428,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
                 {reservasPendientes.length === 0 ? (
                   <div className="bg-white border border-slate-200 rounded-lg py-16 text-center">
-                    <CheckCircle size={40} className="text-green-400 mx-auto mb-3" />
+                    <CheckCircle size={40} className="text-amber-400 mx-auto mb-3" />
                     <p className="text-slate-500 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                       No hay reservas pendientes de confirmación.
                     </p>
@@ -2342,7 +2447,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                 #{r.id}
                               </span>
                             </div>
-                            <p className="font-semibold text-[#284735]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                            <p className="font-semibold text-[#3d2010]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                               {r.guest || "Sin nombre — pendiente de completar datos"}
                             </p>
                             <div className="flex flex-wrap gap-2 mt-1 text-xs text-slate-500" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -2359,7 +2464,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           <div className="flex items-center gap-2 shrink-0">
                             <button
                               onClick={() => handleConfirmarReserva(r.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-xs font-medium"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-800 transition-colors text-xs font-medium"
                               title="Confirmar reserva"
                             >
                               <CheckCircle size={13} />
@@ -2382,14 +2487,25 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           </div>
                         </div>
                         <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-4 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>
-                          <div className="flex gap-1">
+                          <div className="flex items-center gap-1">
                             <span className="text-slate-400">Valor:</span>
-                            <span className="font-medium text-[#284735]">{formatCurrency(r.fullValue)}</span>
+                            {(() => {
+                              const isDiaSol = r.accommodation.toLowerCase().includes("de sol");
+                              const calcOut = isDiaSol ? r.checkIn : r.checkOut;
+                              const calc = tieneTarifa(r.accommodation)
+                                ? precioTotal(r.accommodation, r.checkIn, calcOut, r.guests)
+                                : 0;
+                              return (
+                                <span className="font-medium text-[#3d2010]">
+                                  {calc > 0 ? formatCurrency(calc) : formatCurrency(r.fullValue)}
+                                </span>
+                              );
+                            })()}
                           </div>
                           {r.deposit > 0 && (
                             <div className="flex gap-1">
                               <span className="text-slate-400">Abono:</span>
-                              <span className="font-medium text-green-600">{formatCurrency(r.deposit)}</span>
+                              <span className="font-medium text-amber-700">{formatCurrency(r.deposit)}</span>
                             </div>
                           )}
                           {r.tokenPublico && !r.datosCompletados && (
@@ -2400,7 +2516,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                 setToastMsg("¡Enlace copiado!");
                                 setTimeout(() => setToastMsg(""), 2000);
                               }}
-                              className="flex items-center gap-1 text-[#365b43] hover:underline"
+                              className="flex items-center gap-1 text-[#5a3518] hover:underline"
                             >
                               <Link size={11} />
                               Copiar enlace para el huésped
@@ -2421,7 +2537,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <div className="mb-6 md:mb-8 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2
-                    className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2"
+                    className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-2"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
                     Gestión de Usuarios
@@ -2449,7 +2565,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-2">
                         <span
-                          className="text-xs font-mono bg-[#e8f0ea] text-[#365b43] border border-[#c2d8c8] px-2 py-0.5 rounded"
+                          className="text-xs font-mono bg-[#f0e4d0] text-[#5a3518] border border-[#c8aa82] px-2 py-0.5 rounded"
                           title="Código de identificación"
                         >
                           {u.codigo}
@@ -2482,13 +2598,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Registrado:</span>
-                        <span className="text-[#284735]">{u.joined}</span>
+                        <span className="text-[#3d2010]">{u.joined}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[#55735d]">Estado:</span>
+                        <span className="text-[#8b5e38]">Estado:</span>
                         <span className={`px-2 py-1 rounded text-xs border ${
                           u.active
-                            ? "bg-green-500/20 text-green-600 border-green-500/30"
+                            ? "bg-amber-600/20 text-amber-700 border-amber-600/30"
                             : "bg-slate-100 text-slate-600 border-slate-200"
                         }`}>
                           {u.status}
@@ -2517,7 +2633,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   </div>
                 )) : (
                   <div className="col-span-full text-center py-8">
-                    <p className="text-[#55735d]">
+                    <p className="text-[#8b5e38]">
                       {isLoading ? "Cargando usuarios..." : "No hay usuarios registrados."}
                     </p>
                   </div>
@@ -2526,14 +2642,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
               {showUsuarioModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-md max-h-[92vh] overflow-y-auto shadow-lg relative text-[#284735]">
+                  <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-md max-h-[92vh] overflow-y-auto shadow-lg relative text-[#3d2010]">
                     <button
-                      className="absolute top-4 right-4 text-[#728875] hover:text-[#284735] transition-colors"
+                      className="absolute top-4 right-4 text-[#728875] hover:text-[#3d2010] transition-colors"
                       onClick={handleCloseUsuarioModal}
                     >
                       <X size={20} />
                     </button>
-                    <h3 className="text-xl font-semibold mb-6 text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    <h3 className="text-xl font-semibold mb-6 text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
                       {editingUsuario ? "Editar Usuario" : "Nuevo Usuario"}
                     </h3>
                     <form
@@ -2544,41 +2660,41 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       }}
                     >
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Nombre</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Nombre</label>
                         <input
                           type="text"
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={usuarioForm.nombre}
                           onChange={event => setUsuarioForm(form => ({ ...form, nombre: event.target.value }))}
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Email</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Email</label>
                         <input
                           type="email"
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={usuarioForm.email}
                           onChange={event => setUsuarioForm(form => ({ ...form, email: event.target.value }))}
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">
+                        <label className="block text-sm mb-1 text-[#7a4828]">
                           Contraseña {editingUsuario && "(opcional)"}
                         </label>
                         <input
                           type="password"
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={usuarioForm.contrasena}
                           onChange={event => setUsuarioForm(form => ({ ...form, contrasena: event.target.value }))}
                           required={!editingUsuario}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Rol</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Rol</label>
                         <select
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={usuarioForm.rol}
                           onChange={event => setUsuarioForm(form => ({
                             ...form,
@@ -2589,7 +2705,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           <option value="admin">Administrador</option>
                         </select>
                       </div>
-                      <label className="flex items-center gap-2 text-sm text-[#46654f]">
+                      <label className="flex items-center gap-2 text-sm text-[#7a4828]">
                         <input
                           type="checkbox"
                           checked={usuarioForm.activo}
@@ -2604,7 +2720,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         {editingUsuario ? "Guardar Cambios" : "Crear Usuario"}
                       </button>
                       {usuarioMessage && (
-                        <div className="text-green-600 text-center">{usuarioMessage}</div>
+                        <div className="text-amber-700 text-center">{usuarioMessage}</div>
                       )}
                     </form>
                   </div>
@@ -2617,7 +2733,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           {activeTab === "correos" && (
             <div>
               <div className="mb-8">
-                <h2 className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <h2 className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
                   Correos
                 </h2>
                 <p className="text-slate-700" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -2628,20 +2744,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 {/* Estado SMTP */}
                 <div className="bg-white border border-slate-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-[#284735] mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  <h3 className="text-lg font-semibold text-[#3d2010] mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
                     Estado de configuración
                   </h3>
                   {correoEstado ? (
-                    <div className={`flex items-center gap-3 p-4 rounded-lg mb-4 ${correoEstado.configurado ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+                    <div className={`flex items-center gap-3 p-4 rounded-lg mb-4 ${correoEstado.configurado ? "bg-amber-50 border border-amber-200" : "bg-red-50 border border-red-200"}`}>
                       {correoEstado.configurado
-                        ? <CheckCircle size={22} className="text-green-600 shrink-0" />
+                        ? <CheckCircle size={22} className="text-amber-700 shrink-0" />
                         : <XCircle size={22} className="text-red-500 shrink-0" />}
                       <div>
-                        <p className={`font-medium text-sm ${correoEstado.configurado ? "text-green-700" : "text-red-600"}`}>
+                        <p className={`font-medium text-sm ${correoEstado.configurado ? "text-amber-800" : "text-red-600"}`}>
                           {correoEstado.configurado ? "Conexión activa" : "Sin conexión"}
                         </p>
                         {correoEstado.correo && (
-                          <p className="text-xs text-green-600 mt-0.5">{correoEstado.correo}</p>
+                          <p className="text-xs text-amber-700 mt-0.5">{correoEstado.correo}</p>
                         )}
                         <p className="text-xs text-slate-500 mt-0.5">{correoEstado.mensaje}</p>
                       </div>
@@ -2652,7 +2768,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <button
                     onClick={handleVerEstadoCorreo}
                     disabled={correoEstadoCargando}
-                    className="w-full py-2 bg-[#284735] text-white rounded-lg hover:bg-[#365b43] transition-colors disabled:opacity-50 text-sm font-medium"
+                    className="w-full py-2 bg-[#3d2010] text-white rounded-lg hover:bg-[#5a3518] transition-colors disabled:opacity-50 text-sm font-medium"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
                     {correoEstadoCargando ? "Verificando..." : "Verificar conexión"}
@@ -2661,7 +2777,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
                 {/* Correo de prueba */}
                 <div className="bg-white border border-slate-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-[#284735] mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  <h3 className="text-lg font-semibold text-[#3d2010] mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
                     Enviar correo de prueba
                   </h3>
                   <form onSubmit={handleEnviarCorreoPrueba} className="space-y-3">
@@ -2671,20 +2787,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       value={correoPrueba}
                       onChange={e => setCorreoPrueba(e.target.value)}
                       required
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#284735]/30"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3d2010]/30"
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     />
                     <button
                       type="submit"
                       disabled={correoPruebaEnviando}
-                      className="w-full py-2 bg-[#284735] text-white rounded-lg hover:bg-[#365b43] transition-colors disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
+                      className="w-full py-2 bg-[#3d2010] text-white rounded-lg hover:bg-[#5a3518] transition-colors disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
                       <Send size={15} />
                       {correoPruebaEnviando ? "Enviando..." : "Enviar prueba"}
                     </button>
                     {correoPruebaMsg && (
-                      <p className={`text-sm text-center ${correoPruebaMsg.startsWith("Error") ? "text-red-500" : "text-green-600"}`}>
+                      <p className={`text-sm text-center ${correoPruebaMsg.startsWith("Error") ? "text-red-500" : "text-amber-700"}`}>
                         {correoPruebaMsg}
                       </p>
                     )}
@@ -2695,7 +2811,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               {/* Tabla de reservas confirmadas */}
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
                 <div className="p-6 border-b border-slate-100">
-                  <h3 className="text-lg font-semibold text-[#284735]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  <h3 className="text-lg font-semibold text-[#3d2010]" style={{ fontFamily: "'Playfair Display', serif" }}>
                     Reenviar confirmación
                   </h3>
                   <p className="text-sm text-slate-500 mt-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -2720,7 +2836,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         .map(r => (
                           <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
                             <td className="py-3 px-4 text-slate-400">{r.id}</td>
-                            <td className="py-3 px-4 font-medium text-[#284735]">{r.guest}</td>
+                            <td className="py-3 px-4 font-medium text-[#3d2010]">{r.guest}</td>
                             <td className="py-3 px-4 text-slate-600">{r.email}</td>
                             <td className="py-3 px-4 text-slate-600">{r.accommodation}</td>
                             <td className="py-3 px-4 text-slate-600">{r.checkIn}</td>
@@ -2728,7 +2844,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               <button
                                 onClick={() => handleReenviarCorreo(r.id)}
                                 disabled={correoReenviando === r.id}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#284735] text-white rounded-lg hover:bg-[#365b43] transition-colors disabled:opacity-50 text-xs font-medium"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3d2010] text-white rounded-lg hover:bg-[#5a3518] transition-colors disabled:opacity-50 text-xs font-medium"
                               >
                                 <Mail size={13} />
                                 {correoReenviando === r.id ? "Enviando..." : "Reenviar"}
@@ -2754,7 +2870,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           {activeTab === "configuracion" && (
             <div>
               <div className="mb-8">
-                <h2 className="text-xl md:text-3xl font-semibold text-[#365b43] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <h2 className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
                   Configuración
                 </h2>
                 <p className="text-slate-700" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -2789,7 +2905,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <label className="block text-sm text-slate-600 mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>ID de usuario</label>
                       <div className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded bg-slate-50">
                         <span className="text-xs font-mono text-slate-400 select-none">#</span>
-                        <span className="font-mono text-[#284735] text-sm select-all">{perfilId ?? user?.id ?? '—'}</span>
+                        <span className="font-mono text-[#3d2010] text-sm select-all">{perfilId ?? user?.id ?? '—'}</span>
                         <span className="ml-auto text-xs text-slate-400 italic" style={{ fontFamily: "'DM Mono', monospace" }}>solo lectura</span>
                       </div>
                     </div>
@@ -2799,7 +2915,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         type="text"
                         value={perfilForm.nombre}
                         onChange={e => setPerfilForm(f => ({ ...f, nombre: e.target.value }))}
-                        className="w-full px-4 py-2 border border-slate-200 rounded text-[#284735] focus:outline-none focus:border-primary transition-colors"
+                        className="w-full px-4 py-2 border border-slate-200 rounded text-[#3d2010] focus:outline-none focus:border-primary transition-colors"
                         required
                       />
                     </div>
@@ -2809,7 +2925,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         type="email"
                         value={perfilForm.email}
                         onChange={e => setPerfilForm(f => ({ ...f, email: e.target.value }))}
-                        className="w-full px-4 py-2 border border-slate-200 rounded text-[#284735] focus:outline-none focus:border-primary transition-colors"
+                        className="w-full px-4 py-2 border border-slate-200 rounded text-[#3d2010] focus:outline-none focus:border-primary transition-colors"
                         required
                       />
                     </div>
@@ -2822,7 +2938,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       {configLoading ? "Guardando..." : "Guardar Cambios"}
                     </button>
                     {configMessage && (
-                      <p className={`text-sm text-center ${configMessage.includes("Error") ? "text-red-500" : "text-green-600"}`}>
+                      <p className={`text-sm text-center ${configMessage.includes("Error") ? "text-red-500" : "text-amber-700"}`}>
                         {configMessage}
                       </p>
                     )}
@@ -2862,7 +2978,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         onChange={e => setConfig(c => ({ ...c, recibir_notificaciones: e.target.checked }))}
                         className="w-4 h-4 rounded"
                       />
-                      <span className="text-[#284735] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      <span className="text-[#3d2010] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         Recibir notificaciones por email
                       </span>
                     </label>
@@ -2873,7 +2989,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         onChange={e => setConfig(c => ({ ...c, notificaciones_reservas: e.target.checked }))}
                         className="w-4 h-4 rounded"
                       />
-                      <span className="text-[#284735] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      <span className="text-[#3d2010] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         Actualizar sobre nuevas reservas
                       </span>
                     </label>
@@ -2884,7 +3000,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         onChange={e => setConfig(c => ({ ...c, compartir_datos: e.target.checked }))}
                         className="w-4 h-4 rounded"
                       />
-                      <span className="text-[#284735] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      <span className="text-[#3d2010] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         Compartir datos para análisis
                       </span>
                     </label>
@@ -2904,14 +3020,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           {/* Modal crear/editar reserva — global, visible desde cualquier pestaña */}
           {showReservaModal && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-xl max-h-[92vh] overflow-y-auto shadow-lg relative text-[#284735]">
+              <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-xl max-h-[92vh] overflow-y-auto shadow-lg relative text-[#3d2010]">
                 <button
-                  className="absolute top-4 right-4 text-[#728875] hover:text-[#284735] transition-colors"
+                  className="absolute top-4 right-4 text-[#728875] hover:text-[#3d2010] transition-colors"
                   onClick={handleCloseReservaModal}
                 >
                   <X size={20} />
                 </button>
-                <h3 className="text-xl font-semibold mb-6 text-[#365b43]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <h3 className="text-xl font-semibold mb-6 text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
                   {editingReserva ? "Editar Reserva" : "Nueva Reserva"}
                 </h3>
                 <form
@@ -2922,7 +3038,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <button
                       type="button"
                       onClick={() => setReservaModalTab("principal")}
-                      className={`px-3 py-2 rounded-md text-sm transition-colors ${reservaModalTab === "principal" ? "bg-[#e5eee7] text-[#284735]" : "text-[#718575] hover:text-[#284735]"}`}
+                      className={`px-3 py-2 rounded-md text-sm transition-colors ${reservaModalTab === "principal" ? "bg-[#e5eee7] text-[#3d2010]" : "text-[#718575] hover:text-[#3d2010]"}`}
                     >
                       Huésped principal
                     </button>
@@ -2930,7 +3046,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <button
                         type="button"
                         onClick={() => setReservaModalTab("adicionales")}
-                        className={`px-3 py-2 rounded-md text-sm transition-colors ${reservaModalTab === "adicionales" ? "bg-[#e5eee7] text-[#284735]" : "text-[#718575] hover:text-[#284735]"}`}
+                        className={`px-3 py-2 rounded-md text-sm transition-colors ${reservaModalTab === "adicionales" ? "bg-[#e5eee7] text-[#3d2010]" : "text-[#718575] hover:text-[#3d2010]"}`}
                       >
                         Demás huéspedes ({reservaForm.numero_huespedes - 1})
                       </button>
@@ -2940,13 +3056,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   {reservaModalTab === "principal" && (
                     <>
                       <div className="relative">
-                        <label className="block text-sm mb-1 text-[#46654f]">
+                        <label className="block text-sm mb-1 text-[#7a4828]">
                           Nombre del huésped
                           {!editingReserva && <span className="text-slate-400 text-xs ml-1">(opcional — el huésped lo completa via enlace)</span>}
                         </label>
                         <input
                           type="text"
-                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                           value={reservaForm.nombre_huesped}
                           onChange={e => {
                             setReservaForm(f => ({ ...f, nombre_huesped: e.target.value }));
@@ -2961,9 +3077,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               <li
                                 key={i}
                                 onMouseDown={() => seleccionarHuesped(r)}
-                                className="px-3 py-2 hover:bg-[#f0f7f1] cursor-pointer border-b border-slate-100 last:border-0"
+                                className="px-3 py-2 hover:bg-[#f5e8d5] cursor-pointer border-b border-slate-100 last:border-0"
                               >
-                                <p className="text-sm font-medium text-[#284735]">{r.guest}</p>
+                                <p className="text-sm font-medium text-[#3d2010]">{r.guest}</p>
                                 <p className="text-xs text-slate-400">{r.document} · {r.email}</p>
                               </li>
                             ))}
@@ -2971,37 +3087,49 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Cédula del huésped principal</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Cédula del huésped principal</label>
                         <input
                           type="text"
-                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                           value={reservaForm.cedula_huesped}
                           onChange={e => setReservaForm(f => ({ ...f, cedula_huesped: e.target.value }))}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Email del huésped</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Email del huésped</label>
                         <input
                           type="email"
-                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                           value={reservaForm.email_huesped}
                           onChange={e => setReservaForm(f => ({ ...f, email_huesped: e.target.value }))}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">WhatsApp del huésped</label>
-                        <input
-                          type="tel"
-                          className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
-                          placeholder="Ej: 573001234567 (con código de país)"
-                          value={reservaForm.telefono_huesped}
-                          onChange={e => setReservaForm(f => ({ ...f, telefono_huesped: e.target.value }))}
-                        />
+                        <label className="block text-sm mb-1 text-[#7a4828]">WhatsApp del huésped</label>
+                        <div className="flex rounded border border-slate-200 overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+                          <select
+                            value={indicativoAdmin}
+                            onChange={e => setIndicativoAdmin(e.target.value)}
+                            className="w-[82px] shrink-0 bg-slate-50 border-r border-slate-200 text-[#3d2010] text-sm pl-2 pr-1 py-2 focus:outline-none cursor-pointer"
+                          >
+                            {INDICATIVOS_ADMIN.map(({ code, flag }) => (
+                              <option key={code} value={code}>{flag} {code}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            inputMode="tel"
+                            className="flex-1 px-3 py-2 text-[#3d2010] placeholder:text-[#9db5a0] focus:outline-none bg-white text-sm"
+                            placeholder="300 000 0000"
+                            value={reservaForm.telefono_huesped}
+                            onChange={e => setReservaForm(f => ({ ...f, telefono_huesped: e.target.value }))}
+                          />
+                        </div>
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Alojamiento</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Alojamiento</label>
                         <select
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={reservaForm.hospedaje}
                           onChange={e => setReservaForm(f => ({
                             ...f,
@@ -3019,12 +3147,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       </div>
                       <div className="flex gap-2">
                         <div className="flex-1">
-                          <label className="block text-sm mb-1 text-[#46654f]">
+                          <label className="block text-sm mb-1 text-[#7a4828]">
                             {reservaForm.hospedaje === "Día de Sol" ? "Fecha" : "Check-in"}
                           </label>
                           <input
                             type="date"
-                            className="w-full px-3 py-2 border rounded text-[#284735]"
+                            className="w-full px-3 py-2 border rounded text-[#3d2010]"
                             value={reservaForm.check_in}
                             onChange={e => setReservaForm(f => ({
                               ...f,
@@ -3036,10 +3164,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </div>
                         {reservaForm.hospedaje !== "Día de Sol" && (
                           <div className="flex-1">
-                            <label className="block text-sm mb-1 text-[#46654f]">Check-out</label>
+                            <label className="block text-sm mb-1 text-[#7a4828]">Check-out</label>
                             <input
                               type="date"
-                              className="w-full px-3 py-2 border rounded text-[#284735]"
+                              className="w-full px-3 py-2 border rounded text-[#3d2010]"
                               value={reservaForm.check_out}
                               onChange={e => setReservaForm(f => ({ ...f, check_out: e.target.value }))}
                               required
@@ -3048,20 +3176,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Número de personas</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Número de personas</label>
                         <input
                           type="number"
                           min={1}
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={reservaForm.numero_huespedes}
                           onChange={e => handleCantidadHuespedesChange(Number(e.target.value))}
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Servicio adicional</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Servicio adicional</label>
                         <select
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={reservaForm.servicio_adicional}
                           onChange={e => setReservaForm(f => ({ ...f, servicio_adicional: e.target.value }))}
                         >
@@ -3083,16 +3211,25 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">
+                        <label className="block text-sm mb-1 text-[#7a4828]">
                           Valor del alojamiento
-                          {tieneTarifa(reservaForm.hospedaje) && reservaForm.check_in && reservaForm.check_out && (() => {
-                            const calc = precioTotal(reservaForm.hospedaje, reservaForm.check_in, reservaForm.check_out);
-                            const bases = tarifasBase(reservaForm.hospedaje)!;
-                            return calc > 0 ? (
-                              <span className="ml-2 text-[10px] font-normal text-[#607651] bg-[#e8f0e6] px-1.5 py-0.5 rounded">
-                                Tarifa: {formatCOP(bases.low)}/noche lun–jue · {formatCOP(bases.high)}/noche fin sem/festivo/temp. alta
-                              </span>
-                            ) : null;
+                          {tieneTarifa(reservaForm.hospedaje) && reservaForm.check_in && (() => {
+                            const g = reservaForm.numero_huespedes;
+                            const isDiaSol = reservaForm.hospedaje.toLowerCase().includes("de sol");
+                            const calcOut = isDiaSol ? reservaForm.check_in : reservaForm.check_out;
+                            const bases = tarifasBase(reservaForm.hospedaje, g);
+                            if (!bases) return null;
+                            const calc = precioTotal(reservaForm.hospedaje, reservaForm.check_in, calcOut, g);
+                            const unit = isDiaSol ? "/día/pers" : "/noche";
+                            return (
+                              <>
+                                {calc > 0 && (
+                                  <span className="ml-2 text-[10px] font-normal text-[#8a6038] bg-[#f0e4d0] px-1.5 py-0.5 rounded">
+                                    Tarifa: {formatCOP(bases.low)}{unit} lun–jue · {formatCOP(bases.high)}{unit} fin sem/festivo
+                                  </span>
+                                )}
+                              </>
+                            );
                           })()}
                         </label>
                         <div className="relative">
@@ -3100,7 +3237,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           <input
                             type="text"
                             inputMode="numeric"
-                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
+                            className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
                             placeholder="0"
                             value={displayCOP(reservaForm.valor_alojamiento)}
                             onFocus={e => { if (Number(reservaForm.valor_alojamiento) !== 0) e.target.select(); }}
@@ -3112,13 +3249,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </p>
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Valor del servicio adicional</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Valor del servicio adicional</label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
                           <input
                             type="text"
                             inputMode="numeric"
-                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
+                            className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
                             placeholder="0"
                             value={displayCOP(reservaForm.valor_servicio_adicional)}
                             onFocus={e => { if (Number(reservaForm.valor_servicio_adicional) !== 0) e.target.select(); }}
@@ -3127,13 +3264,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Abono</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Abono</label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
                           <input
                             type="text"
                             inputMode="numeric"
-                            className="w-full pl-7 pr-3 py-2 border rounded text-[#284735] placeholder:text-[#9db5a0]"
+                            className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
                             placeholder="0"
                             value={displayCOP(reservaForm.abono)}
                             onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
@@ -3146,15 +3283,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           />
                         </div>
                       </div>
-                      <div className="rounded-md bg-[#e5eee7] p-4">
-                        <label className="block text-sm mb-1 text-[#46654f]">Total a pagar</label>
-                        <p className="text-xl font-semibold text-[#284735]">{formatCurrency(totalReserva)}</p>
-                        <p className="text-xs text-[#55735d] mt-1">Valor alojamiento + servicio adicional − abono</p>
+                      <div className="rounded-md bg-[#f0e4d0] p-4">
+                        <label className="block text-sm mb-1 text-[#7a4828]">Total a pagar</label>
+                        <p className="text-xl font-semibold text-[#3d2010]">{formatCurrency(totalReserva)}</p>
+                        <p className="text-xs text-[#8b5e38] mt-1">Valor alojamiento + servicio adicional − abono</p>
                       </div>
                       <div>
-                        <label className="block text-sm mb-1 text-[#46654f]">Estado</label>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Estado</label>
                         <select
-                          className="w-full px-3 py-2 border rounded text-[#284735]"
+                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={reservaForm.estado}
                           onChange={e => setReservaForm(f => ({ ...f, estado: e.target.value }))}
                         >
@@ -3168,37 +3305,37 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
                   {reservaModalTab === "adicionales" && reservaForm.numero_huespedes > 1 && (
                     <div className="space-y-4">
-                      <p className="text-sm text-[#46654f]">
+                      <p className="text-sm text-[#7a4828]">
                         El huésped principal ya está registrado. Completa los datos de los acompañantes.
                       </p>
                       {reservaForm.huespedes_adicionales.map((huesped, index) => (
                         <div key={index} className="rounded-md border border-[#d7e1d8] p-4 space-y-3">
-                          <p className="font-medium text-[#365b43]">Huésped {index + 2}</p>
+                          <p className="font-medium text-[#5a3518]">Huésped {index + 2}</p>
                           <div>
-                            <label className="block text-sm mb-1 text-[#46654f]">Nombre completo</label>
+                            <label className="block text-sm mb-1 text-[#7a4828]">Nombre completo</label>
                             <input
                               type="text"
-                              className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                              className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                               value={huesped.nombre}
                               onChange={e => handleHuespedAdicionalChange(index, "nombre", e.target.value)}
                               required
                             />
                           </div>
                           <div>
-                            <label className="block text-sm mb-1 text-[#46654f]">Cédula</label>
+                            <label className="block text-sm mb-1 text-[#7a4828]">Cédula</label>
                             <input
                               type="text"
-                              className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                              className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                               value={huesped.cedula}
                               onChange={e => handleHuespedAdicionalChange(index, "cedula", e.target.value)}
                               required
                             />
                           </div>
                           <div>
-                            <label className="block text-sm mb-1 text-[#46654f]">Email del huésped</label>
+                            <label className="block text-sm mb-1 text-[#7a4828]">Email del huésped</label>
                             <input
                               type="email"
-                              className="w-full px-3 py-2 border rounded text-[#284735] placeholder:text-[#718575]"
+                              className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                               value={huesped.email || ""}
                               onChange={e => handleHuespedAdicionalChange(index, "email", e.target.value)}
                               required
@@ -3216,7 +3353,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     {editingReserva ? "Guardar Cambios" : "Crear Reserva"}
                   </button>
                   {successMessage && (
-                    <div className="mt-4 text-green-600 text-sm text-center">{successMessage}</div>
+                    <div className="mt-4 text-amber-700 text-sm text-center">{successMessage}</div>
                   )}
                 </form>
               </div>
@@ -3228,7 +3365,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       {/* Botón flotante superior */}
       <button
         onClick={() => window.scrollBy({ top: -window.innerHeight * 0.8, behavior: "smooth" })}
-        className="fixed right-4 top-24 z-50 p-2 bg-white border border-slate-200 rounded-lg shadow-md text-[#46654f] hover:bg-primary/10 hover:border-primary transition-colors"
+        className="fixed right-4 top-24 z-50 p-2 bg-white border border-slate-200 rounded-lg shadow-md text-[#7a4828] hover:bg-primary/10 hover:border-primary transition-colors"
         title="Subir"
       >
         <ChevronUp size={18} />
@@ -3237,7 +3374,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       {/* Botón flotante inferior */}
       <button
         onClick={() => window.scrollBy({ top: window.innerHeight * 0.8, behavior: "smooth" })}
-        className="fixed right-4 bottom-6 z-50 p-2 bg-white border border-slate-200 rounded-lg shadow-md text-[#46654f] hover:bg-primary/10 hover:border-primary transition-colors"
+        className="fixed right-4 bottom-6 z-50 p-2 bg-white border border-slate-200 rounded-lg shadow-md text-[#7a4828] hover:bg-primary/10 hover:border-primary transition-colors"
         title="Bajar"
       >
         <ChevronDown size={18} />
@@ -3245,8 +3382,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
       {/* Toast flotante de confirmación */}
       {toastMsg && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-[#284735] text-white text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in">
-          <CheckCircle size={16} className="text-green-300" />
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-[#3d2010] text-white text-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in">
+          <CheckCircle size={16} className="text-amber-300" />
           {toastMsg}
         </div>
       )}
@@ -3264,11 +3401,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
             {/* Ícono y título */}
             <div className="flex flex-col items-center text-center mb-6">
-              <div className="w-12 h-12 bg-[#e8f0ea] rounded-full flex items-center justify-center mb-3">
-                <Link size={22} className="text-[#365b43]" />
+              <div className="w-12 h-12 bg-[#f0e4d0] rounded-full flex items-center justify-center mb-3">
+                <Link size={22} className="text-[#5a3518]" />
               </div>
               <h3
-                className="text-lg font-semibold text-[#284735]"
+                className="text-lg font-semibold text-[#3d2010]"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
                 Reserva creada
@@ -3279,14 +3416,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </div>
 
             {/* Enlace */}
-            <div className="bg-[#f4f7f4] border border-[#c2d8c8] rounded-xl p-4 space-y-3">
-              <p className="text-xs font-medium text-[#46654f]">Enlace para el huésped:</p>
+            <div className="bg-[#f7ede0] border border-[#c8aa82] rounded-xl p-4 space-y-3">
+              <p className="text-xs font-medium text-[#7a4828]">Enlace para el huésped:</p>
               <div className="flex items-center gap-2">
                 <input
                   readOnly
                   value={enlaceGenerado}
                   onClick={e => (e.target as HTMLInputElement).select()}
-                  className="flex-1 text-xs px-3 py-2 border border-[#c2d8c8] rounded-lg bg-white text-[#284735] font-mono focus:outline-none focus:border-[#365b43]"
+                  className="flex-1 text-xs px-3 py-2 border border-[#c8aa82] rounded-lg bg-white text-[#3d2010] font-mono focus:outline-none focus:border-[#5a3518]"
                 />
                 <button
                   type="button"
@@ -3297,8 +3434,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                     enlaceCopiado
-                      ? "bg-green-500 text-white"
-                      : "bg-[#365b43] text-white hover:bg-[#284735]"
+                      ? "bg-amber-500 text-white"
+                      : "bg-[#5a3518] text-white hover:bg-[#3d2010]"
                   }`}
                 >
                   {enlaceCopiado ? "¡Copiado!" : "Copiar"}

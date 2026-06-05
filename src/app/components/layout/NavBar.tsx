@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 
 interface NavBarProps {
@@ -21,7 +21,7 @@ export function NavBar({ onLoginClick }: NavBarProps) {
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? "bg-[#0f1a0e]/95 backdrop-blur-md border-b border-border" : "bg-transparent"
+        scrolled ? "bg-[#1a100a]/95 backdrop-blur-md border-b border-border" : "bg-transparent"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
@@ -44,7 +44,7 @@ export function NavBar({ onLoginClick }: NavBarProps) {
           ))}
           <a
             href="/reservar"
-            className="bg-[#607651] hover:bg-[#4e6142] text-white px-5 py-2 text-sm tracking-wide transition-colors"
+            className="bg-[#8a6038] hover:bg-[#7a4c28] text-white px-5 py-2 text-sm tracking-wide transition-colors"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             Reservar
@@ -57,7 +57,7 @@ export function NavBar({ onLoginClick }: NavBarProps) {
       </div>
 
       {open && (
-        <div className="md:hidden bg-[#0f1a0e]/98 backdrop-blur-md border-t border-border px-6 py-6 flex flex-col gap-5">
+        <div className="md:hidden bg-[#1a100a]/98 backdrop-blur-md border-t border-border px-6 py-6 flex flex-col gap-5">
           {links.map((l) => (
             <a
               key={l}
@@ -71,7 +71,7 @@ export function NavBar({ onLoginClick }: NavBarProps) {
           ))}
           <a
             href="/reservar"
-            className="bg-[#607651] hover:bg-[#4e6142] text-white px-5 py-3 text-center text-sm tracking-wide mt-2 transition-colors"
+            className="bg-[#8a6038] hover:bg-[#7a4c28] text-white px-5 py-3 text-center text-sm tracking-wide mt-2 transition-colors"
             onClick={() => setOpen(false)}
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
