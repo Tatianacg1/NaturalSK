@@ -94,6 +94,7 @@ const emptyForm = (alojamiento = "") => ({
   numero_huespedes: "1",
   servicio_adicional: "N/A",
   color_decoracion: "",
+  mensaje_decoracion: "",
 });
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -703,7 +704,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                       name="servicio_adicional"
                       value={form.servicio_adicional}
                       onChange={e => {
-                        setForm(p => ({ ...p, servicio_adicional: e.target.value, color_decoracion: "" }));
+                        setForm(p => ({ ...p, servicio_adicional: e.target.value, color_decoracion: "", mensaje_decoracion: "" }));
                         setError("");
                       }}
                       className={inputCls}
@@ -734,6 +735,26 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>
+                    </div>
+                  )}
+
+                  {form.servicio_adicional === "Decoracion cena" && (
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Mensaje personalizado
+                        <span className="ml-2 font-normal normal-case text-[#9db5a0]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                          {form.mensaje_decoracion.length}/25 caracteres
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={25}
+                        placeholder="Ej: ¡Feliz aniversario!"
+                        value={form.mensaje_decoracion}
+                        onChange={e => setForm(p => ({ ...p, mensaje_decoracion: e.target.value }))}
+                        className={inputCls}
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      />
                     </div>
                   )}
 

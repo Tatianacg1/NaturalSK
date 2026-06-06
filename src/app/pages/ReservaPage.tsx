@@ -234,6 +234,7 @@ export function ReservaPage() {
     numero_huespedes: "1",
     servicio_adicional: "N/A",
     color_decoracion: "",
+    mensaje_decoracion: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -1173,7 +1174,7 @@ export function ReservaPage() {
                           value={form.servicio_adicional}
                           onChange={e => {
                             const val = e.target.value;
-                            setForm(p => ({ ...p, servicio_adicional: val, color_decoracion: "" }));
+                            setForm(p => ({ ...p, servicio_adicional: val, color_decoracion: "", mensaje_decoracion: "" }));
                             setError("");
                           }}
                           className={inputCls}
@@ -1205,6 +1206,26 @@ export function ReservaPage() {
                             <option key={c} value={c}>{c}</option>
                           ))}
                         </select>
+                      </div>
+                    )}
+
+                    {form.servicio_adicional === "Decoracion cena" && (
+                      <div>
+                        <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                          Mensaje personalizado
+                          <span className="ml-2 font-normal normal-case text-[#9db5a0]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                            {form.mensaje_decoracion.length}/25 caracteres
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={25}
+                          placeholder="Ej: ¡Feliz aniversario!"
+                          value={form.mensaje_decoracion}
+                          onChange={e => setForm(p => ({ ...p, mensaje_decoracion: e.target.value }))}
+                          className={inputCls}
+                          style={{ fontFamily: "'DM Sans', sans-serif" }}
+                        />
                       </div>
                     )}
 
