@@ -28,6 +28,7 @@ interface ReservaForm {
   numero_huespedes: number;
   servicio_adicional: string;
   color_decoracion: string;
+  mensaje_decoracion: string;
   valor_alojamiento: number | string;
   valor_servicio_adicional: number | string;
   abono: number | string;
@@ -135,6 +136,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     numero_huespedes: 1,
     servicio_adicional: "N/A",
     color_decoracion: "",
+    mensaje_decoracion: "",
     valor_alojamiento: 0,
     valor_servicio_adicional: 0,
     abono: 0,
@@ -262,6 +264,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       guests: reserva.numero_huespedes,
       additionalService: reserva.servicio_adicional || "N/A",
       color_decoracion: reserva.color_decoracion || "",
+      mensaje_decoracion: reserva.mensaje_decoracion || "",
       accommodationValue: Number(reserva.valor_alojamiento || 0),
       additionalServiceValue: Number(reserva.valor_servicio_adicional || 0),
       deposit: Number(reserva.abono || 0),
@@ -384,6 +387,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         numero_huespedes: reserva.guests || 1,
         servicio_adicional: reserva.additionalService || "N/A",
         color_decoracion: reserva.color_decoracion || "",
+        mensaje_decoracion: reserva.mensaje_decoracion || "",
         valor_alojamiento: calc > 0 ? calc : (reserva.accommodationValue || 0),
         valor_servicio_adicional: reserva.additionalServiceValue || 0,
         abono: reserva.deposit || 0,
@@ -409,6 +413,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_out: "",
         numero_huespedes: 1,
         servicio_adicional: "N/A",
+        color_decoracion: "",
+        mensaje_decoracion: "",
         valor_alojamiento: 0,
         valor_servicio_adicional: 0,
         abono: 0,
@@ -443,6 +449,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         { length: numero_huespedes - 1 },
         (_, index) => form.huespedes_adicionales[index] || { nombre: "", cedula: "", email: "", celular: "" }
       ),
+      valor_servicio_adicional: form.servicio_adicional && form.servicio_adicional !== "N/A"
+        ? precioServicio(form.hospedaje, form.servicio_adicional, numero_huespedes)
+        : form.valor_servicio_adicional,
     }));
     if (numero_huespedes === 1) {
       setReservaModalTab("principal");
@@ -622,6 +631,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           numero_huespedes: reserva.guests,
           servicio_adicional: reserva.additionalService,
           color_decoracion: reserva.color_decoracion || "",
+          mensaje_decoracion: reserva.mensaje_decoracion || "",
           valor_alojamiento: reserva.accommodationValue,
           valor_servicio_adicional: reserva.additionalServiceValue,
           abono: reserva.deposit,
@@ -661,6 +671,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         numero_huespedes: reserva.guests,
         servicio_adicional: reserva.additionalService,
         color_decoracion: reserva.color_decoracion || "",
+        mensaje_decoracion: reserva.mensaje_decoracion || "",
         valor_alojamiento: calc,
         valor_servicio_adicional: reserva.additionalServiceValue,
         abono: reserva.deposit,
@@ -700,6 +711,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         numero_huespedes: reserva.guests,
         servicio_adicional: reserva.additionalService,
         color_decoracion: reserva.color_decoracion || "",
+        mensaje_decoracion: reserva.mensaje_decoracion || "",
         valor_alojamiento: valorAloj,
         valor_servicio_adicional: reserva.additionalServiceValue,
         abono: reserva.deposit,
@@ -3582,11 +3594,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           value={reservaForm.servicio_adicional}
                           onChange={e => {
                             const val = e.target.value;
-                            const precio = precioServicio(reservaForm.hospedaje, val);
+                            const precio = precioServicio(reservaForm.hospedaje, val, reservaForm.numero_huespedes);
                             setReservaForm(f => ({
                               ...f,
                               servicio_adicional: val,
                               color_decoracion: "",
+                              mensaje_decoracion: "",
                               valor_servicio_adicional: precio,
                             }));
                           }}
@@ -3611,6 +3624,25 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               <option key={c} value={c}>{c}</option>
                             ))}
                           </select>
+                        </div>
+                      )}
+
+                      {reservaForm.servicio_adicional === "Decoracion cena" && (
+                        <div>
+                          <label className="block text-sm mb-1 text-[#7a4828]">
+                            Mensaje personalizado
+                            <span className="ml-2 text-xs text-[#9db5a0]">
+                              {reservaForm.mensaje_decoracion.length}/25
+                            </span>
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={25}
+                            placeholder="Ej: ¡Feliz aniversario!"
+                            className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
+                            value={reservaForm.mensaje_decoracion}
+                            onChange={e => setReservaForm(f => ({ ...f, mensaje_decoracion: e.target.value }))}
+                          />
                         </div>
                       )}
                       <div>

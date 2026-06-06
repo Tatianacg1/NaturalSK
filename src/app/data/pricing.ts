@@ -223,6 +223,7 @@ interface ServicioConfig {
   label: string;
   precios: Partial<Record<GrupoServicio, number>>;
   requiereColor: boolean;
+  precioDinamico?: (grupo: GrupoServicio, huespedes: number) => number;
 }
 
 const SERVICIOS: Record<string, ServicioConfig> = {
@@ -251,6 +252,17 @@ const SERVICIOS: Record<string, ServicioConfig> = {
     },
     requiereColor: false,
   },
+  'Decoracion cena': {
+    label: 'Decoración cena',
+    precios: {
+      'perla-esmeralda-diamante': 30_000,
+      'zafiro-turquesa': 30_000,
+      'habitacion-pareja': 30_000,
+      'habitacion-cuadruple': 30_000,
+    },
+    requiereColor: true,
+    precioDinamico: (_grupo, huespedes) => huespedes > 2 ? 45_000 : 30_000,
+  },
 };
 
 export const COLORES_DECORACION = ['Rosada', 'Roja', 'Plateado', 'Dorado'] as const;
@@ -264,13 +276,14 @@ export function serviciosDisponibles(hospedaje: string): string[] {
     .map(([key]) => key);
 }
 
-/** Precio del servicio adicional según alojamiento. */
-export function precioServicio(hospedaje: string, servicio: string): number {
+/** Precio del servicio adicional según alojamiento y número de huéspedes. */
+export function precioServicio(hospedaje: string, servicio: string, huespedes = 1): number {
   if (!servicio || servicio === 'N/A') return 0;
   const cfg = SERVICIOS[servicio];
   if (!cfg) return 0;
   const grupo = getGrupoServicio(hospedaje);
   if (!grupo) return 0;
+  if (cfg.precioDinamico) return cfg.precioDinamico(grupo, huespedes);
   return cfg.precios[grupo] ?? 0;
 }
 
