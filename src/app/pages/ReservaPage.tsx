@@ -261,6 +261,10 @@ export function ReservaPage() {
   }, [datosGenerales]);
 
   useEffect(() => {
+    setServiciosSeleccionados([]);
+  }, [form.hospedaje]);
+
+  useEffect(() => {
     if (modoVista !== "fecha") return;
     if (!form.check_out || form.check_out === form.check_in) return;
     const timer = setTimeout(() => {
@@ -314,11 +318,35 @@ export function ReservaPage() {
   const selectedLocalData = localDataFor(form.hospedaje);
   const isDiaDeSol = normalize(form.hospedaje) === "dia de sol";
   const serviciosAlo = serviciosDisponibles(form.hospedaje);
-  const requiereColor = servicioRequiereColor(form.servicio_adicional);
+  const precioTotalServicios = serviciosSeleccionados.reduce(
+    (acc, x) => acc + precioServicio(form.hospedaje, x.servicio, numHuespedes), 0
+  );
+  const colorRequerido = serviciosSeleccionados.some(
+    x => servicioRequiereColor(x.servicio) && !x.color
+  );
   const huesped1Completo = !!form.nombre_huesped.trim() && !!form.cedula_huesped.trim() && !!form.email_huesped.trim() && !!form.telefono_huesped.trim();
   const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre?.trim() && h.cedula?.trim());
-  const colorRequerido = requiereColor && form.servicio_adicional !== "N/A" && !form.color_decoracion;
   const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos && !colorRequerido;
+
+  const toggleServicio = (s: string) => {
+    setServiciosSeleccionados(prev => {
+      const exists = prev.some(x => x.servicio === s);
+      if (exists) return prev.filter(x => x.servicio !== s);
+      return [...prev, { servicio: s, color: "", mensaje: "" }];
+    });
+  };
+
+  const setColorServicio = (s: string, color: string) => {
+    setServiciosSeleccionados(prev =>
+      prev.map(x => x.servicio === s ? { ...x, color } : x)
+    );
+  };
+
+  const setMensajeServicio = (s: string, mensaje: string) => {
+    setServiciosSeleccionados(prev =>
+      prev.map(x => x.servicio === s ? { ...x, mensaje } : x)
+    );
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -349,6 +377,9 @@ export function ReservaPage() {
     setLoading(true);
     setError("");
     try {
+      const servicioLabel = serviciosSeleccionados.length > 0
+        ? serviciosSeleccionados.map(x => labelServicio(x.servicio)).join(", ")
+        : "N/A";
       await reservaPublicaAPI.crearPublica({
         ...form,
         check_out: isDiaDeSol ? form.check_in : form.check_out,
@@ -358,7 +389,18 @@ export function ReservaPage() {
           return local.startsWith(codSin) ? `+${local}` : `${indicativo}${local}`;
         })(),
         numero_huespedes: Number(form.numero_huespedes),
-        valor_servicio_adicional: precioServicio(form.hospedaje, form.servicio_adicional),
+        servicio_adicional: servicioLabel,
+        color_decoracion: serviciosSeleccionados.find(x => x.color)?.color ?? "",
+        valor_servicio_adicional: precioTotalServicios,
+        ...(serviciosSeleccionados.length > 0 && {
+          servicios_adicionales: serviciosSeleccionados.map(x => ({
+            nombre: x.servicio,
+            label: labelServicio(x.servicio),
+            color: x.color || null,
+            mensaje: x.mensaje || null,
+            precio: precioServicio(form.hospedaje, x.servicio, numHuespedes),
+          })),
+        }),
         ...(huespedesAdicionales.length > 0 && { huespedes_adicionales: huespedesAdicionales }),
       });
       setExito(true);
@@ -377,11 +419,14 @@ export function ReservaPage() {
   // ─── ÉXITO ───────────────────────────────────────────────────────────────────
   if (exito) {
     const exitoTotal = tieneTarifa(form.hospedaje) && form.check_in && form.check_out
-      ? precioTotal(form.hospedaje, form.check_in, form.check_out, Number(form.numero_huespedes))
+      ? precioTotal(form.hospedaje, form.check_in, form.check_out, Number(form.numero_huespedes)) + precioTotalServicios
       : null;
+    const exitoServicio = serviciosSeleccionados.length > 0
+      ? serviciosSeleccionados.map(x => labelServicio(x.servicio)).join(", ")
+      : "N/A";
     const waUrl = buildWaUrl(
       form.hospedaje, form.check_in, form.check_out, nights,
-      form.numero_huespedes, form.servicio_adicional, exitoTotal
+      form.numero_huespedes, exitoServicio, exitoTotal
     );
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -865,8 +910,7 @@ export function ReservaPage() {
               {form.hospedaje && form.check_in && form.check_out && normalize(form.hospedaje) !== "dia de sol" && tieneTarifa(form.hospedaje) && (() => {
                 const g = Number(form.numero_huespedes);
                 const alojamientoPrice = precioTotal(form.hospedaje, form.check_in, form.check_out, g);
-                const servicioPrice = precioServicio(form.hospedaje, form.servicio_adicional);
-                const totalPrice = alojamientoPrice + servicioPrice;
+                const totalPrice = alojamientoPrice + precioTotalServicios;
                 const bases = tarifasBase(form.hospedaje, g)!;
                 return (
                   <div className="px-6 py-4 border-b border-gray-100 bg-[#f9f2e8]">
@@ -886,16 +930,20 @@ export function ReservaPage() {
                         </span>
                       </div>
 
-                      {servicioPrice > 0 && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-500 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                            {form.servicio_adicional}
-                          </span>
-                          <span className="text-[#3d2010] text-sm font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
-                            {formatCOP(servicioPrice)}
-                          </span>
-                        </div>
-                      )}
+                      {serviciosSeleccionados.map(x => {
+                        const precio = precioServicio(form.hospedaje, x.servicio, g);
+                        if (precio <= 0) return null;
+                        return (
+                          <div key={x.servicio} className="flex justify-between items-center">
+                            <span className="text-gray-500 text-xs" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                              {labelServicio(x.servicio)}
+                            </span>
+                            <span className="text-[#3d2010] text-sm font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                              {formatCOP(precio)}
+                            </span>
+                          </div>
+                        );
+                      })}
 
                       {/* Total — siempre visible */}
                       <div className="flex justify-between items-center pt-2 mt-1 border-t border-[#c4a07a]/30">
@@ -1165,91 +1213,117 @@ export function ReservaPage() {
                     </div>
 
                     {serviciosAlo.length > 0 && (
-                      <div>
+                      <div className="space-y-2">
                         <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                          Servicio adicional
+                          Servicios adicionales
                         </label>
-                        <select
-                          name="servicio_adicional"
-                          value={form.servicio_adicional}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setForm(p => ({ ...p, servicio_adicional: val, color_decoracion: "", mensaje_decoracion: "" }));
-                            setError("");
-                          }}
-                          className={inputCls}
-                          style={{ fontFamily: "'DM Sans', sans-serif" }}
-                        >
-                          <option value="N/A">Sin servicio adicional</option>
-                          {serviciosAlo.map(s => (
-                            <option key={s} value={s}>{labelServicio(s)}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                        <div className="space-y-2">
+                          {serviciosAlo.map(s => {
+                            const isSelected = serviciosSeleccionados.some(x => x.servicio === s);
+                            const precio = precioServicio(form.hospedaje, s, numHuespedes);
+                            const needsColor = servicioRequiereColor(s);
+                            const needsMensaje = servicioTieneMensaje(s);
+                            const selectedData = serviciosSeleccionados.find(x => x.servicio === s);
+                            return (
+                              <div key={s}>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleServicio(s)}
+                                  className={cn(
+                                    "w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition-all text-left",
+                                    isSelected
+                                      ? "bg-[#8a6038]/8 border-[#8a6038] text-[#3d2010]"
+                                      : "bg-white border-gray-200 text-gray-600 hover:border-[#8a6038]/40 hover:bg-gray-50"
+                                  )}
+                                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                                >
+                                  <span>{labelServicio(s)}</span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {precio > 0 && (
+                                      <span className="text-xs font-semibold text-[#8a6038]">
+                                        +{formatCOP(precio)}
+                                      </span>
+                                    )}
+                                    <div className={cn(
+                                      "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                                      isSelected ? "bg-[#8a6038] border-[#8a6038]" : "border-gray-300"
+                                    )}>
+                                      {isSelected && (
+                                        <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                                          <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
 
-                    {requiereColor && form.servicio_adicional !== "N/A" && (
-                      <div>
-                        <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                          Color de decoración
-                        </label>
-                        <select
-                          name="color_decoracion"
-                          value={form.color_decoracion}
-                          onChange={handleChange}
-                          required
-                          className={inputCls}
-                          style={{ fontFamily: "'DM Sans', sans-serif" }}
-                        >
-                          <option value="">Selecciona un color</option>
-                          {COLORES_DECORACION.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                                {isSelected && needsColor && (
+                                  <div className="mt-1.5 pl-1">
+                                    <select
+                                      value={selectedData?.color ?? ""}
+                                      onChange={e => setColorServicio(s, e.target.value)}
+                                      className={cn(inputCls, !selectedData?.color && "border-amber-400 focus:border-amber-500")}
+                                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                                    >
+                                      <option value="">Selecciona un color</option>
+                                      {COLORES_DECORACION.map(c => (
+                                        <option key={c} value={c}>{c}</option>
+                                      ))}
+                                    </select>
+                                    {!selectedData?.color && (
+                                      <p className="text-amber-600 text-[10px] mt-1 ml-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+                                        Selecciona un color para continuar
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
 
-                    {servicioTieneMensaje(form.servicio_adicional) && (
-                      <div>
-                        <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                          Mensaje personalizado
-                          <span className="ml-2 font-normal normal-case text-[#9db5a0]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                            {form.mensaje_decoracion.length}/25 caracteres
-                          </span>
-                        </label>
-                        <input
-                          type="text"
-                          maxLength={25}
-                          placeholder="Ej: ¡Feliz aniversario!"
-                          value={form.mensaje_decoracion}
-                          onChange={e => setForm(p => ({ ...p, mensaje_decoracion: e.target.value }))}
-                          className={inputCls}
-                          style={{ fontFamily: "'DM Sans', sans-serif" }}
-                        />
-                      </div>
-                    )}
-
-                    {form.servicio_adicional !== "N/A" && precioServicio(form.hospedaje, form.servicio_adicional) > 0 && (
-                      <div className="rounded-xl border border-[#8a6038]/25 bg-[#f9f2e8] px-4 py-3 flex items-start gap-3">
-                        <span className="text-[#8a6038] mt-0.5 text-base leading-none">✓</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <span className="text-[#3d2010] text-sm font-semibold" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                              {labelServicio(form.servicio_adicional)}
-                              {form.color_decoracion && (
-                                <span className="ml-2 font-normal text-[#8a6038]">· {form.color_decoracion}</span>
-                              )}
-                            </span>
-                            <span className="text-[#3d2010] text-sm font-bold shrink-0" style={{ fontFamily: "'Playfair Display', serif" }}>
-                              + {formatCOP(precioServicio(form.hospedaje, form.servicio_adicional))}
-                            </span>
-                          </div>
-                          {requiereColor && !form.color_decoracion && (
-                            <p className="text-amber-600 text-[10px] mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
-                              Selecciona un color para continuar
-                            </p>
-                          )}
+                                {isSelected && needsMensaje && (
+                                  <div className="mt-1.5 pl-1">
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        maxLength={25}
+                                        placeholder="Ej: ¡Feliz aniversario!"
+                                        value={selectedData?.mensaje ?? ""}
+                                        onChange={e => setMensajeServicio(s, e.target.value)}
+                                        className={inputCls}
+                                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                                      />
+                                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">
+                                        {(selectedData?.mensaje ?? "").length}/25
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
+
+                        {serviciosSeleccionados.length > 0 && (
+                          <div className="space-y-1 pt-1">
+                            {serviciosSeleccionados.map(x => {
+                              const precio = precioServicio(form.hospedaje, x.servicio, numHuespedes);
+                              return (
+                                <div key={x.servicio} className="rounded-xl border border-[#8a6038]/25 bg-[#f9f2e8] px-4 py-2.5 flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[#8a6038] text-sm leading-none shrink-0">✓</span>
+                                    <span className="text-[#3d2010] text-sm font-semibold truncate" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                                      {labelServicio(x.servicio)}
+                                      {x.color && <span className="ml-1.5 font-normal text-[#8a6038]">· {x.color}</span>}
+                                    </span>
+                                  </div>
+                                  {precio > 0 && (
+                                    <span className="text-[#3d2010] text-sm font-bold shrink-0" style={{ fontFamily: "'Playfair Display', serif" }}>
+                                      +{formatCOP(precio)}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </>
@@ -1268,8 +1342,7 @@ export function ReservaPage() {
                   if (!form.hospedaje || !form.check_in || (!isDiaDeSol && !form.check_out) || !tieneTarifa(form.hospedaje)) return null;
                   const g = Number(form.numero_huespedes);
                   const alojamientoPrice = precioTotal(form.hospedaje, form.check_in, isDiaDeSol ? form.check_in : form.check_out, g);
-                  const servicioPrice = precioServicio(form.hospedaje, form.servicio_adicional);
-                  const totalPrice = alojamientoPrice + servicioPrice;
+                  const totalPrice = alojamientoPrice + precioTotalServicios;
                   return (
                     <div className="flex items-center justify-between bg-[#f9f2e8] border border-[#c4a07a]/30 rounded-xl px-4 py-3">
                       <span className="text-[#8a6038] text-xs font-semibold tracking-wide" style={{ fontFamily: "'DM Mono', monospace" }}>
