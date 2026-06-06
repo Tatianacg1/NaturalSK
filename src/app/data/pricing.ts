@@ -298,6 +298,11 @@ export function servicioRequiereColor(servicio: string): boolean {
   return SERVICIOS[servicio]?.requiereColor ?? false;
 }
 
+/** True si el servicio requiere mensaje personalizado. */
+export function servicioTieneMensaje(servicio: string): boolean {
+  return servicio === 'Decoracion cena';
+}
+
 /** Formatea un número como moneda COP. */
 export function formatCOP(value: number): string {
   return new Intl.NumberFormat("es-CO", {

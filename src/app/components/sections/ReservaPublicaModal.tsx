@@ -4,7 +4,7 @@ import { accommodations } from "../../data/accommodations";
 import { reservaPublicaAPI } from "../../../services/api";
 import { CalendarioPublico, type AloData } from "./CalendarioPublico";
 import { cn } from "../ui/utils";
-import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio, maxHuespedes } from "../../data/pricing";
+import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../../data/pricing";
 
 interface Props {
   open: boolean;
@@ -738,7 +738,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                     </div>
                   )}
 
-                  {form.servicio_adicional === "Decoracion cena" && (
+                  {servicioTieneMensaje(form.servicio_adicional) && (
                     <div>
                       <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
                         Mensaje personalizado

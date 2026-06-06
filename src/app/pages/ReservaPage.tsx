@@ -5,7 +5,7 @@ import { reservaPublicaAPI } from "../../services/api";
 import { CalendarioPublico, type AloData } from "../components/sections/CalendarioPublico";
 import { AccommodationLightbox } from "../components/sections/AccommodationLightbox";
 import { cn } from "../components/ui/utils";
-import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
+import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -232,10 +232,10 @@ export function ReservaPage() {
     email_huesped: "",
     telefono_huesped: "",
     numero_huespedes: "1",
-    servicio_adicional: "N/A",
-    color_decoracion: "",
-    mensaje_decoracion: "",
   });
+  const [serviciosSeleccionados, setServiciosSeleccionados] = useState<
+    Array<{ servicio: string; color: string; mensaje: string }>
+  >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState(false);
@@ -1209,7 +1209,7 @@ export function ReservaPage() {
                       </div>
                     )}
 
-                    {form.servicio_adicional === "Decoracion cena" && (
+                    {servicioTieneMensaje(form.servicio_adicional) && (
                       <div>
                         <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
                           Mensaje personalizado
