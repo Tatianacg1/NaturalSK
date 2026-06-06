@@ -3646,87 +3646,94 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           />
                         </div>
                       )}
-                      <div>
-                        <label className="block text-sm mb-1 text-[#7a4828]">
-                          Valor del alojamiento
-                          {tieneTarifa(reservaForm.hospedaje) && reservaForm.check_in && (() => {
-                            const g = reservaForm.numero_huespedes;
-                            const isDiaSol = reservaForm.hospedaje.toLowerCase().includes("de sol");
-                            const calcOut = isDiaSol ? reservaForm.check_in : reservaForm.check_out;
-                            const bases = tarifasBase(reservaForm.hospedaje, g);
-                            if (!bases) return null;
-                            const calc = precioTotal(reservaForm.hospedaje, reservaForm.check_in, calcOut, g);
-                            const unit = isDiaSol ? "/día/pers" : "/noche";
-                            return (
-                              <>
-                                {calc > 0 && (
-                                  <span className="ml-2 text-[10px] font-normal text-[#8a6038] bg-[#f0e4d0] px-1.5 py-0.5 rounded">
-                                    Tarifa: {formatCOP(bases.low)}{unit} lun–jue · {formatCOP(bases.high)}{unit} fin sem/festivo
-                                  </span>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
-                            placeholder="0"
-                            value={displayCOP(reservaForm.valor_alojamiento)}
-                            onFocus={e => { if (Number(reservaForm.valor_alojamiento) !== 0) e.target.select(); }}
-                            onChange={e => setReservaForm(f => ({ ...f, valor_alojamiento: parseCOP(e.target.value) }))}
-                          />
-                        </div>
-                        <p className="text-[10px] text-amber-600 mt-1">
-                          ⚠ Precio en pesos colombianos. Puede modificarse según disponibilidad o condiciones especiales.
-                        </p>
-                      </div>
-                      {reservaForm.servicio_adicional &&
-                        !["N/A", "", "Sin servicio adicional"].includes(reservaForm.servicio_adicional) && (
-                        <div>
-                          <label className="block text-sm mb-1 text-[#7a4828]">Valor del servicio adicional</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
-                              placeholder="0"
-                              value={displayCOP(reservaForm.valor_servicio_adicional)}
-                              onFocus={e => { if (Number(reservaForm.valor_servicio_adicional) !== 0) e.target.select(); }}
-                              onChange={e => setReservaForm(f => ({ ...f, valor_servicio_adicional: parseCOP(e.target.value) }))}
-                            />
+                      {reservaForm.hospedaje && (
+                        <>
+                          <div>
+                            <label className="block text-sm mb-1 text-[#7a4828]">
+                              Valor del alojamiento
+                              {tieneTarifa(reservaForm.hospedaje) && reservaForm.check_in && (() => {
+                                const g = reservaForm.numero_huespedes;
+                                const isDiaSol = reservaForm.hospedaje.toLowerCase().includes("de sol");
+                                const calcOut = isDiaSol ? reservaForm.check_in : reservaForm.check_out;
+                                const bases = tarifasBase(reservaForm.hospedaje, g);
+                                if (!bases) return null;
+                                const calc = precioTotal(reservaForm.hospedaje, reservaForm.check_in, calcOut, g);
+                                const unit = isDiaSol ? "/día/pers" : "/noche";
+                                return (
+                                  <>
+                                    {calc > 0 && (
+                                      <span className="ml-2 text-[10px] font-normal text-[#8a6038] bg-[#f0e4d0] px-1.5 py-0.5 rounded">
+                                        Tarifa: {formatCOP(bases.low)}{unit} lun–jue · {formatCOP(bases.high)}{unit} fin sem/festivo
+                                      </span>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
+                                placeholder="0"
+                                value={displayCOP(reservaForm.valor_alojamiento)}
+                                onFocus={e => { if (Number(reservaForm.valor_alojamiento) !== 0) e.target.select(); }}
+                                onChange={e => setReservaForm(f => ({ ...f, valor_alojamiento: parseCOP(e.target.value) }))}
+                              />
+                            </div>
+                            <p className="text-[10px] text-amber-600 mt-1">
+                              ⚠ Precio en pesos colombianos. Puede modificarse según disponibilidad o condiciones especiales.
+                            </p>
                           </div>
-                        </div>
+
+                          {reservaForm.servicio_adicional &&
+                            !["N/A", "", "Sin servicio adicional"].includes(reservaForm.servicio_adicional) && (
+                            <div>
+                              <label className="block text-sm mb-1 text-[#7a4828]">Valor del servicio adicional</label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
+                                  placeholder="0"
+                                  value={displayCOP(reservaForm.valor_servicio_adicional)}
+                                  onFocus={e => { if (Number(reservaForm.valor_servicio_adicional) !== 0) e.target.select(); }}
+                                  onChange={e => setReservaForm(f => ({ ...f, valor_servicio_adicional: parseCOP(e.target.value) }))}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="block text-sm mb-1 text-[#7a4828]">Abono</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
+                                placeholder="0"
+                                value={displayCOP(reservaForm.abono)}
+                                onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
+                                onChange={e => {
+                                  const val = parseCOP(e.target.value);
+                                  if (val <= valorAlojamiento + valorServicioAdicional) {
+                                    setReservaForm(f => ({ ...f, abono: val }));
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="rounded-md bg-[#f0e4d0] p-4">
+                            <label className="block text-sm mb-1 text-[#7a4828]">Total a pagar</label>
+                            <p className="text-xl font-semibold text-[#3d2010]">{formatCurrency(totalReserva)}</p>
+                            <p className="text-xs text-[#8b5e38] mt-1">Valor alojamiento + servicio adicional − abono</p>
+                          </div>
+                        </>
                       )}
-                      <div>
-                        <label className="block text-sm mb-1 text-[#7a4828]">Abono</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
-                            placeholder="0"
-                            value={displayCOP(reservaForm.abono)}
-                            onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
-                            onChange={e => {
-                              const val = parseCOP(e.target.value);
-                              if (val <= valorAlojamiento + valorServicioAdicional) {
-                                setReservaForm(f => ({ ...f, abono: val }));
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="rounded-md bg-[#f0e4d0] p-4">
-                        <label className="block text-sm mb-1 text-[#7a4828]">Total a pagar</label>
-                        <p className="text-xl font-semibold text-[#3d2010]">{formatCurrency(totalReserva)}</p>
-                        <p className="text-xs text-[#8b5e38] mt-1">Valor alojamiento + servicio adicional − abono</p>
-                      </div>
                       <div>
                         <label className="block text-sm mb-1 text-[#7a4828]">Estado</label>
                         <select
