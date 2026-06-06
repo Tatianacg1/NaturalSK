@@ -2,7 +2,7 @@
 // Muestra estadísticas, gestiona reservas, usuarios y configuración en un dashboard.
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock } from "lucide-react";
+import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
 import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio } from "../data/pricing";
 
@@ -748,6 +748,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       setTimeout(handleCloseUsuarioModal, 1500);
     } catch (error: any) {
       setUsuarioError(error.message || "Error guardando usuario");
+    }
+  };
+
+  const handleToggleActivo = async (usuario: any) => {
+    if (usuario.id === user?.id) return;
+    const nuevoEstado = !usuario.active;
+    try {
+      await usuariosAPI.toggleActivo(usuario.id, nuevoEstado);
+      setUsuarios(current =>
+        current.map(u =>
+          u.id === usuario.id
+            ? { ...u, active: nuevoEstado, status: nuevoEstado ? "Activo" : "Inactivo" }
+            : u
+        )
+      );
+    } catch (error: any) {
+      alert(error.message || "Error al cambiar estado del usuario");
     }
   };
 
@@ -2792,9 +2809,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {usuariosDisplay && usuariosDisplay.length > 0 ? usuariosDisplay.map((u) => (
-                  <div key={u.id} className="bg-white border border-slate-200 rounded-lg p-6 hover:shadow-md hover:border-slate-300 transition-all">
+                  <div
+                    key={u.id}
+                    className={`border rounded-lg p-6 hover:shadow-md transition-all ${
+                      u.active
+                        ? "bg-white border-slate-200 hover:border-slate-300"
+                        : "bg-slate-50 border-slate-200 opacity-70"
+                    }`}
+                  >
                     <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span
                           className="text-xs font-mono bg-[#f0e4d0] text-[#5a3518] border border-[#c8aa82] px-2 py-0.5 rounded"
                           title="Código de identificación"
@@ -2808,15 +2832,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         }`}>
                           {u.role === "admin" ? "Admin" : "Usuario"}
                         </span>
+                        {!u.active && (
+                          <span className="text-xs px-2 py-0.5 rounded border bg-red-50 text-red-600 border-red-200">
+                            Deshabilitado
+                          </span>
+                        )}
                       </div>
                       <h3
-                        className="text-lg font-semibold text-slate-900"
+                        className={`text-lg font-semibold ${u.active ? "text-slate-900" : "text-slate-500"}`}
                         style={{ fontFamily: "'Playfair Display', serif" }}
                       >
                         {u.name}
                       </h3>
                       <p
-                        className="text-sm text-slate-700"
+                        className="text-sm text-slate-600"
                         style={{ fontFamily: "'DM Sans', sans-serif" }}
                       >
                         {u.email}
@@ -2835,10 +2864,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <span className="text-[#8b5e38]">Estado:</span>
                         <span className={`px-2 py-1 rounded text-xs border ${
                           u.active
-                            ? "bg-amber-600/20 text-amber-700 border-amber-600/30"
-                            : "bg-slate-100 text-slate-600 border-slate-200"
+                            ? "bg-green-100 text-green-700 border-green-200"
+                            : "bg-red-50 text-red-600 border-red-200"
                         }`}>
-                          {u.status}
+                          {u.active ? "Activo" : "Inactivo"}
                         </span>
                       </div>
                     </div>
@@ -2850,6 +2879,24 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           title="Editar usuario"
                         >
                           <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleToggleActivo(u)}
+                          disabled={u.id === user?.id}
+                          title={
+                            u.id === user?.id
+                              ? "No puedes deshabilitarte a ti mismo"
+                              : u.active
+                              ? "Deshabilitar usuario"
+                              : "Habilitar usuario"
+                          }
+                          className={`p-2 rounded transition-colors disabled:text-slate-300 disabled:hover:bg-transparent ${
+                            u.active
+                              ? "text-orange-500 hover:bg-orange-50"
+                              : "text-green-600 hover:bg-green-50"
+                          }`}
+                        >
+                          {u.active ? <UserX size={16} /> : <UserCheck size={16} />}
                         </button>
                         <button
                           onClick={() => handleDeleteUsuario(u)}

@@ -161,6 +161,12 @@ export const usuariosAPI = {
       body: JSON.stringify(data),
     }),
   
+  toggleActivo: (id, activo) =>
+    fetchAPI(`/usuarios/${id}/activo`, {
+      method: 'PATCH',
+      body: JSON.stringify({ activo }),
+    }),
+
   delete: (id) =>
     fetchAPI(`/usuarios/${id}`, {
       method: 'DELETE',
