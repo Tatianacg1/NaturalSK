@@ -9,6 +9,7 @@ interface HuespedAdicional {
   nombre: string;
   cedula: string;
   email: string;
+  celular: string;
 }
 
 interface ReservaInfo {
@@ -59,7 +60,7 @@ export function CompletarReserva({ token }: Props) {
     setCantPersonas(n);
     setAdicionales(prev => {
       const nuevos = [...prev];
-      while (nuevos.length < n - 1) nuevos.push({ nombre: "", cedula: "", email: "" });
+      while (nuevos.length < n - 1) nuevos.push({ nombre: "", cedula: "", email: "", celular: "" });
       return nuevos.slice(0, Math.max(0, n - 1));
     });
   };
@@ -344,6 +345,15 @@ export function CompletarReserva({ token }: Props) {
                     placeholder="Correo electrónico"
                     value={h.email}
                     onChange={e => handleAdicionalChange(i, "email", e.target.value)}
+                    required
+                  />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] bg-white focus:outline-none focus:border-[#5a3518]"
+                    placeholder="Celular (ej: 300 000 0000)"
+                    value={h.celular}
+                    onChange={e => handleAdicionalChange(i, "celular", e.target.value)}
                     required
                   />
                 </div>
