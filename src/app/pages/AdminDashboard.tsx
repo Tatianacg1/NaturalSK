@@ -149,6 +149,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     activo: true,
   });
   const [usuarioMessage, setUsuarioMessage] = useState("");
+  const [usuarioError, setUsuarioError] = useState("");
 
   // Estado para el modal de detalle del historial
   const [historialReserva, setHistorialReserva] = useState<any>(null);
@@ -261,7 +262,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const mapUsuario = (usuario: any) => ({
-    id: usuario.id,
+    id: usuario._id || usuario.id,
     codigo: usuario.codigo || "—",
     name: usuario.nombre,
     email: usuario.email,
@@ -728,9 +729,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setShowUsuarioModal(false);
     setEditingUsuario(null);
     setUsuarioMessage("");
+    setUsuarioError("");
   };
 
   const handleSaveUsuario = async () => {
+    setUsuarioError("");
+    setUsuarioMessage("");
     try {
       if (editingUsuario) {
         await usuariosAPI.update(editingUsuario.id, usuarioForm);
@@ -740,10 +744,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         setUsuarioMessage("Usuario creado correctamente");
       }
       await reloadUsuarios();
-      setTimeout(handleCloseUsuarioModal, 1000);
+      setTimeout(handleCloseUsuarioModal, 1500);
     } catch (error: any) {
-      setUsuarioMessage("");
-      alert(error.message || "Error guardando usuario");
+      setUsuarioError(error.message || "Error guardando usuario");
     }
   };
 
@@ -2941,7 +2944,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         {editingUsuario ? "Guardar Cambios" : "Crear Usuario"}
                       </button>
                       {usuarioMessage && (
-                        <div className="text-amber-700 text-center">{usuarioMessage}</div>
+                        <div className="text-center text-sm py-2 px-3 bg-amber-50 border border-amber-200 rounded text-amber-700">
+                          {usuarioMessage}
+                        </div>
+                      )}
+                      {usuarioError && (
+                        <div className="text-center text-sm py-2 px-3 bg-red-50 border border-red-200 rounded text-red-600">
+                          {usuarioError}
+                        </div>
                       )}
                     </form>
                   </div>
