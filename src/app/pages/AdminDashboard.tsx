@@ -3651,21 +3651,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           ⚠ Precio en pesos colombianos. Puede modificarse según disponibilidad o condiciones especiales.
                         </p>
                       </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#7a4828]">Valor del servicio adicional</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
-                            placeholder="0"
-                            value={displayCOP(reservaForm.valor_servicio_adicional)}
-                            onFocus={e => { if (Number(reservaForm.valor_servicio_adicional) !== 0) e.target.select(); }}
-                            onChange={e => setReservaForm(f => ({ ...f, valor_servicio_adicional: parseCOP(e.target.value) }))}
-                          />
+                      {reservaForm.servicio_adicional && reservaForm.servicio_adicional !== "N/A" && (
+                        <div>
+                          <label className="block text-sm mb-1 text-[#7a4828]">Valor del servicio adicional</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
+                              placeholder="0"
+                              value={displayCOP(reservaForm.valor_servicio_adicional)}
+                              onFocus={e => { if (Number(reservaForm.valor_servicio_adicional) !== 0) e.target.select(); }}
+                              onChange={e => setReservaForm(f => ({ ...f, valor_servicio_adicional: parseCOP(e.target.value) }))}
+                            />
+                          </div>
                         </div>
-                      </div>
+                      )}
                       <div>
                         <label className="block text-sm mb-1 text-[#7a4828]">Abono</label>
                         <div className="relative">
