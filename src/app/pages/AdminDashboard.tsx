@@ -72,6 +72,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "reservas" | "historial" | "calendario" | "pendientes" | "usuarios" | "configuracion" | "correos">(
     () => (sessionStorage.getItem("adminTab") as any) || "calendario"
   );
@@ -808,6 +809,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
+  const effectiveCollapsed = sidebarCollapsed && !sidebarHovered;
+
   return (
     <div className="min-h-screen bg-slate-50 text-[#3d2010] overflow-x-hidden">
       {/* Encabezado principal */}
@@ -891,14 +894,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         )}
 
         {/* Barra lateral de navegación */}
-        <aside className={`
-          fixed top-[72px] left-0 h-[calc(100vh-72px)] z-40
-          md:static md:top-auto md:left-auto md:h-auto md:z-auto
-          bg-white border-r border-slate-200 md:min-h-[calc(100vh-80px)]
-          transition-all duration-300 flex flex-col
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-          ${sidebarCollapsed ? "md:w-[68px]" : "w-64"}
-        `}>
+        <aside
+          className={`
+            fixed top-[72px] left-0 h-[calc(100vh-72px)] z-40
+            md:static md:top-auto md:left-auto md:h-auto md:z-auto
+            bg-white border-r border-slate-200 md:min-h-[calc(100vh-80px)]
+            transition-all duration-300 flex flex-col
+            ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+            ${effectiveCollapsed ? "md:w-[68px]" : "w-64"}
+          `}
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => setSidebarHovered(false)}
+        >
           {/* Botón toggle superior — solo desktop */}
           <div className="hidden md:flex border-b border-slate-200 p-3 justify-end">
             <button
@@ -906,7 +913,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               className="p-1.5 rounded-lg text-slate-400 hover:text-[#3d2010] hover:bg-slate-100 transition-colors"
               title={sidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
             >
-              {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+              {effectiveCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
             </button>
           </div>
 
@@ -936,24 +943,24 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     setOverviewModal(null);
                     setOverviewDetailReserva(null);
                   }}
-                  title={sidebarCollapsed ? item.label : undefined}
+                  title={effectiveCollapsed ? item.label : undefined}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative ${
                     activeTab === item.id
                       ? "bg-primary/15 border border-primary text-primary"
                       : "text-slate-600 hover:text-[#3d2010] hover:bg-slate-100"
-                  } ${sidebarCollapsed ? "justify-center" : ""}`}
+                  } ${effectiveCollapsed ? "justify-center" : ""}`}
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
                   <item.icon size={18} className="shrink-0" />
-                  {!sidebarCollapsed && (
+                  {!effectiveCollapsed && (
                     <span className="truncate">{item.label}</span>
                   )}
-                  {pendientesCount > 0 && !sidebarCollapsed && (
+                  {pendientesCount > 0 && !effectiveCollapsed && (
                     <span className="ml-auto bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0">
                       {pendientesCount}
                     </span>
                   )}
-                  {pendientesCount > 0 && sidebarCollapsed && (
+                  {pendientesCount > 0 && effectiveCollapsed && (
                     <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-400 rounded-full" />
                   )}
                 </button>
@@ -968,7 +975,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               className="p-1.5 rounded-lg text-slate-400 hover:text-[#3d2010] hover:bg-slate-100 transition-colors"
               title={sidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
             >
-              {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+              {effectiveCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
             </button>
           </div>
         </aside>
