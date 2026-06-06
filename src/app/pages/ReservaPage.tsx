@@ -1125,6 +1125,24 @@ export function ReservaPage() {
                   </div>
                 )}
 
+                {(() => {
+                  if (!form.hospedaje || !form.check_in || (!isDiaDeSol && !form.check_out) || !tieneTarifa(form.hospedaje)) return null;
+                  const g = Number(form.numero_huespedes);
+                  const alojamientoPrice = precioTotal(form.hospedaje, form.check_in, isDiaDeSol ? form.check_in : form.check_out, g);
+                  const servicioPrice = precioServicio(form.hospedaje, form.servicio_adicional);
+                  const totalPrice = alojamientoPrice + servicioPrice;
+                  return (
+                    <div className="flex items-center justify-between bg-[#f9f2e8] border border-[#c4a07a]/30 rounded-xl px-4 py-3">
+                      <span className="text-[#8a6038] text-xs font-semibold tracking-wide" style={{ fontFamily: "'DM Mono', monospace" }}>
+                        TOTAL ESTIMADO
+                      </span>
+                      <span className="text-[#3d2010] text-lg font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        {formatCOP(totalPrice)}
+                      </span>
+                    </div>
+                  );
+                })()}
+
                 <button
                   type="submit"
                   disabled={loading || !canSubmit}
