@@ -71,6 +71,7 @@ function parsearTelefono(phone: string): { indicativo: string; numero: string } 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "reservas" | "historial" | "calendario" | "pendientes" | "usuarios" | "configuracion" | "correos">(
     () => (sessionStorage.getItem("adminTab") as any) || "calendario"
   );
@@ -887,53 +888,87 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         )}
 
         {/* Barra lateral de navegación */}
-        {sidebarOpen && (
-          <aside className="fixed top-[72px] left-0 h-[calc(100vh-72px)] z-40 md:static md:top-auto md:left-auto md:h-auto md:z-auto w-64 bg-white border-r border-slate-200 p-6 md:min-h-[calc(100vh-80px)]">
-            <nav className="space-y-2">
-              {[
-                { id: "overview", label: "Panel General", icon: BarChart3 },
-                { id: "calendario", label: "Calendario", icon: CalendarDays },
-                { id: "pendientes", label: "Pendientes", icon: Clock },
-                { id: "reservas", label: "Reservas", icon: Calendar },
-                { id: "historial", label: "Historial", icon: History },
-                ...(user?.role === "admin" ? [{ id: "usuarios", label: "Usuarios", icon: Users }] : []),
-                { id: "correos", label: "Correos", icon: Mail },
-                { id: "configuracion", label: "Configuración", icon: Settings },
-              ].map((item) => {
-                const pendientesCount = item.id === "pendientes"
-                  ? reservasDisplay.filter(r => r.status === "Pendiente").length
-                  : 0;
-                return (
+        <aside className={`
+          fixed top-[72px] left-0 h-[calc(100vh-72px)] z-40
+          md:static md:top-auto md:left-auto md:h-auto md:z-auto
+          bg-white border-r border-slate-200 md:min-h-[calc(100vh-80px)]
+          transition-all duration-300 flex flex-col
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          ${sidebarCollapsed ? "md:w-[68px]" : "w-64"}
+        `}>
+          {/* Botón toggle superior — solo desktop */}
+          <div className="hidden md:flex border-b border-slate-200 p-3 justify-end">
+            <button
+              onClick={() => setSidebarCollapsed(c => !c)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-[#3d2010] hover:bg-slate-100 transition-colors"
+              title={sidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
+            >
+              {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            </button>
+          </div>
+
+          <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
+            {[
+              { id: "overview", label: "Panel General", icon: BarChart3 },
+              { id: "calendario", label: "Calendario", icon: CalendarDays },
+              { id: "pendientes", label: "Pendientes", icon: Clock },
+              { id: "reservas", label: "Reservas", icon: Calendar },
+              { id: "historial", label: "Historial", icon: History },
+              ...(user?.role === "admin" ? [{ id: "usuarios", label: "Usuarios", icon: Users }] : []),
+              { id: "correos", label: "Correos", icon: Mail },
+              { id: "configuracion", label: "Configuración", icon: Settings },
+            ].map((item) => {
+              const pendientesCount = item.id === "pendientes"
+                ? reservasDisplay.filter(r => r.status === "Pendiente").length
+                : 0;
+              return (
                 <button
                   key={item.id}
                   onClick={() => {
                     setActiveTab(item.id as any);
                     sessionStorage.setItem("adminTab", item.id);
                     if (item.id === "correos") loadData(true);
-                    setSidebarOpen(window.innerWidth >= 768);
+                    setSidebarOpen(false);
+                    setSidebarCollapsed(true);
                     setOverviewModal(null);
                     setOverviewDetailReserva(null);
                   }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded transition-colors ${
+                  title={sidebarCollapsed ? item.label : undefined}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative ${
                     activeTab === item.id
                       ? "bg-primary/15 border border-primary text-primary"
                       : "text-slate-600 hover:text-[#3d2010] hover:bg-slate-100"
-                  }`}
+                  } ${sidebarCollapsed ? "justify-center" : ""}`}
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  <item.icon size={18} />
-                  {item.label}
-                  {pendientesCount > 0 && (
-                    <span className="ml-auto bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  <item.icon size={18} className="shrink-0" />
+                  {!sidebarCollapsed && (
+                    <span className="truncate">{item.label}</span>
+                  )}
+                  {pendientesCount > 0 && !sidebarCollapsed && (
+                    <span className="ml-auto bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0">
                       {pendientesCount}
                     </span>
                   )}
+                  {pendientesCount > 0 && sidebarCollapsed && (
+                    <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-400 rounded-full" />
+                  )}
                 </button>
-                );
-              })}
-            </nav>
-          </aside>
-        )}
+              );
+            })}
+          </nav>
+
+          {/* Botón colapsar/expandir — solo desktop */}
+          <div className="hidden md:flex border-t border-slate-200 p-3 justify-end">
+            <button
+              onClick={() => setSidebarCollapsed(c => !c)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-[#3d2010] hover:bg-slate-100 transition-colors"
+              title={sidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
+            >
+              {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            </button>
+          </div>
+        </aside>
 
         {/* Contenido principal */}
         <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8">
