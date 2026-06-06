@@ -2,7 +2,7 @@
 // Muestra estadísticas, gestiona reservas, usuarios y configuración en un dashboard.
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX } from "lucide-react";
+import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
 import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio } from "../data/pricing";
 
@@ -40,7 +40,14 @@ interface UsuarioForm {
   contrasena: string;
   rol: "admin" | "user";
   activo: boolean;
+  color: string;
 }
+
+const COLORES_USUARIO = [
+  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+  '#EC4899', '#06B6D4', '#F97316', '#84CC16', '#6366F1',
+  '#14B8A6', '#A855F7',
+];
 
 const INDICATIVOS_ADMIN = [
   { code: "+57", flag: "🇨🇴" }, { code: "+1",   flag: "🇺🇸" }, { code: "+52",  flag: "🇲🇽" },
@@ -148,6 +155,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     contrasena: "",
     rol: "user",
     activo: true,
+    color: COLORES_USUARIO[0],
   });
   const [usuarioMessage, setUsuarioMessage] = useState("");
   const [usuarioError, setUsuarioError] = useState("");
@@ -715,6 +723,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         contrasena: "",
         rol: usuario.role === "admin" ? "admin" : "user",
         activo: usuario.active,
+        color: usuario.color ?? COLORES_USUARIO[0],
       });
     } else {
       setEditingUsuario(null);
@@ -724,6 +733,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         contrasena: "",
         rol: "user",
         activo: true,
+        color: COLORES_USUARIO[0],
       });
     }
     setUsuarioMessage("");
@@ -3046,6 +3056,29 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           <option value="user">Usuario</option>
                           <option value="admin">Administrador</option>
                         </select>
+                      </div>
+                      <div>
+                        <label className="flex items-center gap-1.5 text-sm text-[#7a4828] mb-2">
+                          <Palette size={14} />
+                          Color identificador
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {COLORES_USUARIO.map(c => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setUsuarioForm(form => ({ ...form, color: c }))}
+                              className="w-7 h-7 rounded-full transition-transform hover:scale-110 focus:outline-none"
+                              style={{
+                                backgroundColor: c,
+                                boxShadow: usuarioForm.color === c
+                                  ? `0 0 0 2px white, 0 0 0 4px ${c}`
+                                  : undefined,
+                              }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
                       </div>
                       <label className="flex items-center gap-2 text-sm text-[#7a4828]">
                         <input
