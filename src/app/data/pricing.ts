@@ -198,9 +198,11 @@ export function tieneTarifa(hospedaje: string): boolean {
 /** Máximo de huéspedes permitido según alojamiento. */
 export function maxHuespedes(hospedaje: string): number {
   const n = normalizar(hospedaje);
-  if (n === 'glamping zafiro') return 6;
+  if (n === 'glamping zafiro') return 7;
   if (n.startsWith('glamping')) return 2;
-  if (n === 'dia de sol') return 8;
+  if (n === 'habitacion pareja') return 2;
+  if (n === 'habitacion cuadruple') return 4;
+  if (n.includes('dia de sol') || n.includes('día de sol')) return 8;
   return 20;
 }
 

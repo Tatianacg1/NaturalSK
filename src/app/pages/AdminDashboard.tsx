@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
-import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio } from "../data/pricing";
+import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -3568,16 +3568,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           onChange={e => handleCantidadHuespedesChange(Number(e.target.value))}
                           required
                         >
-                          {(() => {
-                            const aloSelec = alojamientos.find(a => a.nombre === reservaForm.hospedaje);
-                            const esDiaSol = reservaForm.hospedaje?.toLowerCase().includes("de sol");
-                            const max = esDiaSol ? 8 : (aloSelec?.capacidad ?? 20);
-                            return Array.from({ length: max }, (_, i) => (
-                              <option key={i + 1} value={i + 1}>
-                                {i + 1} persona{i + 1 !== 1 ? "s" : ""}
-                              </option>
-                            ));
-                          })()}
+                          {Array.from({ length: maxHuespedes(reservaForm.hospedaje) }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                              {i + 1} persona{i + 1 !== 1 ? "s" : ""}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div>
