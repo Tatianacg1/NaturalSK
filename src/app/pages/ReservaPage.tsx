@@ -277,10 +277,7 @@ export function ReservaPage() {
       while (next.length < extra) next.push({ nombre: "", cedula: "" });
       return next.slice(0, extra);
     });
-    if (numHuespedes > prevNumHuespedesRef.current) {
-      // Huéspedes aumentaron: saltar al tab del nuevo acompañante
-      setTabActivo(numHuespedes - 1);
-    } else {
+    if (numHuespedes < prevNumHuespedesRef.current) {
       setTabActivo(prev => Math.min(prev, Math.max(0, numHuespedes - 1)));
     }
     prevNumHuespedesRef.current = numHuespedes;

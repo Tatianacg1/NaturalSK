@@ -3572,82 +3572,83 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           </div>
                         )}
                       </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#7a4828]">Número de personas</label>
-                        <select
-                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                          value={reservaForm.numero_huespedes}
-                          onChange={e => handleCantidadHuespedesChange(Number(e.target.value))}
-                          required
-                        >
-                          {Array.from({ length: maxHuespedes(reservaForm.hospedaje) }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                              {i + 1} persona{i + 1 !== 1 ? "s" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#7a4828]">Servicio adicional</label>
-                        <select
-                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                          value={reservaForm.servicio_adicional}
-                          onChange={e => {
-                            const val = e.target.value;
-                            const precio = precioServicio(reservaForm.hospedaje, val, reservaForm.numero_huespedes);
-                            setReservaForm(f => ({
-                              ...f,
-                              servicio_adicional: val,
-                              color_decoracion: "",
-                              mensaje_decoracion: "",
-                              valor_servicio_adicional: precio,
-                            }));
-                          }}
-                        >
-                          <option value="N/A">Sin servicio adicional</option>
-                          {serviciosDisponibles(reservaForm.hospedaje).map(s => (
-                            <option key={s} value={s}>{labelServicio(s)}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {servicioRequiereColor(reservaForm.servicio_adicional) &&
-                        !["N/A", "", "Sin servicio adicional"].includes(reservaForm.servicio_adicional) && (
-                        <div>
-                          <label className="block text-sm mb-1 text-[#7a4828]">Color de decoración</label>
-                          <select
-                            className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                            value={reservaForm.color_decoracion}
-                            onChange={e => setReservaForm(f => ({ ...f, color_decoracion: e.target.value }))}
-                          >
-                            <option value="">Selecciona un color</option>
-                            {COLORES_DECORACION.map(c => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {reservaForm.servicio_adicional === "Decoracion cena" && (
-                        <div>
-                          <label className="block text-sm mb-1 text-[#7a4828]">
-                            Mensaje personalizado
-                            <span className="ml-2 text-xs text-[#9db5a0]">
-                              {reservaForm.mensaje_decoracion.length}/25
-                            </span>
-                          </label>
-                          <input
-                            type="text"
-                            maxLength={25}
-                            placeholder="Ej: ¡Feliz aniversario!"
-                            className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
-                            value={reservaForm.mensaje_decoracion}
-                            onChange={e => setReservaForm(f => ({ ...f, mensaje_decoracion: e.target.value }))}
-                          />
-                        </div>
-                      )}
                       {reservaForm.hospedaje && (
                         <>
+                          <div>
+                            <label className="block text-sm mb-1 text-[#7a4828]">Número de personas</label>
+                            <select
+                              className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                              value={reservaForm.numero_huespedes}
+                              onChange={e => handleCantidadHuespedesChange(Number(e.target.value))}
+                              required
+                            >
+                              {Array.from({ length: maxHuespedes(reservaForm.hospedaje) }, (_, i) => (
+                                <option key={i + 1} value={i + 1}>
+                                  {i + 1} persona{i + 1 !== 1 ? "s" : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm mb-1 text-[#7a4828]">Servicio adicional</label>
+                            <select
+                              className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                              value={reservaForm.servicio_adicional}
+                              onChange={e => {
+                                const val = e.target.value;
+                                const precio = precioServicio(reservaForm.hospedaje, val, reservaForm.numero_huespedes);
+                                setReservaForm(f => ({
+                                  ...f,
+                                  servicio_adicional: val,
+                                  color_decoracion: "",
+                                  mensaje_decoracion: "",
+                                  valor_servicio_adicional: precio,
+                                }));
+                              }}
+                            >
+                              <option value="N/A">Sin servicio adicional</option>
+                              {serviciosDisponibles(reservaForm.hospedaje).map(s => (
+                                <option key={s} value={s}>{labelServicio(s)}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {servicioRequiereColor(reservaForm.servicio_adicional) &&
+                            !["N/A", "", "Sin servicio adicional"].includes(reservaForm.servicio_adicional) && (
+                            <div>
+                              <label className="block text-sm mb-1 text-[#7a4828]">Color de decoración</label>
+                              <select
+                                className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                                value={reservaForm.color_decoracion}
+                                onChange={e => setReservaForm(f => ({ ...f, color_decoracion: e.target.value }))}
+                              >
+                                <option value="">Selecciona un color</option>
+                                {COLORES_DECORACION.map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          {reservaForm.servicio_adicional === "Decoracion cena" && (
+                            <div>
+                              <label className="block text-sm mb-1 text-[#7a4828]">
+                                Mensaje personalizado
+                                <span className="ml-2 text-xs text-[#9db5a0]">
+                                  {reservaForm.mensaje_decoracion.length}/25
+                                </span>
+                              </label>
+                              <input
+                                type="text"
+                                maxLength={25}
+                                placeholder="Ej: ¡Feliz aniversario!"
+                                className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
+                                value={reservaForm.mensaje_decoracion}
+                                onChange={e => setReservaForm(f => ({ ...f, mensaje_decoracion: e.target.value }))}
+                              />
+                            </div>
+                          )}
+
                           <div>
                             <label className="block text-sm mb-1 text-[#7a4828]">
                               Valor del alojamiento
