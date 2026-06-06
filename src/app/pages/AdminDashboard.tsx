@@ -14,6 +14,7 @@ interface HuespedAdicional {
   nombre: string;
   cedula: string;
   email: string;
+  celular: string;
 }
 
 interface ReservaForm {
@@ -240,9 +241,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         ? JSON.parse(reserva.huespedes_adicionales || "[]")
         : (reserva.huespedes_adicionales || []);
       additionalGuests = (raw as any[]).map(g => ({
-        nombre: g?.nombre ?? "",
-        cedula: g?.cedula ?? "",
-        email:  g?.email  ?? "",
+        nombre:  g?.nombre  ?? "",
+        cedula:  g?.cedula  ?? "",
+        email:   g?.email   ?? "",
+        celular: g?.celular ?? "",
       }));
     } catch { additionalGuests = []; }
 
@@ -391,7 +393,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           const existing = reserva.additionalGuests || [];
           return Array.from(
             { length: Math.max(0, numGuests - 1) },
-            (_, i) => existing[i] || { nombre: "", cedula: "", email: "" }
+            (_, i) => existing[i] || { nombre: "", cedula: "", email: "", celular: "" }
           );
         })(),
       });
@@ -439,7 +441,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       numero_huespedes,
       huespedes_adicionales: Array.from(
         { length: numero_huespedes - 1 },
-        (_, index) => form.huespedes_adicionales[index] || { nombre: "", cedula: "", email: "" }
+        (_, index) => form.huespedes_adicionales[index] || { nombre: "", cedula: "", email: "", celular: "" }
       ),
     }));
     if (numero_huespedes === 1) {
@@ -476,11 +478,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       if (
         reservaForm.numero_huespedes > 1 &&
         reservaForm.huespedes_adicionales.some(
-          huesped => !huesped.nombre?.trim() || !huesped.cedula?.trim()
+          huesped => !huesped.nombre?.trim() || !huesped.cedula?.trim() || !huesped.celular?.trim()
         )
       ) {
         setReservaModalTab("adicionales");
-        alert("Completa los datos de los demás huéspedes");
+        alert("Completa nombre, cédula y celular de cada huésped adicional");
         return;
       }
       if (abono > valorAlojamiento + valorServicioAdicional) {
@@ -3560,14 +3562,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       </div>
                       <div>
                         <label className="block text-sm mb-1 text-[#7a4828]">Número de personas</label>
-                        <input
-                          type="number"
-                          min={1}
+                        <select
                           className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={reservaForm.numero_huespedes}
                           onChange={e => handleCantidadHuespedesChange(Number(e.target.value))}
                           required
-                        />
+                        >
+                          {(() => {
+                            const aloSelec = alojamientos.find(a => a.nombre === reservaForm.hospedaje);
+                            const esDiaSol = reservaForm.hospedaje?.toLowerCase().includes("de sol");
+                            const max = esDiaSol ? 8 : (aloSelec?.capacidad ?? 20);
+                            return Array.from({ length: max }, (_, i) => (
+                              <option key={i + 1} value={i + 1}>
+                                {i + 1} persona{i + 1 !== 1 ? "s" : ""}
+                              </option>
+                            ));
+                          })()}
+                        </select>
                       </div>
                       <div>
                         <label className="block text-sm mb-1 text-[#7a4828]">Servicio adicional</label>
@@ -3726,6 +3737,28 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               value={huesped.cedula}
                               onChange={e => handleHuespedAdicionalChange(index, "cedula", e.target.value)}
                               required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm mb-1 text-[#7a4828]">Celular *</label>
+                            <input
+                              type="tel"
+                              inputMode="tel"
+                              placeholder="300 000 0000"
+                              className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
+                              value={huesped.celular}
+                              onChange={e => handleHuespedAdicionalChange(index, "celular", e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm mb-1 text-[#7a4828]">Correo electrónico</label>
+                            <input
+                              type="email"
+                              placeholder="correo@ejemplo.com"
+                              className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
+                              value={huesped.email}
+                              onChange={e => handleHuespedAdicionalChange(index, "email", e.target.value)}
                             />
                           </div>
                         </div>
