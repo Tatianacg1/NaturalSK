@@ -42,7 +42,8 @@ const MONTHS = [
 const DAYS = ["DO","LU","MA","MI","JU","VI","SA"];
 
 function parseLocal(str: string): Date {
-  const [y, m, d] = str.split("-").map(Number);
+  const s = str.slice(0, 10);
+  const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
@@ -126,7 +127,7 @@ export function CalendarioPublico({
       const cap = esDomingo ? capDomingo : capSemana;
       const ds = toStr(y, m, d);
       const total = reservasAlo
-        .filter((r) => r.check_in === ds)
+        .filter((r) => r.check_in.slice(0, 10) === ds)
         .reduce((acc, r) => acc + (r.numero_huespedes ?? 0), 0);
       return Math.max(0, cap - total);
     },
@@ -158,7 +159,7 @@ export function CalendarioPublico({
           const esDomingo = date.getDay() === 0;
           const cap = esDomingo ? (alo.capacidad_domingo ?? 30) : (alo.capacidad_semana ?? 25);
           const total = alo.reservas
-            .filter((r) => r.check_in === ds)
+            .filter((r) => r.check_in.slice(0, 10) === ds)
             .reduce((acc, r) => acc + (r.numero_huespedes ?? 0), 0);
           return total < cap;
         }

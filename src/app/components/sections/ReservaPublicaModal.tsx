@@ -15,7 +15,8 @@ interface Props {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseLocal(str: string): Date {
-  const [y, m, d] = str.split("-").map(Number);
+  const s = str.slice(0, 10);
+  const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
@@ -33,6 +34,17 @@ function nightsBetween(ci: string, co: string): number {
 
 function isAvailableForRange(alo: AloData, ci: string, co: string): boolean {
   if (!ci || !co) return false;
+
+  if (alo.es_dia_de_sol) {
+    const date = parseLocal(ci);
+    const esDomingo = date.getDay() === 0;
+    const cap = esDomingo ? (alo.capacidad_domingo ?? 30) : (alo.capacidad_semana ?? 25);
+    const total = alo.reservas
+      .filter((r) => r.check_in.slice(0, 10) === ci)
+      .reduce((acc, r) => acc + ((r as { numero_huespedes?: number }).numero_huespedes ?? 0), 0);
+    return total < cap;
+  }
+
   const end = parseLocal(co);
   const cur = new Date(parseLocal(ci));
   while (cur < end) {

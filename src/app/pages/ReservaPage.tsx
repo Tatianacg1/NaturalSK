@@ -10,7 +10,8 @@ import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, p
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseLocal(str: string): Date {
-  const [y, m, d] = str.split("-").map(Number);
+  const s = str.slice(0, 10);
+  const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
@@ -130,14 +131,17 @@ function AloCard({ alo, local, selected, esDiaSol, maxPersonas, onSelect, onLigh
 
         {/* Overlay con botón expandir */}
         {alo.disponible && local?.image && (
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             onClick={(e) => { e.stopPropagation(); onLightbox(); }}
-            className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all"
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); onLightbox(); } }}
+            className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all cursor-pointer"
           >
             <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
               <Expand size={11} /> Ver fotos
             </span>
-          </button>
+          </div>
         )}
 
         {/* Badge tipo */}

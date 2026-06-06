@@ -2,8 +2,62 @@
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { accommodations, type Accommodation } from "../../data/accommodations";
 import { tarifasBase, tarifasZafiroTiers, tarifasDiaDeSol, formatCOP } from "../../data/pricing";
+import { reservaPublicaAPI } from "../../../services/api";
 
-function AccommodationCard({ acc }: { acc: Accommodation }) {
+// ─── Helpers de disponibilidad ────────────────────────────────────────────────
+
+function normalizeNombre(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+}
+
+function getTodayLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+interface AloRango {
+  check_in: string;
+  check_out: string;
+  numero_huespedes?: number;
+}
+
+interface AloRaw {
+  nombre: string;
+  limite_reservas: number;
+  reservas: AloRango[];
+  es_dia_de_sol?: boolean;
+  capacidad_semana?: number;
+  capacidad_domingo?: number;
+}
+
+interface DisponibilidadInfo {
+  ocupadoHoy: boolean;
+  tieneReservas: boolean;
+}
+
+function calcDisponibilidad(alo: AloRaw): DisponibilidadInfo {
+  const today = getTodayLocal();
+  const limite = alo.limite_reservas ?? 1;
+  let ocupadoHoy = false;
+
+  if (alo.es_dia_de_sol) {
+    const esDomingo = new Date().getDay() === 0;
+    const cap = esDomingo ? (alo.capacidad_domingo ?? 30) : (alo.capacidad_semana ?? 25);
+    const total = alo.reservas
+      .filter((r) => r.check_in.slice(0, 10) === today)
+      .reduce((acc, r) => acc + (r.numero_huespedes ?? 0), 0);
+    ocupadoHoy = total >= cap;
+  } else {
+    ocupadoHoy =
+      alo.reservas.filter((r) => r.check_in.slice(0, 10) <= today && r.check_out.slice(0, 10) > today).length >= limite;
+  }
+
+  return { ocupadoHoy, tieneReservas: alo.reservas.length > 0 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AccommodationCard({ acc, disponibilidad }: { acc: Accommodation; disponibilidad?: DisponibilidadInfo }) {
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const isDDS = acc.name.toLowerCase().includes("dia de sol") || acc.name.toLowerCase().includes("día de sol");
@@ -30,8 +84,10 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
     setIdx((i) => (i + 1) % total);
   };
 
+  const ocupado = disponibilidad?.ocupadoHoy ?? false;
+
   return (
-    <div className="group bg-card border border-border overflow-hidden flex flex-col hover:border-primary/40 transition-colors duration-300">
+    <div className={`group bg-card border overflow-hidden flex flex-col transition-colors duration-300 ${ocupado ? "border-red-300/40 opacity-80" : "border-border hover:border-primary/40"}`}>
       {/* Imagen con carrusel */}
       <div className="relative h-56 overflow-hidden bg-secondary">
         {acc.images.map((src, i) => (
@@ -41,7 +97,7 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
             alt={`${acc.name} ${i + 1}`}
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
               i === idx ? "opacity-100" : "opacity-0"
-            }`}
+            } ${ocupado ? "grayscale opacity-60" : ""}`}
           />
         ))}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0f1a0e]/60 to-transparent" />
@@ -78,6 +134,22 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
               ))}
             </div>
           </>
+        )}
+
+        {/* Badge disponibilidad (cuando hay datos) */}
+        {disponibilidad && (
+          <span
+            className={`absolute top-4 left-4 text-[10px] font-bold px-2.5 py-1 tracking-widest uppercase ${
+              ocupado
+                ? "bg-red-500 text-white"
+                : disponibilidad.tieneReservas
+                  ? "bg-amber-500 text-white"
+                  : "bg-green-600 text-white"
+            }`}
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
+            {ocupado ? "Ocupado" : disponibilidad.tieneReservas ? "Fechas reservadas" : "Disponible"}
+          </span>
         )}
 
         {/* Badge tipo */}
@@ -265,13 +337,22 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
         </div>
 
         <div className="flex justify-end">
-          <a
-            href={`/reservar?alojamiento=${encodeURIComponent(acc.name)}`}
-            className="text-xs tracking-widest uppercase bg-[#8a6038] hover:bg-[#7a4c28] text-white px-4 py-2 transition-colors"
-            style={{ fontFamily: "'DM Mono', monospace" }}
-          >
-            Reservar
-          </a>
+          {ocupado ? (
+            <span
+              className="text-xs tracking-widest uppercase text-red-400 border border-red-300/50 bg-red-50/60 px-4 py-2 cursor-not-allowed"
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              No disponible
+            </span>
+          ) : (
+            <a
+              href={`/reservar?alojamiento=${encodeURIComponent(acc.name)}`}
+              className="text-xs tracking-widest uppercase bg-[#8a6038] hover:bg-[#7a4c28] text-white px-4 py-2 transition-colors"
+              style={{ fontFamily: "'DM Mono', monospace" }}
+            >
+              Reservar
+            </a>
+          )}
         </div>
       </div>
     </div>
@@ -279,6 +360,20 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
 }
 
 export function Accommodations() {
+  const [disponibilidadMap, setDisponibilidadMap] = useState<Map<string, DisponibilidadInfo>>(new Map());
+
+  useEffect(() => {
+    reservaPublicaAPI.disponibilidadGeneral()
+      .then((data: { alojamientos?: AloRaw[] }) => {
+        const map = new Map<string, DisponibilidadInfo>();
+        for (const alo of (data.alojamientos ?? [])) {
+          map.set(normalizeNombre(alo.nombre), calcDisponibilidad(alo));
+        }
+        setDisponibilidadMap(map);
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <section id="hospedaje" className="py-14 px-4 md:py-28 md:px-6 bg-card/40 overflow-hidden">
       <div className="max-w-7xl mx-auto">
@@ -301,7 +396,11 @@ export function Accommodations() {
 
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
           {accommodations.map((acc) => (
-            <AccommodationCard key={acc.name} acc={acc} />
+            <AccommodationCard
+              key={acc.name}
+              acc={acc}
+              disponibilidad={disponibilidadMap.get(normalizeNombre(acc.name))}
+            />
           ))}
         </div>
       </div>
