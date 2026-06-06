@@ -30,19 +30,31 @@ export const fetchAPI = async (endpoint, options = {}) => {
 
 // Rutas de autenticación
 export const authAPI = {
-  register: (data) => 
+  register: (data) =>
     fetchAPI('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  
+
   login: (data) =>
     fetchAPI('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  
+
   me: () => fetchAPI('/auth/me'),
+
+  forgotPassword: (email) =>
+    fetchAPI('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token, nuevaContraseña) =>
+    fetchAPI('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, nuevaContraseña }),
+    }),
 };
 
 // Rutas de reservas

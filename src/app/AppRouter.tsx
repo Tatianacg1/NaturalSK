@@ -6,6 +6,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { CompletarReserva } from "./pages/CompletarReserva";
 import { ReservaPage } from "./pages/ReservaPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import App from "./App";
 
 // Componente que administra la lógica de ruta basada en autenticación.
@@ -19,12 +20,26 @@ function AppRouterContent() {
   // Detecta la ruta pública de completar reserva.
   const tokenReserva = path.match(/^\/reservar\/([^/]+)$/)?.[1] ?? null;
 
+  // Detecta la ruta de restablecimiento de contraseña con su token.
+  const resetToken = path === "/reset-password"
+    ? new URLSearchParams(window.location.search).get("token")
+    : null;
+
   // Comprueba si debe mostrar la página de login.
   useEffect(() => {
     if (path.includes("/admin") && !isAuthenticated) {
       setShowLogin(true);
     }
   }, [isAuthenticated, path]);
+
+  // Ruta de restablecimiento de contraseña
+  if (resetToken) {
+    const handleGoToLogin = () => {
+      window.history.pushState({}, "", "/admin");
+      setShowLogin(true);
+    };
+    return <ResetPasswordPage token={resetToken} onGoToLogin={handleGoToLogin} />;
+  }
 
   // Página pública de nueva reserva
   if (path === "/reservar") {

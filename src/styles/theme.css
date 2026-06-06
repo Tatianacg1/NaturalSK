@@ -137,7 +137,6 @@
     font-size: var(--font-size);
     scroll-padding-top: 72px;
     scroll-behavior: smooth;
-    overflow-x: hidden;
   }
 
   body {

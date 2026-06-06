@@ -15,6 +15,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (name: string, email: string, password: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, nuevaContraseña: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -119,12 +121,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const forgotPassword = async (email: string) => {
+    await fetchAPI("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  };
+
+  const resetPassword = async (token: string, nuevaContraseña: string) => {
+    await fetchAPI("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, nuevaContraseña }),
+    });
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">Cargando...</div>;
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, register }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, register, forgotPassword, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );
