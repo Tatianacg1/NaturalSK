@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
-import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
+import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -143,6 +143,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     estado: "Pendiente",
     huespedes_adicionales: [],
   });
+  const [adminServiciosSeleccionados, setAdminServiciosSeleccionados] = useState<
+    Array<{ servicio: string; color: string; mensaje: string }>
+  >([]);
   const [alojamientos, setAlojamientos] = useState<any[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
   const [enlaceGenerado, setEnlaceGenerado] = useState<string | null>(null);
@@ -265,6 +268,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       additionalService: reserva.servicio_adicional || "N/A",
       color_decoracion: reserva.color_decoracion || "",
       mensaje_decoracion: reserva.mensaje_decoracion || "",
+      servicios_adicionales: reserva.servicios_adicionales || null,
       accommodationValue: Number(reserva.valor_alojamiento || 0),
       additionalServiceValue: Number(reserva.valor_servicio_adicional || 0),
       deposit: Number(reserva.abono || 0),
@@ -401,6 +405,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           );
         })(),
       });
+      if (reserva.servicios_adicionales && Array.isArray(reserva.servicios_adicionales)) {
+        setAdminServiciosSeleccionados(reserva.servicios_adicionales.map((x: any) => ({
+          servicio: x.nombre,
+          color: x.color || "",
+          mensaje: x.mensaje || "",
+        })));
+      } else if (reserva.additionalService && reserva.additionalService !== "N/A") {
+        setAdminServiciosSeleccionados([{
+          servicio: reserva.additionalService,
+          color: reserva.color_decoracion || "",
+          mensaje: reserva.mensaje_decoracion || "",
+        }]);
+      } else {
+        setAdminServiciosSeleccionados([]);
+      }
     } else {
       setEditingReserva(null);
       setReservaForm({
@@ -421,6 +440,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         estado: "Pendiente",
         huespedes_adicionales: [],
       });
+      setAdminServiciosSeleccionados([]);
       setIndicativoAdmin("+57");
     }
     setReservaModalTab("principal");
@@ -432,6 +452,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setEditingReserva(null);
     setReservaModalTab("principal");
     setSuccessMessage("");
+    setAdminServiciosSeleccionados([]);
   };
 
   const handleCloseEnlaceModal = () => {
@@ -440,8 +461,30 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setEnlaceCopiado(false);
   };
 
+  const toggleAdminServicio = (s: string, hospedaje: string, numHuespedes: number) => {
+    setAdminServiciosSeleccionados(prev => {
+      const next = prev.some(x => x.servicio === s)
+        ? prev.filter(x => x.servicio !== s)
+        : [...prev, { servicio: s, color: "", mensaje: "" }];
+      const total = next.reduce((acc, x) => acc + precioServicio(hospedaje, x.servicio, numHuespedes), 0);
+      setReservaForm(f => ({ ...f, valor_servicio_adicional: total }));
+      return next;
+    });
+  };
+
+  const setColorAdminServicio = (s: string, color: string) => {
+    setAdminServiciosSeleccionados(prev => prev.map(x => x.servicio === s ? { ...x, color } : x));
+  };
+
+  const setMensajeAdminServicio = (s: string, mensaje: string) => {
+    setAdminServiciosSeleccionados(prev => prev.map(x => x.servicio === s ? { ...x, mensaje } : x));
+  };
+
   const handleCantidadHuespedesChange = (cantidad: number) => {
     const numero_huespedes = Math.max(1, cantidad || 1);
+    const totalServicios = adminServiciosSeleccionados.reduce(
+      (acc, x) => acc + precioServicio(reservaForm.hospedaje, x.servicio, numero_huespedes), 0
+    );
     setReservaForm(form => ({
       ...form,
       numero_huespedes,
@@ -449,8 +492,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         { length: numero_huespedes - 1 },
         (_, index) => form.huespedes_adicionales[index] || { nombre: "", cedula: "", email: "", celular: "" }
       ),
-      valor_servicio_adicional: form.servicio_adicional && form.servicio_adicional !== "N/A"
-        ? precioServicio(form.hospedaje, form.servicio_adicional, numero_huespedes)
+      valor_servicio_adicional: adminServiciosSeleccionados.length > 0
+        ? totalServicios
         : form.valor_servicio_adicional,
     }));
     if (numero_huespedes === 1) {
@@ -503,14 +546,29 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const telefonoCombinado = localTel
         ? (localTel.startsWith(codSinPlus) ? `+${localTel}` : `${indicativoAdmin}${localTel}`)
         : "";
+      const servicioLabel = adminServiciosSeleccionados.length > 0
+        ? adminServiciosSeleccionados.map(x => labelServicio(x.servicio)).join(", ")
+        : "N/A";
       const reservaPayload = {
         ...reservaForm,
+        servicio_adicional: servicioLabel,
+        color_decoracion: adminServiciosSeleccionados.find(x => x.color)?.color ?? "",
+        mensaje_decoracion: adminServiciosSeleccionados.find(x => x.mensaje)?.mensaje ?? "",
         telefono_huesped: telefonoCombinado,
         valor_alojamiento: valorAlojamiento,
         valor_servicio_adicional: valorServicioAdicional,
         abono,
         usuario_id: user?.id,
         tipo_hospedaje: "Glamping",
+        ...(adminServiciosSeleccionados.length > 0 && {
+          servicios_adicionales: adminServiciosSeleccionados.map(x => ({
+            nombre: x.servicio,
+            label: labelServicio(x.servicio),
+            color: x.color || null,
+            mensaje: x.mensaje || null,
+            precio: precioServicio(reservaForm.hospedaje, x.servicio, reservaForm.numero_huespedes),
+          })),
+        }),
       };
       if (editingReserva) {
         await reservasAPI.editarReserva(editingReserva.id, reservaPayload, token);
@@ -3528,12 +3586,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <select
                           className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={reservaForm.hospedaje}
-                          onChange={e => setReservaForm(f => ({
-                            ...f,
-                            hospedaje: e.target.value,
-                            check_out: e.target.value === "Día de Sol" ? f.check_in : f.check_out,
-                            servicio_adicional: e.target.value === "Día de Sol" && !["N/A", "Desayuno termal"].includes(f.servicio_adicional) ? "N/A" : f.servicio_adicional,
-                          }))}
+                          onChange={e => {
+                            setAdminServiciosSeleccionados([]);
+                            setReservaForm(f => ({
+                              ...f,
+                              hospedaje: e.target.value,
+                              check_out: e.target.value === "Día de Sol" ? f.check_in : f.check_out,
+                              servicio_adicional: "N/A",
+                              color_decoracion: "",
+                              mensaje_decoracion: "",
+                              valor_servicio_adicional: 0,
+                            }));
+                          }}
                           required
                         >
                           <option value="">Selecciona...</option>
@@ -3589,65 +3653,110 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               ))}
                             </select>
                           </div>
-                          <div>
-                            <label className="block text-sm mb-1 text-[#7a4828]">Servicio adicional</label>
-                            <select
-                              className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                              value={reservaForm.servicio_adicional}
-                              onChange={e => {
-                                const val = e.target.value;
-                                const precio = precioServicio(reservaForm.hospedaje, val, reservaForm.numero_huespedes);
-                                setReservaForm(f => ({
-                                  ...f,
-                                  servicio_adicional: val,
-                                  color_decoracion: "",
-                                  mensaje_decoracion: "",
-                                  valor_servicio_adicional: precio,
-                                }));
-                              }}
-                            >
-                              <option value="N/A">Sin servicio adicional</option>
-                              {serviciosDisponibles(reservaForm.hospedaje).map(s => (
-                                <option key={s} value={s}>{labelServicio(s)}</option>
-                              ))}
-                            </select>
-                          </div>
+                          {(() => {
+                            const serviciosAlo = serviciosDisponibles(reservaForm.hospedaje);
+                            if (serviciosAlo.length === 0) return null;
+                            return (
+                              <div>
+                                <label className="block text-sm mb-2 text-[#7a4828]">Servicios adicionales</label>
+                                <div className="space-y-2">
+                                  {serviciosAlo.map(s => {
+                                    const isSelected = adminServiciosSeleccionados.some(x => x.servicio === s);
+                                    const precio = precioServicio(reservaForm.hospedaje, s, reservaForm.numero_huespedes);
+                                    const needsColor = servicioRequiereColor(s);
+                                    const needsMensaje = servicioTieneMensaje(s);
+                                    const selectedData = adminServiciosSeleccionados.find(x => x.servicio === s);
+                                    return (
+                                      <div key={s}>
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleAdminServicio(s, reservaForm.hospedaje, reservaForm.numero_huespedes)}
+                                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded border text-sm font-medium transition-all text-left ${
+                                            isSelected
+                                              ? "bg-[#8a6038]/10 border-[#8a6038] text-[#3d2010]"
+                                              : "bg-white border-gray-200 text-gray-600 hover:border-[#8a6038]/40"
+                                          }`}
+                                        >
+                                          <span>{labelServicio(s)}</span>
+                                          <div className="flex items-center gap-2 shrink-0">
+                                            {precio > 0 && (
+                                              <span className="text-xs font-semibold text-[#8a6038]">
+                                                +{formatCOP(precio)}
+                                              </span>
+                                            )}
+                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                                              isSelected ? "bg-[#8a6038] border-[#8a6038]" : "border-gray-300"
+                                            }`}>
+                                              {isSelected && (
+                                                <svg width="7" height="5" viewBox="0 0 7 5" fill="none">
+                                                  <path d="M1 2.5L2.5 4L6 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </button>
 
-                          {servicioRequiereColor(reservaForm.servicio_adicional) &&
-                            !["N/A", "", "Sin servicio adicional"].includes(reservaForm.servicio_adicional) && (
-                            <div>
-                              <label className="block text-sm mb-1 text-[#7a4828]">Color de decoración</label>
-                              <select
-                                className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                                value={reservaForm.color_decoracion}
-                                onChange={e => setReservaForm(f => ({ ...f, color_decoracion: e.target.value }))}
-                              >
-                                <option value="">Selecciona un color</option>
-                                {COLORES_DECORACION.map(c => (
-                                  <option key={c} value={c}>{c}</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
+                                        {isSelected && needsColor && (
+                                          <div className="mt-1 pl-1">
+                                            <select
+                                              className={`w-full px-3 py-2 border rounded text-[#3d2010] text-sm ${!selectedData?.color ? "border-amber-400" : ""}`}
+                                              value={selectedData?.color ?? ""}
+                                              onChange={e => setColorAdminServicio(s, e.target.value)}
+                                            >
+                                              <option value="">Selecciona un color</option>
+                                              {COLORES_DECORACION.map(c => (
+                                                <option key={c} value={c}>{c}</option>
+                                              ))}
+                                            </select>
+                                            {!selectedData?.color && (
+                                              <p className="text-amber-600 text-[10px] mt-0.5 ml-1">Selecciona un color</p>
+                                            )}
+                                          </div>
+                                        )}
 
-                          {reservaForm.servicio_adicional === "Decoracion cena" && (
-                            <div>
-                              <label className="block text-sm mb-1 text-[#7a4828]">
-                                Mensaje personalizado
-                                <span className="ml-2 text-xs text-[#9db5a0]">
-                                  {reservaForm.mensaje_decoracion.length}/25
-                                </span>
-                              </label>
-                              <input
-                                type="text"
-                                maxLength={25}
-                                placeholder="Ej: ¡Feliz aniversario!"
-                                className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
-                                value={reservaForm.mensaje_decoracion}
-                                onChange={e => setReservaForm(f => ({ ...f, mensaje_decoracion: e.target.value }))}
-                              />
-                            </div>
-                          )}
+                                        {isSelected && needsMensaje && (
+                                          <div className="mt-1 pl-1">
+                                            <div className="relative">
+                                              <input
+                                                type="text"
+                                                maxLength={25}
+                                                placeholder="Ej: ¡Feliz aniversario!"
+                                                className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0] text-sm pr-14"
+                                                value={selectedData?.mensaje ?? ""}
+                                                onChange={e => setMensajeAdminServicio(s, e.target.value)}
+                                              />
+                                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">
+                                                {(selectedData?.mensaje ?? "").length}/25
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {adminServiciosSeleccionados.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {adminServiciosSeleccionados.map(x => {
+                                      const precio = precioServicio(reservaForm.hospedaje, x.servicio, reservaForm.numero_huespedes);
+                                      return (
+                                        <div key={x.servicio} className="flex items-center justify-between bg-[#f9f2e8] border border-[#8a6038]/20 rounded px-3 py-2 text-sm">
+                                          <span className="text-[#3d2010] font-medium">
+                                            ✓ {labelServicio(x.servicio)}
+                                            {x.color && <span className="ml-1 font-normal text-[#8a6038]">· {x.color}</span>}
+                                          </span>
+                                          {precio > 0 && (
+                                            <span className="text-[#3d2010] font-semibold shrink-0">+{formatCOP(precio)}</span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           <div>
                             <label className="block text-sm mb-1 text-[#7a4828]">
@@ -3688,10 +3797,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             </p>
                           </div>
 
-                          {reservaForm.servicio_adicional &&
-                            !["N/A", "", "Sin servicio adicional"].includes(reservaForm.servicio_adicional) && (
+                          {adminServiciosSeleccionados.length > 0 && (
                             <div>
-                              <label className="block text-sm mb-1 text-[#7a4828]">Valor del servicio adicional</label>
+                              <label className="block text-sm mb-1 text-[#7a4828]">Valor total servicios adicionales</label>
                               <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
                                 <input
