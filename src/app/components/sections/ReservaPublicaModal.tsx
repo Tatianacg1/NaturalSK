@@ -4,7 +4,7 @@ import { accommodations } from "../../data/accommodations";
 import { reservaPublicaAPI } from "../../../services/api";
 import { CalendarioPublico, type AloData } from "./CalendarioPublico";
 import { cn } from "../ui/utils";
-import { precioTotal, tarifasBase, formatCOP, tieneTarifa } from "../../data/pricing";
+import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio, maxHuespedes } from "../../data/pricing";
 
 interface Props {
   open: boolean;
@@ -79,8 +79,9 @@ const emptyForm = (alojamiento = "") => ({
   cedula_huesped: "",
   email_huesped: "",
   telefono_huesped: "",
-  numero_huespedes: "2",
+  numero_huespedes: "1",
   servicio_adicional: "N/A",
+  color_decoracion: "",
 });
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -181,6 +182,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
         ...form,
         telefono_huesped: telefonoCombinado,
         numero_huespedes: Number(form.numero_huespedes),
+        valor_servicio_adicional: precioServicio(form.hospedaje, form.servicio_adicional),
       });
       setExito(true);
     } catch (err: unknown) {
@@ -338,7 +340,15 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                       onChange={(e) => {
                         const h = e.target.value;
                         const isDDS = h.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim() === "dia de sol";
-                        setForm((p) => ({ ...p, hospedaje: h, check_in: "", check_out: "", ...(isDDS ? { servicio_adicional: "N/A" } : {}) }));
+                        const mx = maxHuespedes(h);
+                        setForm((p) => ({
+                          ...p,
+                          hospedaje: h,
+                          check_in: "",
+                          check_out: "",
+                          numero_huespedes: String(Math.min(Number(p.numero_huespedes) || 1, mx)),
+                          ...(isDDS ? { servicio_adicional: "N/A" } : {}),
+                        }));
                       }}
                       className={inputCls}
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
@@ -397,7 +407,13 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                           onClick={() => {
                             if (!alo.disponible) return;
                             const isDDS = alo.nombre.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim() === "dia de sol";
-                            setForm((p) => ({ ...p, hospedaje: alo.nombre, ...(isDDS ? { servicio_adicional: "N/A" } : {}) }));
+                            const mx = maxHuespedes(alo.nombre);
+                            setForm((p) => ({
+                              ...p,
+                              hospedaje: alo.nombre,
+                              numero_huespedes: String(Math.min(Number(p.numero_huespedes) || 1, mx)),
+                              ...(isDDS ? { servicio_adicional: "N/A" } : {}),
+                            }));
                           }}
                           className={cn(
                             "w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all",
@@ -637,33 +653,102 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
               <div>
                 <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
                   Número de huéspedes
+                  <span className="ml-2 text-gray-400 font-normal normal-case tracking-normal text-[10px]">
+                    (máx. {maxHuespedes(form.hospedaje)})
+                  </span>
                 </label>
-                <input type="number" name="numero_huespedes" value={form.numero_huespedes}
-                  onChange={handleChange} min="1" max="20" required
-                  className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
-                />
+                <select
+                  name="numero_huespedes"
+                  value={form.numero_huespedes}
+                  onChange={e => { setForm(p => ({ ...p, numero_huespedes: e.target.value })); setError(""); }}
+                  required
+                  className={inputCls}
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  {Array.from({ length: maxHuespedes(form.hospedaje) }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n}>{n} {n === 1 ? "huésped" : "huéspedes"}</option>
+                  ))}
+                </select>
+                {form.hospedaje.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim() === "glamping zafiro" && (
+                  <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden text-[10px]" style={{ fontFamily: "'DM Mono', monospace" }}>
+                    {tarifasZafiroTiers().map(t => (
+                      <div key={t.minGuests} className={`flex justify-between px-3 py-1.5 ${Number(form.numero_huespedes) >= t.minGuests && Number(form.numero_huespedes) <= t.maxGuests ? "bg-[#f0f5ec] text-[#3d2010] font-semibold" : "bg-white text-gray-400"}`}>
+                        <span>{t.minGuests === t.maxGuests ? `${t.minGuests} huésped` : `${t.minGuests}–${t.maxGuests} huéspedes`}</span>
+                        <span>Lun–Jue {formatCOP(t.low)} · F.S. {formatCOP(t.high)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {form.hospedaje.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim() !== "dia de sol" && (
-                <div>
-                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
-                    Servicio adicional
-                  </label>
-                  <select
-                    name="servicio_adicional"
-                    value={form.servicio_adicional}
-                    onChange={handleChange}
-                    className={inputCls}
-                    style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  >
-                    <option value="N/A">Sin servicio adicional</option>
-                    <option value="Desayuno termal">Desayuno termal</option>
-                    <option value="Cumpleaños">Cumpleaños</option>
-                    <option value="Aniversario">Aniversario</option>
-                    <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
-                    <option value="Te amo">Te amo</option>
-                  </select>
-                </div>
+              {serviciosDisponibles(form.hospedaje).length > 0 && (
+                <>
+                  <div>
+                    <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                      Servicio adicional
+                    </label>
+                    <select
+                      name="servicio_adicional"
+                      value={form.servicio_adicional}
+                      onChange={e => {
+                        setForm(p => ({ ...p, servicio_adicional: e.target.value, color_decoracion: "" }));
+                        setError("");
+                      }}
+                      className={inputCls}
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <option value="N/A">Sin servicio adicional</option>
+                      {serviciosDisponibles(form.hospedaje).map(s => (
+                        <option key={s} value={s}>{labelServicio(s)}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {servicioRequiereColor(form.servicio_adicional) && form.servicio_adicional !== "N/A" && (
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Color de decoración
+                      </label>
+                      <select
+                        name="color_decoracion"
+                        value={form.color_decoracion}
+                        onChange={handleChange}
+                        required
+                        className={inputCls}
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        <option value="">Selecciona un color</option>
+                        {COLORES_DECORACION.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {form.servicio_adicional !== "N/A" && precioServicio(form.hospedaje, form.servicio_adicional) > 0 && (
+                    <div className="rounded-xl border border-[#8a6038]/25 bg-[#f9f2e8] px-4 py-3 flex items-start gap-3">
+                      <span className="text-[#8a6038] mt-0.5 text-base leading-none">✓</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-[#3d2010] text-sm font-semibold" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                            {labelServicio(form.servicio_adicional)}
+                            {form.color_decoracion && (
+                              <span className="ml-2 font-normal text-[#8a6038]">· {form.color_decoracion}</span>
+                            )}
+                          </span>
+                          <span className="text-[#3d2010] text-sm font-bold shrink-0" style={{ fontFamily: "'Playfair Display', serif" }}>
+                            + {formatCOP(precioServicio(form.hospedaje, form.servicio_adicional))}
+                          </span>
+                        </div>
+                        {servicioRequiereColor(form.servicio_adicional) && !form.color_decoracion && (
+                          <p className="text-amber-600 text-[10px] mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+                            Selecciona un color para continuar
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {error && (

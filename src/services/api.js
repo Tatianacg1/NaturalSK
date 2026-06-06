@@ -218,6 +218,30 @@ export const reservaPublicaAPI = {
   },
 };
 
+// Rutas de servicios adicionales
+export const serviciosAPI = {
+  getAll: () =>
+    fetch(`${API_BASE_URL}/servicios-adicionales`)
+      .then((r) => r.json()),
+
+  create: (nombre, precio) =>
+    fetchAPI('/servicios-adicionales', {
+      method: 'POST',
+      body: JSON.stringify({ nombre, precio }),
+    }),
+
+  update: (id, precio) =>
+    fetchAPI(`/servicios-adicionales/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ precio }),
+    }),
+
+  remove: (id) =>
+    fetchAPI(`/servicios-adicionales/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
 // Rutas de alojamientos
 export const alojamientosAPI = {
   getAll: () => fetchAPI('/alojamientos'),

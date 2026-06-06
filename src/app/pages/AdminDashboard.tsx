@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
-import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo } from "../data/pricing";
+import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio } from "../data/pricing";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -26,6 +26,7 @@ interface ReservaForm {
   check_out: string;
   numero_huespedes: number;
   servicio_adicional: string;
+  color_decoracion: string;
   valor_alojamiento: number | string;
   valor_servicio_adicional: number | string;
   abono: number | string;
@@ -115,6 +116,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     check_out: "",
     numero_huespedes: 1,
     servicio_adicional: "N/A",
+    color_decoracion: "",
     valor_alojamiento: 0,
     valor_servicio_adicional: 0,
     abono: 0,
@@ -237,6 +239,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       status: reserva.estado,
       guests: reserva.numero_huespedes,
       additionalService: reserva.servicio_adicional || "N/A",
+      color_decoracion: reserva.color_decoracion || "",
       accommodationValue: Number(reserva.valor_alojamiento || 0),
       additionalServiceValue: Number(reserva.valor_servicio_adicional || 0),
       deposit: Number(reserva.abono || 0),
@@ -355,6 +358,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests || 1,
         servicio_adicional: reserva.additionalService || "N/A",
+        color_decoracion: reserva.color_decoracion || "",
         valor_alojamiento: calc > 0 ? calc : (reserva.accommodationValue || 0),
         valor_servicio_adicional: reserva.additionalServiceValue || 0,
         abono: reserva.deposit || 0,
@@ -592,6 +596,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           check_out: reserva.checkOut,
           numero_huespedes: reserva.guests,
           servicio_adicional: reserva.additionalService,
+          color_decoracion: reserva.color_decoracion || "",
           valor_alojamiento: reserva.accommodationValue,
           valor_servicio_adicional: reserva.additionalServiceValue,
           abono: reserva.deposit,
@@ -630,6 +635,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests,
         servicio_adicional: reserva.additionalService,
+        color_decoracion: reserva.color_decoracion || "",
         valor_alojamiento: calc,
         valor_servicio_adicional: reserva.additionalServiceValue,
         abono: reserva.deposit,
@@ -668,6 +674,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests,
         servicio_adicional: reserva.additionalService,
+        color_decoracion: reserva.color_decoracion || "",
         valor_alojamiento: valorAloj,
         valor_servicio_adicional: reserva.additionalServiceValue,
         abono: reserva.deposit,
@@ -1178,6 +1185,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           )}
                           {overviewDetailReserva.additionalService && overviewDetailReserva.additionalService !== "N/A" && (
                             <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{overviewDetailReserva.additionalService}</span></div>
+                          )}
+                          {overviewDetailReserva.color_decoracion && (
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Color decoración</span><span className="text-[#3d2010]">{overviewDetailReserva.color_decoracion}</span></div>
                           )}
                         </div>
                       </div>
@@ -1976,6 +1986,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-500">Servicio adicional</span>
                               <span className="text-[#3d2010]">{historialReserva.additionalService}</span>
+                            </div>
+                          )}
+                          {historialReserva.color_decoracion && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Color decoración</span>
+                              <span className="text-[#3d2010]">{historialReserva.color_decoracion}</span>
                             </div>
                           )}
                         </div>
@@ -3027,6 +3043,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   </form>
                 </div>
               </div>
+
             </div>
           )}
           {/* Modal crear/editar reserva — global, visible desde cualquier pestaña */}
@@ -3203,25 +3220,39 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <select
                           className="w-full px-3 py-2 border rounded text-[#3d2010]"
                           value={reservaForm.servicio_adicional}
-                          onChange={e => setReservaForm(f => ({ ...f, servicio_adicional: e.target.value }))}
+                          onChange={e => {
+                            const val = e.target.value;
+                            const precio = precioServicio(reservaForm.hospedaje, val);
+                            setReservaForm(f => ({
+                              ...f,
+                              servicio_adicional: val,
+                              color_decoracion: "",
+                              valor_servicio_adicional: precio,
+                            }));
+                          }}
                         >
-                          {reservaForm.hospedaje === "Día de Sol" ? (
-                            <>
-                              <option value="N/A">N/A</option>
-                              <option value="Desayuno termal">Desayuno termal</option>
-                            </>
-                          ) : (
-                            <>
-                              <option value="Cumpleaños">Cumpleaños</option>
-                              <option value="Quieres ser mi novia">Quieres ser mi novia</option>
-                              <option value="Te amo">Te amo</option>
-                              <option value="Aniversario">Aniversario</option>
-                              <option value="Desayuno termal">Desayuno termal</option>
-                              <option value="N/A">N/A</option>
-                            </>
-                          )}
+                          <option value="N/A">Sin servicio adicional</option>
+                          {serviciosDisponibles(reservaForm.hospedaje).map(s => (
+                            <option key={s} value={s}>{labelServicio(s)}</option>
+                          ))}
                         </select>
                       </div>
+
+                      {servicioRequiereColor(reservaForm.servicio_adicional) && reservaForm.servicio_adicional !== "N/A" && (
+                        <div>
+                          <label className="block text-sm mb-1 text-[#7a4828]">Color de decoración</label>
+                          <select
+                            className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                            value={reservaForm.color_decoracion}
+                            onChange={e => setReservaForm(f => ({ ...f, color_decoracion: e.target.value }))}
+                          >
+                            <option value="">Selecciona un color</option>
+                            {COLORES_DECORACION.map(c => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <div>
                         <label className="block text-sm mb-1 text-[#7a4828]">
                           Valor del alojamiento

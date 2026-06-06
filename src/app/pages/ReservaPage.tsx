@@ -5,7 +5,7 @@ import { reservaPublicaAPI } from "../../services/api";
 import { CalendarioPublico, type AloData } from "../components/sections/CalendarioPublico";
 import { AccommodationLightbox } from "../components/sections/AccommodationLightbox";
 import { cn } from "../components/ui/utils";
-import { precioTotal, tarifasBase, formatCOP, tieneTarifa, precioServicio } from "../data/pricing";
+import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -29,6 +29,7 @@ function nightsBetween(ci: string, co: string): number {
 
 function isAvailableForRange(alo: AloData, ci: string, co: string): boolean {
   if (!ci || !co) return false;
+  
   if (alo.es_dia_de_sol) {
     const date = parseLocal(ci);
     const esDomingo = date.getDay() === 0;
@@ -38,6 +39,7 @@ function isAvailableForRange(alo: AloData, ci: string, co: string): boolean {
       .reduce((acc, r) => acc + ((r as { numero_huespedes?: number }).numero_huespedes ?? 0), 0);
     return total < cap;
   }
+
   const end = parseLocal(co);
   const cur = new Date(parseLocal(ci));
   while (cur < end) {
@@ -225,8 +227,9 @@ export function ReservaPage() {
     cedula_huesped: "",
     email_huesped: "",
     telefono_huesped: "",
-    numero_huespedes: "2",
+    numero_huespedes: "1",
     servicio_adicional: "N/A",
+    color_decoracion: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -246,7 +249,9 @@ export function ReservaPage() {
     if (datosGenerales) return;
     setLoadingGeneral(true);
     reservaPublicaAPI.disponibilidadGeneral()
-      .then((data) => setDatosGenerales(data.alojamientos ?? []))
+      .then((data) => {
+        setDatosGenerales(data.alojamientos ?? []);
+      })
       .catch(() => setDatosGenerales([]))
       .finally(() => setLoadingGeneral(false));
   }, [modoVista, datosGenerales]);
@@ -307,9 +312,12 @@ export function ReservaPage() {
 
   const selectedLocalData = localDataFor(form.hospedaje);
   const isDiaDeSol = normalize(form.hospedaje) === "dia de sol";
+  const serviciosAlo = serviciosDisponibles(form.hospedaje);
+  const requiereColor = servicioRequiereColor(form.servicio_adicional);
   const huesped1Completo = !!form.nombre_huesped.trim() && !!form.cedula_huesped.trim() && !!form.email_huesped.trim() && !!form.telefono_huesped.trim();
   const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre?.trim() && h.cedula?.trim());
-  const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos;
+  const colorRequerido = requiereColor && form.servicio_adicional !== "N/A" && !form.color_decoracion;
+  const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos && !colorRequerido;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -349,6 +357,7 @@ export function ReservaPage() {
           return local.startsWith(codSin) ? `+${local}` : `${indicativo}${local}`;
         })(),
         numero_huespedes: Number(form.numero_huespedes),
+        valor_servicio_adicional: precioServicio(form.hospedaje, form.servicio_adicional),
         ...(huespedesAdicionales.length > 0 && { huespedes_adicionales: huespedesAdicionales }),
       });
       setExito(true);
@@ -733,7 +742,7 @@ export function ReservaPage() {
               {form.hospedaje && form.check_in && form.check_out && normalize(form.hospedaje) !== "dia de sol" && tieneTarifa(form.hospedaje) && (() => {
                 const g = Number(form.numero_huespedes);
                 const alojamientoPrice = precioTotal(form.hospedaje, form.check_in, form.check_out, g);
-                const servicioPrice = precioServicio(form.servicio_adicional);
+                const servicioPrice = precioServicio(form.hospedaje, form.servicio_adicional);
                 const totalPrice = alojamientoPrice + servicioPrice;
                 const bases = tarifasBase(form.hospedaje, g)!;
                 return (
@@ -1004,22 +1013,35 @@ export function ReservaPage() {
                     <div>
                       <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
                         Número de huéspedes
-                        {normalize(form.hospedaje) === "dia de sol" && (
-                          <span className="ml-2 text-amber-500 font-normal normal-case tracking-normal text-[10px]">
-                            (máx. 8 por reserva)
-                          </span>
-                        )}
+                        <span className="ml-2 text-gray-400 font-normal normal-case tracking-normal text-[10px]">
+                          (máx. {maxHuespedes(form.hospedaje)})
+                        </span>
                       </label>
-                      <input
-                        type="number" name="numero_huespedes" value={form.numero_huespedes}
-                        onChange={handleChange} min="1"
-                        max={normalize(form.hospedaje) === "dia de sol" ? "8" : "20"}
+                      <select
+                        name="numero_huespedes"
+                        value={form.numero_huespedes}
+                        onChange={e => setForm(p => ({ ...p, numero_huespedes: e.target.value }))}
                         required
-                        className={inputCls} style={{ fontFamily: "'DM Sans', sans-serif" }}
-                      />
+                        className={inputCls}
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        {Array.from({ length: maxHuespedes(form.hospedaje) }, (_, i) => i + 1).map(n => (
+                          <option key={n} value={n}>{n} {n === 1 ? "huésped" : "huéspedes"}</option>
+                        ))}
+                      </select>
+                      {normalize(form.hospedaje) === "glamping zafiro" && (
+                        <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden text-[10px]" style={{ fontFamily: "'DM Mono', monospace" }}>
+                          {tarifasZafiroTiers().map(t => (
+                            <div key={t.minGuests} className={`flex justify-between px-3 py-1.5 ${Number(form.numero_huespedes) >= t.minGuests && Number(form.numero_huespedes) <= t.maxGuests ? "bg-[#f0f5ec] text-[#3d2010] font-semibold" : "bg-white text-gray-400"}`}>
+                              <span>{t.minGuests === t.maxGuests ? `${t.minGuests} huésped` : `${t.minGuests}–${t.maxGuests} huéspedes`}</span>
+                              <span>Lun–Jue {formatCOP(t.low)} · F.S. {formatCOP(t.high)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    {normalize(form.hospedaje) !== "dia de sol" && (
+                    {serviciosAlo.length > 0 && (
                       <div>
                         <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
                           Servicio adicional
@@ -1027,17 +1049,64 @@ export function ReservaPage() {
                         <select
                           name="servicio_adicional"
                           value={form.servicio_adicional}
-                          onChange={handleChange}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setForm(p => ({ ...p, servicio_adicional: val, color_decoracion: "" }));
+                            setError("");
+                          }}
                           className={inputCls}
                           style={{ fontFamily: "'DM Sans', sans-serif" }}
                         >
                           <option value="N/A">Sin servicio adicional</option>
-                          <option value="Desayuno termal">Desayuno termal</option>
-                          <option value="Cumpleaños">Cumpleaños</option>
-                          <option value="Aniversario">Aniversario</option>
-                          <option value="Quieres ser mi novia">¿Quieres ser mi novia?</option>
-                          <option value="Te amo">Te amo</option>
+                          {serviciosAlo.map(s => (
+                            <option key={s} value={s}>{labelServicio(s)}</option>
+                          ))}
                         </select>
+                      </div>
+                    )}
+
+                    {requiereColor && form.servicio_adicional !== "N/A" && (
+                      <div>
+                        <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                          Color de decoración
+                        </label>
+                        <select
+                          name="color_decoracion"
+                          value={form.color_decoracion}
+                          onChange={handleChange}
+                          required
+                          className={inputCls}
+                          style={{ fontFamily: "'DM Sans', sans-serif" }}
+                        >
+                          <option value="">Selecciona un color</option>
+                          {COLORES_DECORACION.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {form.servicio_adicional !== "N/A" && precioServicio(form.hospedaje, form.servicio_adicional) > 0 && (
+                      <div className="rounded-xl border border-[#8a6038]/25 bg-[#f9f2e8] px-4 py-3 flex items-start gap-3">
+                        <span className="text-[#8a6038] mt-0.5 text-base leading-none">✓</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="text-[#3d2010] text-sm font-semibold" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                              {labelServicio(form.servicio_adicional)}
+                              {form.color_decoracion && (
+                                <span className="ml-2 font-normal text-[#8a6038]">· {form.color_decoracion}</span>
+                              )}
+                            </span>
+                            <span className="text-[#3d2010] text-sm font-bold shrink-0" style={{ fontFamily: "'Playfair Display', serif" }}>
+                              + {formatCOP(precioServicio(form.hospedaje, form.servicio_adicional))}
+                            </span>
+                          </div>
+                          {requiereColor && !form.color_decoracion && (
+                            <p className="text-amber-600 text-[10px] mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+                              Selecciona un color para continuar
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </>

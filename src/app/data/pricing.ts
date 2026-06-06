@@ -190,26 +190,96 @@ export function tarifasDiaDeSol(): { low: DiaSolTarifa; high: DiaSolTarifa } {
   return DIA_DE_SOL_RATES;
 }
 
-// ─── Servicios adicionales ────────────────────────────────────────────────────
-// Precios en COP por servicio. Actualiza los valores según tus tarifas.
-
-export const SERVICIOS_ADICIONALES: Record<string, number> = {
-  "N/A":                    0,
-  "Desayuno termal":        0,   // ← confirma el precio
-  "Cumpleaños":             0,   // ← confirma el precio
-  "Aniversario":            0,   // ← confirma el precio
-  "Quieres ser mi novia":   0,   // ← confirma el precio
-  "Te amo":                 0,   // ← confirma el precio
-};
-
-/** Precio del servicio adicional en COP. */
-export function precioServicio(servicio: string): number {
-  return SERVICIOS_ADICIONALES[servicio] ?? 0;
-}
-
 /** True si el alojamiento tiene tarifa definida. */
 export function tieneTarifa(hospedaje: string): boolean {
   return esZafiro(hospedaje) || esDiaDeSol(hospedaje) || obtenerRates(hospedaje) !== null;
+}
+
+/** Máximo de huéspedes permitido según alojamiento. */
+export function maxHuespedes(hospedaje: string): number {
+  const n = normalizar(hospedaje);
+  if (n === 'glamping zafiro') return 6;
+  if (n.startsWith('glamping')) return 2;
+  if (n === 'dia de sol') return 8;
+  return 20;
+}
+
+// ─── Servicios adicionales ────────────────────────────────────────────────────
+
+type GrupoServicio = 'perla-esmeralda-diamante' | 'zafiro-turquesa' | 'habitacion-pareja' | 'habitacion-cuadruple';
+
+function getGrupoServicio(hospedaje: string): GrupoServicio | null {
+  const n = normalizar(hospedaje);
+  if (['glamping perla', 'glamping esmeralda', 'glamping diamante'].includes(n)) return 'perla-esmeralda-diamante';
+  if (['glamping zafiro', 'glamping turquesa'].includes(n)) return 'zafiro-turquesa';
+  if (n === 'habitacion pareja') return 'habitacion-pareja';
+  if (n === 'habitacion cuadruple') return 'habitacion-cuadruple';
+  return null;
+}
+
+interface ServicioConfig {
+  label: string;
+  precios: Partial<Record<GrupoServicio, number>>;
+  requiereColor: boolean;
+}
+
+const SERVICIOS: Record<string, ServicioConfig> = {
+  'Decoracion de cumpleaños': {
+    label: 'Decoración de cumpleaños',
+    precios: { 'perla-esmeralda-diamante': 135_000, 'zafiro-turquesa': 190_000 },
+    requiereColor: true,
+  },
+  'Decoracion de aniversario': {
+    label: 'Decoración de aniversario',
+    precios: { 'perla-esmeralda-diamante': 120_000, 'zafiro-turquesa': 160_000, 'habitacion-pareja': 120_000 },
+    requiereColor: true,
+  },
+  'Decoracion romantica': {
+    label: 'Decoración romántica',
+    precios: { 'perla-esmeralda-diamante': 120_000, 'zafiro-turquesa': 160_000 },
+    requiereColor: false,
+  },
+  'Desayuno privado en termal': {
+    label: 'Desayuno privado en termal',
+    precios: {
+      'perla-esmeralda-diamante': 120_000,
+      'zafiro-turquesa': 120_000,
+      'habitacion-pareja': 120_000,
+      'habitacion-cuadruple': 120_000,
+    },
+    requiereColor: false,
+  },
+};
+
+export const COLORES_DECORACION = ['Rosada', 'Roja', 'Plateado', 'Dorado'] as const;
+
+/** Lista de servicios disponibles para un alojamiento (sin incluir N/A). */
+export function serviciosDisponibles(hospedaje: string): string[] {
+  const grupo = getGrupoServicio(hospedaje);
+  if (!grupo) return [];
+  return Object.entries(SERVICIOS)
+    .filter(([, cfg]) => grupo in cfg.precios)
+    .map(([key]) => key);
+}
+
+/** Precio del servicio adicional según alojamiento. */
+export function precioServicio(hospedaje: string, servicio: string): number {
+  if (!servicio || servicio === 'N/A') return 0;
+  const cfg = SERVICIOS[servicio];
+  if (!cfg) return 0;
+  const grupo = getGrupoServicio(hospedaje);
+  if (!grupo) return 0;
+  return cfg.precios[grupo] ?? 0;
+}
+
+/** Nombre de display del servicio (con acentos). */
+export function labelServicio(servicio: string): string {
+  return SERVICIOS[servicio]?.label ?? servicio;
+}
+
+/** True si el servicio requiere selección de color. */
+export function servicioRequiereColor(servicio: string): boolean {
+  return SERVICIOS[servicio]?.requiereColor ?? false;
 }
 
 /** Formatea un número como moneda COP. */

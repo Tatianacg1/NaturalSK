@@ -34,11 +34,16 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
     <div className="group bg-card border border-border overflow-hidden flex flex-col hover:border-primary/40 transition-colors duration-300">
       {/* Imagen con carrusel */}
       <div className="relative h-56 overflow-hidden bg-secondary">
-        <img
-          src={acc.images[idx]}
-          alt={`${acc.name} ${idx + 1}`}
-          className="w-full h-full object-cover transition-opacity duration-300"
-        />
+        {acc.images.map((src, i) => (
+          <img
+            key={i}
+            src={src}
+            alt={`${acc.name} ${i + 1}`}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+              i === idx ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        ))}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0f1a0e]/60 to-transparent" />
 
         {/* Flechas — solo si hay más de 1 imagen */}
@@ -46,21 +51,21 @@ function AccommodationCard({ acc }: { acc: Accommodation }) {
           <>
             <button
               onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/65 text-white flex items-center justify-center transition-colors shadow-md"
               aria-label="Foto anterior"
             >
               <ChevronLeft size={16} />
             </button>
             <button
               onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/65 text-white flex items-center justify-center transition-colors shadow-md"
               aria-label="Foto siguiente"
             >
               <ChevronRight size={16} />
             </button>
 
             {/* Puntos */}
-            <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-1.5">
               {acc.images.map((_, i) => (
                 <button
                   key={i}
