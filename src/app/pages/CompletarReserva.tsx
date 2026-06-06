@@ -27,6 +27,7 @@ interface ReservaInfo {
   total: number;
   datos_completados: boolean;
   estado: string;
+  servicio_adicional: string;
 }
 
 export function CompletarReserva({ token }: Props) {
@@ -44,6 +45,7 @@ export function CompletarReserva({ token }: Props) {
   const [cantPersonas, setCantPersonas] = useState(1);
   const [adicionales, setAdicionales] = useState<HuespedAdicional[]>([]);
   const [servicio, setServicio] = useState("N/A");
+  const [mensajeDecoracion, setMensajeDecoracion] = useState("");
 
   useEffect(() => {
     reservaPublicaAPI.getByToken(token)
@@ -82,6 +84,7 @@ export function CompletarReserva({ token }: Props) {
         numero_huespedes: cantPersonas,
         huespedes_adicionales: adicionales,
         servicio_adicional: servicio,
+        mensaje_decoracion: mensajeDecoracion,
       });
       setMensajeExito(resultado.mensaje);
       setEnviado(true);
@@ -361,6 +364,22 @@ export function CompletarReserva({ token }: Props) {
             </div>
           )}
 
+          {reservaInfo?.servicio_adicional === "Decoracion cena" && (
+            <div>
+              <label className="block text-sm mb-1 text-[#7a4828]">
+                Mensaje personalizado para la decoración
+                <span className="ml-2 text-xs text-slate-400">{mensajeDecoracion.length}/25 caracteres</span>
+              </label>
+              <input
+                type="text"
+                maxLength={25}
+                placeholder="Ej: ¡Feliz aniversario!"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] focus:outline-none focus:border-[#5a3518]"
+                value={mensajeDecoracion}
+                onChange={e => setMensajeDecoracion(e.target.value)}
+              />
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
