@@ -247,9 +247,8 @@ export function ReservaPage() {
   const [datosGenerales, setDatosGenerales] = useState<AloData[] | undefined>(undefined);
   const [loadingGeneral, setLoadingGeneral] = useState(false);
 
-  // Carga datos generales para modo "por fecha"
+  // Carga datos generales para ambos modos
   useEffect(() => {
-    if (modoVista !== "fecha") return;
     if (datosGenerales) return;
     setLoadingGeneral(true);
     reservaPublicaAPI.disponibilidadGeneral()
@@ -258,7 +257,7 @@ export function ReservaPage() {
       })
       .catch(() => setDatosGenerales([]))
       .finally(() => setLoadingGeneral(false));
-  }, [modoVista, datosGenerales]);
+  }, [datosGenerales]);
 
   useEffect(() => {
     if (modoVista !== "fecha") return;
@@ -524,8 +523,10 @@ export function ReservaPage() {
 
             {/* ── POR ALOJAMIENTO ── */}
             {modoVista === "alojamiento" && (
+              <>
+              {/* Collapsed: solo dropdown cuando no hay alojamiento; expanded: dropdown + calendario */}
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+                <div className={cn("px-6 pt-5 pb-5", form.hospedaje && "border-b border-gray-100 pb-4")}>
                   <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
                     Alojamiento
                   </label>
@@ -547,49 +548,169 @@ export function ReservaPage() {
                   </select>
                 </div>
 
-                {/* Vista previa del alojamiento seleccionado */}
-                {form.hospedaje && selectedLocalData && (
-                  <div className="flex gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100">
-                    <button
-                      onClick={() => setLightbox(form.hospedaje)}
-                      className="relative shrink-0 w-20 h-20 rounded-xl overflow-hidden group/prev"
-                    >
-                      <img
-                        src={selectedLocalData.image}
-                        alt={selectedLocalData.name}
-                        className="w-full h-full object-cover group-hover/prev:scale-105 transition-transform duration-300"
+                {/* Vista previa + calendario: solo cuando hay alojamiento seleccionado */}
+                {form.hospedaje && (
+                  <>
+                    {selectedLocalData && (
+                      <div className="flex gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100">
+                        <button
+                          onClick={() => setLightbox(form.hospedaje)}
+                          className="relative shrink-0 w-16 h-16 rounded-xl overflow-hidden group/prev"
+                        >
+                          <img
+                            src={selectedLocalData.image}
+                            alt={selectedLocalData.name}
+                            className="w-full h-full object-cover group-hover/prev:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover/prev:bg-black/30 flex items-center justify-center transition-all">
+                            <Expand size={14} className="text-white opacity-0 group-hover/prev:opacity-100 transition-opacity" />
+                          </div>
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[#3d2010] font-semibold text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>
+                            {selectedLocalData.name}
+                          </p>
+                          <p className="text-gray-400 text-xs mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
+                            {selectedLocalData.type}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {selectedLocalData.features.slice(0, 3).map((f) => (
+                              <span key={f} className="text-[10px] bg-[#8a6038]/10 text-[#8a6038] px-2 py-0.5 rounded-full">
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setForm(p => ({ ...p, hospedaje: "", check_in: "", check_out: "" }))}
+                          className="shrink-0 text-gray-300 hover:text-gray-500 transition-colors self-start"
+                          title="Cambiar alojamiento"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    <div className="p-6">
+                      <CalendarioPublico
+                        alojamiento={form.hospedaje}
+                        checkIn={form.check_in}
+                        checkOut={form.check_out}
+                        onRangeChange={handleRangeChange}
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover/prev:bg-black/30 flex items-center justify-center transition-all">
-                        <Expand size={16} className="text-white opacity-0 group-hover/prev:opacity-100 transition-opacity" />
-                      </div>
-                    </button>
-                    <div>
-                      <p className="text-[#3d2010] font-semibold text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>
-                        {selectedLocalData.name}
-                      </p>
-                      <p className="text-gray-400 text-xs mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
-                        {selectedLocalData.type}
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedLocalData.features.slice(0, 3).map((f) => (
-                          <span key={f} className="text-[10px] bg-[#8a6038]/10 text-[#8a6038] px-2 py-0.5 rounded-full">
-                            {f}
-                          </span>
-                        ))}
-                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
-
-                <div className="p-6">
-                  <CalendarioPublico
-                    alojamiento={form.hospedaje}
-                    checkIn={form.check_in}
-                    checkOut={form.check_out}
-                    onRangeChange={handleRangeChange}
-                  />
-                </div>
               </div>
+
+              {/* Cards de alojamientos en modo por alojamiento */}
+              {(() => {
+                if (!datosGenerales) return null;
+
+                const hasRange = form.check_in && form.check_out && !esSingleDaySelected;
+                const hasDay = !!form.check_in;
+
+                // Separar glamping y día de sol del catálogo
+                const todosGlamping = datosGenerales.filter(a => !a.es_dia_de_sol);
+                const todosDiaSol = datosGenerales.filter(a => a.es_dia_de_sol);
+
+                // Función para calcular disponibilidad si hay fechas, o true si no hay
+                const conDisp = (list: typeof datosGenerales, ci: string, co: string) =>
+                  list.map(a => ({
+                    ...a,
+                    disponible: (ci && co) ? isAvailableForRange(a, ci, co) : true,
+                  }));
+
+                const isDDS = normalize(form.hospedaje) === "dia de sol";
+
+                // Si hay alojamiento seleccionado, solo mostrar ese; si no, mostrar todos
+                const glampingCards = conDisp(
+                  form.hospedaje && !isDDS
+                    ? todosGlamping.filter(a => normalize(a.nombre) === normalize(form.hospedaje))
+                    : todosGlamping,
+                  form.check_in, hasRange ? form.check_out : ""
+                );
+
+                const diaSolCards = conDisp(
+                  form.hospedaje && isDDS
+                    ? todosDiaSol.filter(a => normalize(a.nombre) === normalize(form.hospedaje))
+                    : todosDiaSol,
+                  form.check_in, form.check_in
+                );
+
+                const labelFechas = hasRange
+                  ? `${formatDateLong(form.check_in)} → ${formatDateLong(form.check_out)}`
+                  : hasDay
+                    ? formatDateLong(form.check_in)
+                    : null;
+
+                return (
+                  <div className="space-y-6">
+                    {/* Glamping */}
+                    {glampingCards.length > 0 && (
+                      <div>
+                        <p className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold mb-4"
+                          style={{ fontFamily: "'DM Mono', monospace" }}>
+                          Alojamientos{labelFechas ? ` · ${labelFechas}` : ""}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {glampingCards.map(alo => (
+                            <AloCard
+                              key={alo.nombre}
+                              alo={alo}
+                              local={localDataFor(alo.nombre)}
+                              selected={form.hospedaje === alo.nombre}
+                              onSelect={() => {
+                                if (!alo.disponible) return;
+                                setForm(p => ({
+                                  ...p,
+                                  hospedaje: p.hospedaje === alo.nombre ? "" : alo.nombre,
+                                  servicio_adicional: "N/A",
+                                }));
+                              }}
+                              onLightbox={() => setLightbox(alo.nombre)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Día de Sol */}
+                    {diaSolCards.length > 0 && (
+                      <div>
+                        <p className="text-[#8a6038] text-[10px] tracking-[0.2em] uppercase font-semibold mb-4"
+                          style={{ fontFamily: "'DM Mono', monospace" }}>
+                          Día de Sol{hasDay ? ` · ${formatDateLong(form.check_in)}` : ""}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {diaSolCards.map(alo => (
+                            <AloCard
+                              key={alo.nombre}
+                              alo={alo}
+                              local={localDataFor(alo.nombre)}
+                              selected={form.hospedaje === alo.nombre}
+                              esDiaSol
+                              maxPersonas={alo.max_por_reserva ?? 8}
+                              onSelect={() => {
+                                if (!alo.disponible) return;
+                                setForm(p => ({
+                                  ...p,
+                                  hospedaje: p.hospedaje === alo.nombre ? "" : alo.nombre,
+                                  check_out: p.hospedaje === alo.nombre ? "" : p.check_in,
+                                  servicio_adicional: "N/A",
+                                }));
+                              }}
+                              onLightbox={() => setLightbox(alo.nombre)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              </>
             )}
 
             {/* ── POR FECHA ── */}

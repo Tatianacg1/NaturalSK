@@ -2414,25 +2414,46 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </span>
                       </div>
                     </div>
-                    <div className="divide-y divide-slate-100">
+                    <div className="p-4 space-y-2">
                       {reservasMes.map(r => (
-                        <button
+                        <div
                           key={r.id}
-                          onClick={() => handleOpenReservaModal(r)}
-                          className="w-full px-4 py-3 flex flex-wrap items-center gap-3 text-sm hover:bg-slate-50 transition-colors text-left"
+                          className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:border-slate-300 transition-colors"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-[#3d2010] truncate" style={{ fontFamily: "'DM Sans', sans-serif" }}>{r.guest}</p>
-                            <p className="text-slate-500 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{r.accommodation}</p>
+                            <p className="font-medium text-[#3d2010] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                              {r.guest}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                              {r.accommodation}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                              {r.checkIn} → {r.checkOut}
+                            </p>
+                            <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-xs border ${getStatusColor(r.status)}`}>
+                              {r.status}
+                            </span>
                           </div>
-                          <div className="text-slate-500 text-xs whitespace-nowrap" style={{ fontFamily: "'DM Mono', monospace" }}>
-                            {r.checkIn} → {r.checkOut}
+                          <div className="flex flex-col gap-1 shrink-0">
+                            {r.status === "Pendiente" && (
+                              <button
+                                onClick={() => handleConfirmarReserva(r.id)}
+                                className="px-2 py-1 text-[11px] bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors font-medium"
+                                style={{ fontFamily: "'DM Mono', monospace" }}
+                                title="Confirmar reserva"
+                              >
+                                Confirmar
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleOpenReservaModal(r)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="Editar reserva"
+                            >
+                              <Edit2 size={14} />
+                            </button>
                           </div>
-                          <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
-                            {r.status}
-                          </span>
-                          <Edit2 size={14} className="text-blue-500 shrink-0" />
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </div>
