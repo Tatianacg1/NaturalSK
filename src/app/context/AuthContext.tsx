@@ -41,6 +41,11 @@ const fetchAPI = async (endpoint: string, options: RequestInit = {}) => {
 
   if (!response.ok) {
     const error = await response.json();
+    // Si la cuenta fue deshabilitada, limpiar sesión y recargar
+    if (response.status === 403 && error.error === "Cuenta deshabilitada") {
+      localStorage.removeItem("authToken");
+      window.location.href = "/";
+    }
     throw new Error(error.error || "Error en la solicitud");
   }
 
