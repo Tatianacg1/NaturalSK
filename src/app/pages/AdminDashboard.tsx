@@ -2519,7 +2519,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     <button
                                       onClick={() => {
                                         setCalSelectedDay(null);
-                                        handleConfirmarReserva(r);
+                                        handleConfirmarReserva(r.id);
                                       }}
                                       className="px-2 py-1 text-[11px] bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors font-medium"
                                       style={{ fontFamily: "'DM Mono', monospace" }}

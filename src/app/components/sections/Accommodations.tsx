@@ -2,60 +2,11 @@
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { accommodations, type Accommodation } from "../../data/accommodations";
 import { tarifasBase, tarifasZafiroTiers, tarifasDiaDeSol, formatCOP } from "../../data/pricing";
-import { reservaPublicaAPI } from "../../../services/api";
-
-// ─── Helpers de disponibilidad ────────────────────────────────────────────────
-
-function normalizeNombre(s: string): string {
-  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
-}
-
-function getTodayLocal(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-interface AloRango {
-  check_in: string;
-  check_out: string;
-  numero_huespedes?: number;
-}
-
-interface AloRaw {
-  nombre: string;
-  limite_reservas: number;
-  reservas: AloRango[];
-  es_dia_de_sol?: boolean;
-  capacidad_semana?: number;
-  capacidad_domingo?: number;
-}
 
 interface DisponibilidadInfo {
   ocupadoHoy: boolean;
   tieneReservas: boolean;
 }
-
-function calcDisponibilidad(alo: AloRaw): DisponibilidadInfo {
-  const today = getTodayLocal();
-  const limite = alo.limite_reservas ?? 1;
-  let ocupadoHoy = false;
-
-  if (alo.es_dia_de_sol) {
-    const esDomingo = new Date().getDay() === 0;
-    const cap = esDomingo ? (alo.capacidad_domingo ?? 30) : (alo.capacidad_semana ?? 25);
-    const total = alo.reservas
-      .filter((r) => r.check_in.slice(0, 10) === today)
-      .reduce((acc, r) => acc + (r.numero_huespedes ?? 0), 0);
-    ocupadoHoy = total >= cap;
-  } else {
-    ocupadoHoy =
-      alo.reservas.filter((r) => r.check_in.slice(0, 10) <= today && r.check_out.slice(0, 10) > today).length >= limite;
-  }
-
-  return { ocupadoHoy, tieneReservas: alo.reservas.length > 0 };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function AccommodationCard({ acc, disponibilidad }: { acc: Accommodation; disponibilidad?: DisponibilidadInfo }) {
   const [idx, setIdx] = useState(0);
@@ -360,20 +311,6 @@ function AccommodationCard({ acc, disponibilidad }: { acc: Accommodation; dispon
 }
 
 export function Accommodations() {
-  const [disponibilidadMap, setDisponibilidadMap] = useState<Map<string, DisponibilidadInfo>>(new Map());
-
-  useEffect(() => {
-    reservaPublicaAPI.disponibilidadGeneral()
-      .then((data: { alojamientos?: AloRaw[] }) => {
-        const map = new Map<string, DisponibilidadInfo>();
-        for (const alo of (data.alojamientos ?? [])) {
-          map.set(normalizeNombre(alo.nombre), calcDisponibilidad(alo));
-        }
-        setDisponibilidadMap(map);
-      })
-      .catch(() => {});
-  }, []);
-
   return (
     <section id="hospedaje" className="py-14 px-4 md:py-28 md:px-6 bg-card/40 overflow-hidden">
       <div className="max-w-7xl mx-auto">
@@ -399,7 +336,6 @@ export function Accommodations() {
             <AccommodationCard
               key={acc.name}
               acc={acc}
-              disponibilidad={disponibilidadMap.get(normalizeNombre(acc.name))}
             />
           ))}
         </div>
