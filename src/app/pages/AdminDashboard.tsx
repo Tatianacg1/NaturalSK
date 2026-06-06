@@ -84,6 +84,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [filtroEstado, setFiltroEstado] = useState("");
   const [ordenarPorFecha, setOrdenarPorFecha] = useState(false);
 
+  // Filtros historial
+  const [historialShowSearch, setHistorialShowSearch] = useState(false);
+  const [historialSearchQuery, setHistorialSearchQuery] = useState("");
+  const [historialShowFilters, setHistorialShowFilters] = useState(false);
+  const [historialFiltroAlojamiento, setHistorialFiltroAlojamiento] = useState("");
+  const [historialFiltroEstado, setHistorialFiltroEstado] = useState("");
+  const [historialOrdenarPorFecha, setHistorialOrdenarPorFecha] = useState(false);
+
   // Estado para datos cargados del backend
   const [reservas, setReservas] = useState<any[]>([]);
   const [usuarios, setUsuarios] = useState<any[]>([]);
@@ -1777,40 +1785,169 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           {activeTab === "historial" && (() => {
             const hoy = new Date();
             hoy.setHours(0, 0, 0, 0);
-            const historial = reservasDisplay
-              .filter(r => new Date(r.checkOut) < hoy)
-              .sort((a, b) => new Date(b.checkOut).getTime() - new Date(a.checkOut).getTime());
+            let historial = reservasDisplay.filter(r => new Date(r.checkOut) < hoy);
+
+            if (historialSearchQuery.trim()) {
+              const q = historialSearchQuery.toLowerCase();
+              historial = historial.filter(r =>
+                r.guest.toLowerCase().includes(q) ||
+                r.accommodation.toLowerCase().includes(q) ||
+                r.document.toLowerCase().includes(q)
+              );
+            }
+            if (historialFiltroAlojamiento) {
+              historial = historial.filter(r => r.accommodation === historialFiltroAlojamiento);
+            }
+            if (historialFiltroEstado) {
+              historial = historial.filter(r => r.status === historialFiltroEstado);
+            }
+            historial = historialOrdenarPorFecha
+              ? [...historial].sort((a, b) => new Date(a.checkOut).getTime() - new Date(b.checkOut).getTime())
+              : [...historial].sort((a, b) => new Date(b.checkOut).getTime() - new Date(a.checkOut).getTime());
+
+            const hayFiltrosHistorial = historialSearchQuery || historialFiltroAlojamiento || historialFiltroEstado || historialOrdenarPorFecha;
+            const totalHistorial = reservasDisplay.filter(r => new Date(r.checkOut) < hoy);
 
             return (
               <div>
-                <div className="mb-6 md:mb-8">
-                  <h2
-                    className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-2"
-                    style={{ fontFamily: "'Playfair Display', serif" }}
-                  >
-                    Historial de Reservas
-                  </h2>
-                  <p className="text-slate-700" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    {historial.length} reserva{historial.length !== 1 ? "s" : ""} concluida{historial.length !== 1 ? "s" : ""}
-                  </p>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2
+                      className="text-xl md:text-3xl font-semibold text-[#5a3518] mb-1"
+                      style={{ fontFamily: "'Playfair Display', serif" }}
+                    >
+                      Historial de Reservas
+                    </h2>
+                    <p className="text-slate-700 text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      {historial.length} de {totalHistorial.length} reserva{totalHistorial.length !== 1 ? "s" : ""} concluida{totalHistorial.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Buscador */}
+                    <button
+                      onClick={() => { setHistorialShowSearch(s => !s); if (historialShowSearch) setHistorialSearchQuery(""); }}
+                      title="Buscar en historial"
+                      className={`p-2 rounded border transition-colors ${historialShowSearch ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200 hover:border-primary hover:text-primary"}`}
+                    >
+                      <Search size={18} />
+                    </button>
+                    {/* Filtros */}
+                    <button
+                      onClick={() => setHistorialShowFilters(f => !f)}
+                      title="Filtrar historial"
+                      className={`p-2 rounded border transition-colors relative ${historialShowFilters || (historialFiltroAlojamiento || historialFiltroEstado || historialOrdenarPorFecha) ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200 hover:border-primary hover:text-primary"}`}
+                    >
+                      <SlidersHorizontal size={18} />
+                      {(historialFiltroAlojamiento || historialFiltroEstado || historialOrdenarPorFecha) && !historialShowFilters && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                      )}
+                    </button>
+                  </div>
                 </div>
+
+                {/* Barra de búsqueda */}
+                {historialShowSearch && (
+                  <div className="mb-4 relative">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Buscar por huésped, cédula o alojamiento..."
+                      value={historialSearchQuery}
+                      onChange={e => setHistorialSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm text-[#3d2010] placeholder:text-slate-400 focus:outline-none focus:border-primary transition-colors bg-white"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    />
+                    {historialSearchQuery && (
+                      <button
+                        onClick={() => setHistorialSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Panel de filtros */}
+                {historialShowFilters && (
+                  <div className="mb-4 p-4 bg-white border border-slate-200 rounded-lg flex flex-wrap gap-4 items-end">
+                    {/* Ordenar por fecha más antigua */}
+                    <label className="flex items-center gap-2 cursor-pointer select-none" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      <input
+                        type="checkbox"
+                        checked={historialOrdenarPorFecha}
+                        onChange={e => setHistorialOrdenarPorFecha(e.target.checked)}
+                        className="w-4 h-4 accent-primary"
+                      />
+                      <span className="text-sm text-[#3d2010]">Fecha más antigua primero</span>
+                    </label>
+
+                    {/* Filtro por alojamiento */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-slate-500 font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Alojamiento
+                      </label>
+                      <select
+                        value={historialFiltroAlojamiento}
+                        onChange={e => setHistorialFiltroAlojamiento(e.target.value)}
+                        className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#3d2010] focus:outline-none focus:border-primary transition-colors bg-white"
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        <option value="">Todos</option>
+                        {alojamientos.map(a => (
+                          <option key={a.id} value={a.nombre}>{a.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Filtro por estado */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-slate-500 font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Estado
+                      </label>
+                      <select
+                        value={historialFiltroEstado}
+                        onChange={e => setHistorialFiltroEstado(e.target.value)}
+                        className="px-3 py-1.5 border border-slate-200 rounded text-sm text-[#3d2010] focus:outline-none focus:border-primary transition-colors bg-white"
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        <option value="">Todos</option>
+                        <option value="Confirmada">Confirmada</option>
+                        <option value="Cancelada">Cancelada</option>
+                        <option value="Pendiente">Pendiente</option>
+                      </select>
+                    </div>
+
+                    {/* Limpiar filtros */}
+                    {hayFiltrosHistorial && (
+                      <button
+                        onClick={() => { setHistorialFiltroAlojamiento(""); setHistorialFiltroEstado(""); setHistorialOrdenarPorFecha(false); setHistorialSearchQuery(""); }}
+                        className="text-xs text-red-500 hover:text-red-700 underline self-end pb-1"
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        Limpiar filtros
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Resumen de ingresos del historial */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                   {[
                     {
                       label: "Reservas concluidas",
-                      value: historial.length.toString(),
+                      value: totalHistorial.length.toString(),
                       icon: History,
                     },
                     {
                       label: "Ingresos totales",
-                      value: formatCurrency(historial.reduce((acc, r) => acc + (r.fullValue || 0), 0)),
+                      value: formatCurrency(totalHistorial.reduce((acc, r) => acc + (r.fullValue || 0), 0)),
                       icon: BarChart3,
                     },
                     {
                       label: "Confirmadas",
-                      value: historial.filter(r => r.status === "Confirmada").length.toString(),
+                      value: totalHistorial.filter(r => r.status === "Confirmada").length.toString(),
                       icon: Calendar,
                     },
                   ].map(stat => (
@@ -1845,7 +1982,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         {historial.length === 0 ? (
                           <tr>
                             <td colSpan={8} className="py-10 px-4 text-center text-slate-500">
-                              No hay reservas concluidas aún.
+                              {hayFiltrosHistorial ? "No hay reservas que coincidan con los filtros." : "No hay reservas concluidas aún."}
                             </td>
                           </tr>
                         ) : historial.map(r => (
