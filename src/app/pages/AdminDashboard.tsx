@@ -3611,7 +3611,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </select>
                       </div>
 
-                      {servicioRequiereColor(reservaForm.servicio_adicional) && reservaForm.servicio_adicional !== "N/A" && (
+                      {servicioRequiereColor(reservaForm.servicio_adicional) &&
+                        !["N/A", "", "Sin servicio adicional"].includes(reservaForm.servicio_adicional) && (
                         <div>
                           <label className="block text-sm mb-1 text-[#7a4828]">Color de decoración</label>
                           <select
@@ -3683,7 +3684,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           ⚠ Precio en pesos colombianos. Puede modificarse según disponibilidad o condiciones especiales.
                         </p>
                       </div>
-                      {reservaForm.servicio_adicional && reservaForm.servicio_adicional !== "N/A" && (
+                      {reservaForm.servicio_adicional &&
+                        !["N/A", "", "Sin servicio adicional"].includes(reservaForm.servicio_adicional) && (
                         <div>
                           <label className="block text-sm mb-1 text-[#7a4828]">Valor del servicio adicional</label>
                           <div className="relative">

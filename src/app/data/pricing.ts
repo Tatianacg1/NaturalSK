@@ -212,10 +212,11 @@ type GrupoServicio = 'perla-esmeralda-diamante' | 'zafiro-turquesa' | 'habitacio
 
 function getGrupoServicio(hospedaje: string): GrupoServicio | null {
   const n = normalizar(hospedaje);
-  if (['glamping perla', 'glamping esmeralda', 'glamping diamante'].includes(n)) return 'perla-esmeralda-diamante';
-  if (['glamping zafiro', 'glamping turquesa'].includes(n)) return 'zafiro-turquesa';
-  if (n === 'habitacion pareja') return 'habitacion-pareja';
-  if (n === 'habitacion cuadruple') return 'habitacion-cuadruple';
+  if (!n) return null;
+  if (n.includes('zafiro') || n.includes('turquesa')) return 'zafiro-turquesa';
+  if (n.includes('glamping')) return 'perla-esmeralda-diamante';
+  if (n.includes('pareja')) return 'habitacion-pareja';
+  if (n.includes('cuadruple') || n.includes('cuadruple') || n.includes('familiar')) return 'habitacion-cuadruple';
   return null;
 }
 
