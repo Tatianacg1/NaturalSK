@@ -169,6 +169,11 @@ export const accommodations: Accommodation[] = [
     image: "/images/diadesol1.jpeg",
     images: [
       "/images/diadesol1.jpeg",
+      "/images/diadesol2.jpeg",
+      "/images/diadesol3.jpeg",
+      "/images/diadesol4.jpeg",
+      "/images/diadesol5.jpeg",
+      "/images/diadesol6.jpeg",
      
     ],
     description:
