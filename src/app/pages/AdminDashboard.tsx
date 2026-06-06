@@ -240,6 +240,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
     return {
       id: reserva.id,
+      numeroReserva: reserva.numero_reserva ?? null,
       guest: reserva.nombre_huesped,
       document: reserva.cedula_huesped || "",
       email: reserva.email_huesped,
@@ -259,6 +260,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       additionalGuests,
       tokenPublico: reserva.token_publico || null,
       datosCompletados: !!reserva.datos_completados,
+      creadorColor: reserva.creador_color ?? null,
+      creadorNombre: reserva.creador_nombre ?? null,
     };
   };
 
@@ -271,6 +274,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     joined: usuario.fecha_registro?.split("T")[0] || "N/A",
     status: usuario.activo ? "Activo" : "Inactivo",
     active: Boolean(usuario.activo),
+    color: usuario.color ?? null,
   });
 
   // Cierra sesión y navega a la página principal.
@@ -1761,7 +1765,25 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <tbody>
                       {reservasFiltradas.map((r) => (
                         <tr key={r.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                          <td className="py-4 px-6 font-medium text-[#3d2010]">{r.guest}</td>
+                          <td className="py-4 px-6 font-medium text-[#3d2010]">
+                            <div className="flex items-center gap-2">
+                              {r.creadorColor && (
+                                <span
+                                  className="shrink-0 w-2.5 h-2.5 rounded-full"
+                                  style={{ backgroundColor: r.creadorColor }}
+                                  title={r.creadorNombre ? `Creado por: ${r.creadorNombre}` : "Usuario registrado"}
+                                />
+                              )}
+                              <div>
+                                <div>{r.guest}</div>
+                                {r.numeroReserva && (
+                                  <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                                    #{String(r.numeroReserva).padStart(4, "0")}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
                           <td className="py-4 px-6 text-slate-700 hidden md:table-cell">{r.email}</td>
                           <td className="py-4 px-6 text-slate-700">{r.accommodation}</td>
                           <td className="py-4 px-6 text-slate-700 text-sm hidden sm:table-cell">
@@ -2054,8 +2076,22 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
                           >
                             <td className="py-4 px-4 font-medium text-[#3d2010]">
-                              <div>{r.guest}</div>
-                              <div className="text-xs text-slate-500 sm:hidden">{r.accommodation}</div>
+                              <div className="flex items-center gap-1.5">
+                                {r.creadorColor && (
+                                  <span
+                                    className="shrink-0 w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: r.creadorColor }}
+                                    title={r.creadorNombre ? `Creado por: ${r.creadorNombre}` : undefined}
+                                  />
+                                )}
+                                <div>
+                                  <div>{r.guest}</div>
+                                  <div className="text-xs text-slate-500 sm:hidden">{r.accommodation}</div>
+                                  {r.numeroReserva && (
+                                    <div className="text-[10px] font-mono text-slate-400">#{String(r.numeroReserva).padStart(4, "0")}</div>
+                                  )}
+                                </div>
+                              </div>
                             </td>
                             <td className="py-4 px-4 text-slate-700 hidden sm:table-cell">{r.accommodation}</td>
                             <td className="py-4 px-4 text-slate-700 hidden md:table-cell">{r.checkIn}</td>
@@ -2584,11 +2620,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                 className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:border-slate-300 transition-colors"
                               >
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-[#3d2010] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                                    {r.guest}
-                                  </p>
+                                  <div className="flex items-center gap-1.5">
+                                    {r.creadorColor && (
+                                      <span
+                                        className="shrink-0 w-2 h-2 rounded-full"
+                                        style={{ backgroundColor: r.creadorColor }}
+                                        title={r.creadorNombre ? `Creado por: ${r.creadorNombre}` : undefined}
+                                      />
+                                    )}
+                                    <p className="font-medium text-[#3d2010] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                                      {r.guest}
+                                    </p>
+                                  </div>
                                   <p className="text-xs text-slate-500 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
                                     {r.accommodation}
+                                    {r.numeroReserva ? ` · #${String(r.numeroReserva).padStart(4, "0")}` : ""}
                                   </p>
                                   <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
                                     {r.checkIn} → {r.checkOut}
@@ -2687,17 +2733,28 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <div key={r.id} className="bg-white border border-yellow-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 border border-yellow-300 rounded-full text-xs font-medium">
                                 Pendiente de confirmación
                               </span>
-                              <span className="text-xs text-slate-400" style={{ fontFamily: "'DM Mono', monospace" }}>
-                                #{r.id}
-                              </span>
+                              {r.numeroReserva && (
+                                <span className="text-xs font-mono text-slate-400">
+                                  #{String(r.numeroReserva).padStart(4, "0")}
+                                </span>
+                              )}
                             </div>
-                            <p className="font-semibold text-[#3d2010]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                              {r.guest || "Sin nombre — pendiente de completar datos"}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              {r.creadorColor && (
+                                <span
+                                  className="shrink-0 w-2.5 h-2.5 rounded-full"
+                                  style={{ backgroundColor: r.creadorColor }}
+                                  title={r.creadorNombre ? `Creado por: ${r.creadorNombre}` : "Usuario registrado"}
+                                />
+                              )}
+                              <p className="font-semibold text-[#3d2010]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                                {r.guest || "Sin nombre — pendiente de completar datos"}
+                              </p>
+                            </div>
                             <div className="flex flex-wrap gap-2 mt-1 text-xs text-slate-500" style={{ fontFamily: "'DM Mono', monospace" }}>
                               <span>{r.accommodation}</span>
                               <span>·</span>
@@ -2819,6 +2876,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   >
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        {u.color && (
+                          <span
+                            className="shrink-0 w-3 h-3 rounded-full border border-white shadow-sm"
+                            style={{ backgroundColor: u.color }}
+                            title="Color identificador en reservas"
+                          />
+                        )}
                         <span
                           className="text-xs font-mono bg-[#f0e4d0] text-[#5a3518] border border-[#c8aa82] px-2 py-0.5 rounded"
                           title="Código de identificación"
