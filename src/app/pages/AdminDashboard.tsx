@@ -753,6 +753,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
+  const handleDeleteReserva = async (reservaId: number) => {
+    if (!confirm("¿Estás seguro de que deseas eliminar esta reserva? Esta acción no se puede deshacer.")) return;
+    try {
+      await reservasAPI.delete(reservaId);
+      setReservas(current => current.filter(r => r.id !== reservaId));
+      setHistorialReserva(null);
+    } catch (error: any) {
+      alert(error.message || "Error eliminando reserva");
+    }
+  };
+
   const handleConfirmarReserva = async (reservaId: number) => {
     try {
       const token = localStorage.getItem("authToken");
@@ -1933,6 +1944,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                   <X size={16} />
                                 </button>
                               )}
+                              <button
+                                onClick={() => handleDeleteReserva(r.id)}
+                                className="p-2 text-red-700 hover:bg-red-100 rounded transition-colors"
+                                title="Eliminar reserva"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -2357,10 +2375,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </div>
 
                     {/* Pie del modal */}
-                    <div className="px-6 pb-6">
+                    <div className="px-6 pb-6 flex gap-3">
+                      <button
+                        onClick={() => handleDeleteReserva(historialReserva.id)}
+                        className="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        <Trash2 size={14} />
+                        Eliminar
+                      </button>
                       <button
                         onClick={() => setHistorialReserva(null)}
-                        className="w-full py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                        className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
                         style={{ fontFamily: "'DM Sans', sans-serif" }}
                       >
                         Cerrar
@@ -2878,6 +2904,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               title="Cancelar reserva"
                             >
                               <X size={15} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteReserva(r.id)}
+                              className="p-2 text-red-700 hover:bg-red-100 rounded transition-colors"
+                              title="Eliminar reserva"
+                            >
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </div>
