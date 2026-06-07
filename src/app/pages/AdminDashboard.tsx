@@ -565,8 +565,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const servicioLabel = adminServiciosSeleccionados.length > 0
         ? adminServiciosSeleccionados.map(x => labelServicio(x.servicio)).join(", ")
         : "N/A";
+      const esPendiente = reservaForm.estado === "Pendiente";
+      const huespedesToSend = esPendiente
+        ? reservaForm.huespedes_adicionales.filter(h => h.nombre?.trim() || h.cedula?.trim())
+        : reservaForm.huespedes_adicionales;
       const reservaPayload = {
         ...reservaForm,
+        huespedes_adicionales: huespedesToSend,
         servicio_adicional: servicioLabel,
         color_decoracion: adminServiciosSeleccionados.find(x => x.color)?.color ?? "",
         mensaje_decoracion: adminServiciosSeleccionados.find(x => x.mensaje)?.mensaje ?? "",
