@@ -543,6 +543,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const token = localStorage.getItem("authToken");
       if (!token) return;
       if (
+        reservaForm.estado !== "Pendiente" &&
         reservaForm.numero_huespedes > 1 &&
         reservaForm.huespedes_adicionales.some(
           huesped => !huesped.nombre?.trim() || !huesped.cedula?.trim() || !huesped.celular?.trim()
@@ -3953,6 +3954,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <div className="space-y-4">
                       <p className="text-sm text-[#7a4828]">
                         El huésped principal ya está registrado. Completa los datos de los acompañantes.
+                        {reservaForm.estado === "Pendiente" && (
+                          <span className="ml-1 text-slate-400">(opcional en reservas pendientes)</span>
+                        )}
                       </p>
                       {reservaForm.huespedes_adicionales.map((huesped, index) => (
                         <div key={index} className="rounded-md border border-[#d7e1d8] p-4 space-y-3">
@@ -3964,7 +3968,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                               value={huesped.nombre}
                               onChange={e => handleHuespedAdicionalChange(index, "nombre", e.target.value)}
-                              required
+                              required={reservaForm.estado !== "Pendiente"}
                             />
                           </div>
                           <div>
@@ -3974,11 +3978,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                               value={huesped.cedula}
                               onChange={e => handleHuespedAdicionalChange(index, "cedula", e.target.value)}
-                              required
+                              required={reservaForm.estado !== "Pendiente"}
                             />
                           </div>
                           <div>
-                            <label className="block text-sm mb-1 text-[#7a4828]">Celular *</label>
+                            <label className="block text-sm mb-1 text-[#7a4828]">
+                              Celular{reservaForm.estado !== "Pendiente" && " *"}
+                            </label>
                             <input
                               type="tel"
                               inputMode="tel"
@@ -3986,7 +3992,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#718575]"
                               value={huesped.celular}
                               onChange={e => handleHuespedAdicionalChange(index, "celular", e.target.value)}
-                              required
+                              required={reservaForm.estado !== "Pendiente"}
                             />
                           </div>
                           <div>
