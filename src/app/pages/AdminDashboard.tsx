@@ -3679,6 +3679,32 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
                   {reservaModalTab === "principal" && (
                     <>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#7a4828]">Alojamiento</label>
+                        <select
+                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                          value={reservaForm.hospedaje}
+                          onChange={e => {
+                            setAdminServiciosSeleccionados([]);
+                            setReservaForm(f => ({
+                              ...f,
+                              hospedaje: e.target.value,
+                              check_out: e.target.value === "Día de Sol" ? f.check_in : f.check_out,
+                              servicio_adicional: "N/A",
+                              color_decoracion: "",
+                              mensaje_decoracion: "",
+                              valor_servicio_adicional: 0,
+                              ...(e.target.value === "Día de Sol" ? { abono: 0 } : {}),
+                            }));
+                          }}
+                          required
+                        >
+                          <option value="">Selecciona...</option>
+                          {alojamientos.map((a) => (
+                            <option key={a.id} value={a.nombre}>{a.nombre}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div className="relative">
                         <label className="block text-sm mb-1 text-[#7a4828]">
                           Nombre del huésped
@@ -3749,32 +3775,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             onChange={e => setReservaForm(f => ({ ...f, telefono_huesped: e.target.value }))}
                           />
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm mb-1 text-[#7a4828]">Alojamiento</label>
-                        <select
-                          className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                          value={reservaForm.hospedaje}
-                          onChange={e => {
-                            setAdminServiciosSeleccionados([]);
-                            setReservaForm(f => ({
-                              ...f,
-                              hospedaje: e.target.value,
-                              check_out: e.target.value === "Día de Sol" ? f.check_in : f.check_out,
-                              servicio_adicional: "N/A",
-                              color_decoracion: "",
-                              mensaje_decoracion: "",
-                              valor_servicio_adicional: 0,
-                              ...(e.target.value === "Día de Sol" ? { abono: 0 } : {}),
-                            }));
-                          }}
-                          required
-                        >
-                          <option value="">Selecciona...</option>
-                          {alojamientos.map((a) => (
-                            <option key={a.id} value={a.nombre}>{a.nombre}</option>
-                          ))}
-                        </select>
                       </div>
                       <div className="flex gap-2">
                         <div className="flex-1">
