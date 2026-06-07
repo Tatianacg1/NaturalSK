@@ -2658,17 +2658,33 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       Fechas disponibles y reservadas por alojamiento
                     </p>
                   </div>
-                  <select
-                    value={calFiltroAlojamiento}
-                    onChange={e => setCalFiltroAlojamiento(e.target.value)}
-                    className="px-3 py-2 border border-slate-200 rounded text-sm text-[#3d2010] focus:outline-none focus:border-primary bg-white"
-                    style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  >
-                    <option value="">Todos los alojamientos</option>
-                    {alojamientos.map(a => (
-                      <option key={a.id} value={a.nombre}>{a.nombre}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                      value={calFiltroAlojamiento}
+                      onChange={e => setCalFiltroAlojamiento(e.target.value)}
+                      className="px-3 py-2 border border-slate-200 rounded text-sm text-[#3d2010] focus:outline-none focus:border-primary bg-white"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <option value="">Todos los alojamientos</option>
+                      {alojamientos.map(a => (
+                        <option key={a.id} value={a.nombre}>{a.nombre}</option>
+                      ))}
+                    </select>
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors text-sm"
+                      onClick={() => { setEventoPrivadoError(""); setShowEventoPrivadoModal(true); }}
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <Lock size={15} /> Evento Privado
+                    </button>
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors text-sm"
+                      onClick={() => handleOpenReservaModal()}
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <Plus size={15} /> Nueva Reserva
+                    </button>
+                  </div>
                 </div>
 
                 {/* Leyenda */}
@@ -4098,7 +4114,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                   onChange={e => {
                                     const val = parseCOP(e.target.value);
                                     if (val <= valorAlojamiento + valorServicioAdicional) {
-                                      setReservaForm(f => ({ ...f, abono: val }));
+                                      setReservaForm(f => ({
+                                        ...f,
+                                        abono: val,
+                                        ...(val > 0 && f.estado === "Pendiente" ? { estado: "Confirmada" } : {}),
+                                      }));
                                     }
                                   }}
                                 />
