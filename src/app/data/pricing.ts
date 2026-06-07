@@ -208,15 +208,16 @@ export function maxHuespedes(hospedaje: string): number {
 
 // ─── Servicios adicionales ────────────────────────────────────────────────────
 
-type GrupoServicio = 'perla-esmeralda-diamante' | 'zafiro-turquesa' | 'habitacion-pareja' | 'habitacion-cuadruple' | 'dia-de-sol';
+type GrupoServicio = 'perla-diamante' | 'esmeralda' | 'zafiro-turquesa' | 'habitacion-pareja' | 'habitacion-cuadruple' | 'dia-de-sol';
 
 function getGrupoServicio(hospedaje: string): GrupoServicio | null {
   const n = normalizar(hospedaje);
   if (!n) return null;
   if (n.includes('zafiro') || n.includes('turquesa')) return 'zafiro-turquesa';
-  if (n.includes('glamping')) return 'perla-esmeralda-diamante';
+  if (n.includes('esmeralda')) return 'esmeralda';
+  if (n.includes('glamping')) return 'perla-diamante';
   if (n.includes('pareja')) return 'habitacion-pareja';
-  if (n.includes('cuadruple') || n.includes('cuadruple') || n.includes('familiar')) return 'habitacion-cuadruple';
+  if (n.includes('cuadruple') || n.includes('familiar')) return 'habitacion-cuadruple';
   if (n.includes('dia de sol') || n.includes('día de sol')) return 'dia-de-sol';
   return null;
 }
@@ -231,23 +232,24 @@ interface ServicioConfig {
 const SERVICIOS: Record<string, ServicioConfig> = {
   'Decoracion de cumpleaños': {
     label: 'Decoración de cumpleaños',
-    precios: { 'perla-esmeralda-diamante': 135_000, 'zafiro-turquesa': 190_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 135_000 },
+    precios: { 'perla-diamante': 135_000, 'esmeralda': 135_000, 'zafiro-turquesa': 190_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 135_000 },
     requiereColor: true,
   },
   'Decoracion de aniversario': {
     label: 'Decoración de aniversario',
-    precios: { 'perla-esmeralda-diamante': 120_000, 'zafiro-turquesa': 160_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 135_000 },
+    precios: { 'perla-diamante': 120_000, 'esmeralda': 120_000, 'zafiro-turquesa': 160_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 135_000 },
     requiereColor: true,
   },
   'Decoracion romantica': {
     label: 'Decoración romántica',
-    precios: { 'perla-esmeralda-diamante': 120_000, 'zafiro-turquesa': 160_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 135_000 },
+    precios: { 'perla-diamante': 120_000, 'esmeralda': 120_000, 'zafiro-turquesa': 160_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 135_000 },
     requiereColor: false,
   },
   'Desayuno privado en termal': {
     label: 'Desayuno privado en termal',
     precios: {
-      'perla-esmeralda-diamante': 120_000,
+      'perla-diamante': 120_000,
+      'esmeralda': 120_000,
       'zafiro-turquesa': 120_000,
       'habitacion-pareja': 120_000,
       'habitacion-cuadruple': 120_000,
@@ -257,7 +259,8 @@ const SERVICIOS: Record<string, ServicioConfig> = {
   'Decoracion cena': {
     label: 'Decoración cena',
     precios: {
-      'perla-esmeralda-diamante': 30_000,
+      'perla-diamante': 30_000,
+      'esmeralda': 30_000,
       'zafiro-turquesa': 30_000,
       'habitacion-pareja': 30_000,
       'habitacion-cuadruple': 30_000,
@@ -265,6 +268,11 @@ const SERVICIOS: Record<string, ServicioConfig> = {
     },
     requiereColor: true,
     precioDinamico: (_grupo, huespedes) => huespedes > 2 ? 45_000 : 30_000,
+  },
+  'Decoracion quieres ser mi novia': {
+    label: '¿Quieres ser mi novia? 💍',
+    precios: { 'perla-diamante': 150_000, 'zafiro-turquesa': 190_000 },
+    requiereColor: false,
   },
 };
 

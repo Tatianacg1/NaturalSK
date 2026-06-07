@@ -34,6 +34,7 @@ interface ReservaForm {
   valor_servicio_adicional: number | string;
   abono: number | string;
   estado: string;
+  observacion: string;
   huespedes_adicionales: HuespedAdicional[];
 }
 
@@ -143,6 +144,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     valor_servicio_adicional: 0,
     abono: 0,
     estado: "Pendiente",
+    observacion: "",
     huespedes_adicionales: [],
   });
   const [adminServiciosSeleccionados, setAdminServiciosSeleccionados] = useState<
@@ -282,6 +284,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       datosCompletados: !!reserva.datos_completados,
       creadorColor: reserva.creador_color ?? null,
       creadorNombre: reserva.creador_nombre ?? null,
+      observacion: reserva.observacion || "",
     };
   };
 
@@ -400,6 +403,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         valor_servicio_adicional: reserva.additionalServiceValue || 0,
         abono: reserva.deposit || 0,
         estado: reserva.status,
+        observacion: reserva.observacion || "",
         huespedes_adicionales: (() => {
           const numGuests = reserva.guests || 1;
           const existing = reserva.additionalGuests || [];
@@ -448,6 +452,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         valor_servicio_adicional: 0,
         abono: 0,
         estado: "Pendiente",
+        observacion: "",
         huespedes_adicionales: [],
       });
       setAdminServiciosSeleccionados([]);
@@ -3927,6 +3932,19 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           <option value="Confirmada">Confirmada</option>
                           <option value="Cancelada">Cancelada</option>
                         </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm mb-1 text-[#7a4828]">
+                          Observación
+                          <span className="ml-1 text-xs text-slate-400 font-normal">(opcional)</span>
+                        </label>
+                        <textarea
+                          rows={3}
+                          className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0] resize-none"
+                          placeholder="Notas internas, solicitudes especiales, etc."
+                          value={reservaForm.observacion}
+                          onChange={e => setReservaForm(f => ({ ...f, observacion: e.target.value }))}
+                        />
                       </div>
                     </>
                   )}

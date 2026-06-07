@@ -233,6 +233,7 @@ export function ReservaPage() {
     telefono_huesped: "",
     numero_huespedes: "1",
     numero_habitacion: "",
+    observacion: "",
   });
   const [serviciosSeleccionados, setServiciosSeleccionados] = useState<
     Array<{ servicio: string; color: string; mensaje: string }>
@@ -1365,6 +1366,22 @@ export function ReservaPage() {
                     )}
                   </>
                 )}
+
+                <div>
+                  <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                    Observación
+                    <span className="ml-2 text-gray-400 font-normal normal-case tracking-normal text-[10px]">(opcional)</span>
+                  </label>
+                  <textarea
+                    name="observacion"
+                    rows={3}
+                    value={form.observacion}
+                    onChange={e => setForm(p => ({ ...p, observacion: e.target.value }))}
+                    placeholder="Solicitudes especiales, alergias, notas para el equipo..."
+                    className={`${inputCls} resize-none`}
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  />
+                </div>
 
                 {error && (
                   <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
