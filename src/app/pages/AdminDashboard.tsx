@@ -569,9 +569,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const huespedesToSend = esPendiente
         ? reservaForm.huespedes_adicionales.filter(h => h.nombre?.trim() || h.cedula?.trim())
         : reservaForm.huespedes_adicionales;
+      const { huespedes_adicionales: _huespedesIgnorados, ...restReservaForm } = reservaForm;
       const reservaPayload = {
-        ...reservaForm,
-        huespedes_adicionales: huespedesToSend,
+        ...restReservaForm,
+        ...(huespedesToSend.length > 0 ? { huespedes_adicionales: huespedesToSend } : {}),
         servicio_adicional: servicioLabel,
         color_decoracion: adminServiciosSeleccionados.find(x => x.color)?.color ?? "",
         mensaje_decoracion: adminServiciosSeleccionados.find(x => x.mensaje)?.mensaje ?? "",
