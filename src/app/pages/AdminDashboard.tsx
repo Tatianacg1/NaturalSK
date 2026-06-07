@@ -524,9 +524,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
-  // Auto-calcula valor_alojamiento cuando se crea una reserva nueva y hay tarifa definida
+  // Auto-calcula valor_alojamiento cuando cambian hospedaje, fechas o número de huéspedes
   useEffect(() => {
-    if (editingReserva) return;
     const { hospedaje, check_in, check_out } = reservaForm;
     const isDiaSol = hospedaje.toLowerCase().includes("de sol");
     const calcOut = isDiaSol ? check_in : check_out;
@@ -535,7 +534,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       setReservaForm(f => ({ ...f, valor_alojamiento: calc }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservaForm.hospedaje, reservaForm.check_in, reservaForm.check_out, reservaForm.numero_huespedes, editingReserva]);
+  }, [reservaForm.hospedaje, reservaForm.check_in, reservaForm.check_out, reservaForm.numero_huespedes]);
 
   const handleHuespedAdicionalChange = (index: number, campo: keyof HuespedAdicional, valor: string) => {
     setReservaForm(form => ({
