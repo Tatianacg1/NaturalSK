@@ -705,7 +705,7 @@ export function ReservaPage() {
                           Alojamientos{labelFechas ? ` · ${labelFechas}` : ""}
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {glampingCards.map(alo => (
+                          {[...glampingCards].sort((a, b) => Number(b.disponible) - Number(a.disponible)).map(alo => (
                             <AloCard
                               key={alo.nombre}
                               alo={alo}
@@ -734,7 +734,7 @@ export function ReservaPage() {
                           Día de Sol{hasDay ? ` · ${formatDateLong(form.check_in)}` : ""}
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {diaSolCards.map(alo => (
+                          {[...diaSolCards].sort((a, b) => Number(b.disponible) - Number(a.disponible)).map(alo => (
                             <AloCard
                               key={alo.nombre}
                               alo={alo}
@@ -787,7 +787,7 @@ export function ReservaPage() {
                       Alojamientos · {formatDateLong(form.check_in)} → {formatDateLong(form.check_out)}
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {(form.hospedaje ? alosDisponibles.filter(a => a.nombre === form.hospedaje) : alosDisponibles).map((alo) => (
+                      {(form.hospedaje ? alosDisponibles.filter(a => a.nombre === form.hospedaje) : [...alosDisponibles].sort((a, b) => Number(b.disponible) - Number(a.disponible))).map((alo) => (
                         <AloCard
                           key={alo.nombre}
                           alo={alo}
@@ -809,7 +809,7 @@ export function ReservaPage() {
                       Día de Sol · {formatDateLong(form.check_in)}
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {(form.hospedaje ? diaSolDisponible.filter(a => a.nombre === form.hospedaje) : diaSolDisponible).map((alo) => (
+                      {(form.hospedaje ? diaSolDisponible.filter(a => a.nombre === form.hospedaje) : [...diaSolDisponible].sort((a, b) => Number(b.disponible) - Number(a.disponible))).map((alo) => (
                         <AloCard
                           key={alo.nombre}
                           alo={alo}
