@@ -3656,11 +3656,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             type="date"
                             className="w-full px-3 py-2 border rounded text-[#3d2010]"
                             value={reservaForm.check_in}
-                            onChange={e => setReservaForm(f => ({
-                              ...f,
-                              check_in: e.target.value,
-                              check_out: f.hospedaje === "Día de Sol" ? e.target.value : f.check_out,
-                            }))}
+                            onChange={e => {
+                              const ci = e.target.value;
+                              setReservaForm(f => {
+                                if (f.hospedaje === "Día de Sol") return { ...f, check_in: ci, check_out: ci };
+                                const nextDay = ci ? new Date(ci + "T12:00:00") : null;
+                                if (nextDay) nextDay.setDate(nextDay.getDate() + 1);
+                                const coAuto = nextDay ? nextDay.toISOString().slice(0, 10) : f.check_out;
+                                return { ...f, check_in: ci, check_out: coAuto };
+                              });
+                            }}
                             required
                           />
                         </div>
