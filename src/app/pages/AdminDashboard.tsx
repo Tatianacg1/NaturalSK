@@ -139,7 +139,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     hospedaje: "",
     check_in: "",
     check_out: "",
-    numero_huespedes: 1,
+    numero_huespedes: 2,
     numero_habitacion: "",
     servicio_adicional: "N/A",
     color_decoracion: "",
@@ -454,7 +454,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           d.setDate(d.getDate() + 1);
           return d.toISOString().slice(0, 10);
         })(),
-        numero_huespedes: 1,
+        numero_huespedes: 2,
         numero_habitacion: "",
         servicio_adicional: "N/A",
         color_decoracion: "",

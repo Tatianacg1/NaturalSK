@@ -231,7 +231,7 @@ export function ReservaPage() {
     cedula_huesped: "",
     email_huesped: "",
     telefono_huesped: "",
-    numero_huespedes: "1",
+    numero_huespedes: "2",
     numero_habitacion: "",
     observacion: "",
   });
@@ -245,7 +245,7 @@ export function ReservaPage() {
   const [huespedesAdicionales, setHuespedesAdicionales] = useState<Array<{ nombre: string; cedula: string }>>([]);
   const [tabActivo, setTabActivo] = useState(0);
   const alosRef = useRef<HTMLDivElement>(null);
-  const prevNumHuespedesRef = useRef(1);
+  const prevNumHuespedesRef = useRef(2);
 
   const [datosGenerales, setDatosGenerales] = useState<AloData[] | undefined>(undefined);
   const [loadingGeneral, setLoadingGeneral] = useState(false);
