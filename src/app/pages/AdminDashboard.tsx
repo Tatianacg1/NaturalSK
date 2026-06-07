@@ -433,7 +433,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         telefono_huesped: "",
         hospedaje: "",
         check_in: prefillDate || "",
-        check_out: "",
+        check_out: (() => {
+          if (!prefillDate) return "";
+          const d = new Date(prefillDate + "T12:00:00");
+          d.setDate(d.getDate() + 1);
+          return d.toISOString().slice(0, 10);
+        })(),
         numero_huespedes: 1,
         numero_habitacion: "",
         servicio_adicional: "N/A",
