@@ -231,17 +231,17 @@ interface ServicioConfig {
 const SERVICIOS: Record<string, ServicioConfig> = {
   'Decoracion de cumpleaños': {
     label: 'Decoración de cumpleaños',
-    precios: { 'perla-esmeralda-diamante': 135_000, 'zafiro-turquesa': 190_000, 'habitacion-pareja': 135_000, 'habitacion-cuadruple': 135_000 },
+    precios: { 'perla-esmeralda-diamante': 135_000, 'zafiro-turquesa': 190_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 135_000 },
     requiereColor: true,
   },
   'Decoracion de aniversario': {
     label: 'Decoración de aniversario',
-    precios: { 'perla-esmeralda-diamante': 120_000, 'zafiro-turquesa': 160_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 120_000 },
+    precios: { 'perla-esmeralda-diamante': 120_000, 'zafiro-turquesa': 160_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 135_000 },
     requiereColor: true,
   },
   'Decoracion romantica': {
     label: 'Decoración romántica',
-    precios: { 'perla-esmeralda-diamante': 120_000, 'zafiro-turquesa': 160_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 120_000 },
+    precios: { 'perla-esmeralda-diamante': 120_000, 'zafiro-turquesa': 160_000, 'habitacion-pareja': 120_000, 'habitacion-cuadruple': 135_000 },
     requiereColor: false,
   },
   'Desayuno privado en termal': {
