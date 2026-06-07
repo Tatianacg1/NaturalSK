@@ -2,7 +2,7 @@
 // Muestra estadísticas, gestiona reservas, usuarios y configuración en un dashboard.
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette } from "lucide-react";
+import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette, Lock } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
 import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
 
@@ -161,6 +161,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [enlaceCopiado, setEnlaceCopiado] = useState(false);
   const [enlaceReservaId, setEnlaceReservaId] = useState<number | null>(null);
   const [motivoPendiente, setMotivoPendiente] = useState("");
+  const [showEventoPrivadoModal, setShowEventoPrivadoModal] = useState(false);
+  const [eventoPrivadoForm, setEventoPrivadoForm] = useState<{ checkIn: string; checkOut: string; alos: string[] }>({ checkIn: "", checkOut: "", alos: [] });
+  const [eventoPrivadoLoading, setEventoPrivadoLoading] = useState(false);
+  const [eventoPrivadoError, setEventoPrivadoError] = useState("");
   const [toastMsg, setToastMsg] = useState("");
   const [indicativoAdmin, setIndicativoAdmin] = useState("+57");
   const [showUsuarioModal, setShowUsuarioModal] = useState(false);
@@ -291,6 +295,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       creadorColor: reserva.creador_color ?? null,
       creadorNombre: reserva.creador_nombre ?? null,
       observacion: reserva.observacion || "",
+      tipoHospedaje: reserva.tipo_hospedaje || "",
     };
   };
 
@@ -482,6 +487,51 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setEnlaceCopiado(false);
     setEnlaceReservaId(null);
     setMotivoPendiente("");
+  };
+
+  const handleCrearEventoPrivado = async () => {
+    if (!eventoPrivadoForm.checkIn || !eventoPrivadoForm.checkOut || eventoPrivadoForm.alos.length === 0) {
+      setEventoPrivadoError("Selecciona al menos un alojamiento y completa las fechas");
+      return;
+    }
+    if (eventoPrivadoForm.checkOut <= eventoPrivadoForm.checkIn) {
+      setEventoPrivadoError("La fecha de check-out debe ser posterior al check-in");
+      return;
+    }
+    setEventoPrivadoLoading(true);
+    setEventoPrivadoError("");
+    try {
+      const token = localStorage.getItem("authToken");
+      for (const hospedaje of eventoPrivadoForm.alos) {
+        await reservasAPI.crearReserva({
+          nombre_huesped: "Evento Privado",
+          cedula_huesped: "0",
+          email_huesped: "evento@naturalsk.com",
+          telefono_huesped: "",
+          hospedaje,
+          check_in: eventoPrivadoForm.checkIn,
+          check_out: eventoPrivadoForm.checkOut,
+          numero_huespedes: 1,
+          valor_alojamiento: 0,
+          valor_servicio_adicional: 0,
+          abono: 0,
+          estado: "Confirmada",
+          usuario_id: user?.id,
+          tipo_hospedaje: "Evento Privado",
+          servicio_adicional: "N/A",
+          observacion: "Bloqueado por evento privado",
+        }, token);
+      }
+      await reloadReservas();
+      setShowEventoPrivadoModal(false);
+      setEventoPrivadoForm({ checkIn: "", checkOut: "", alos: [] });
+      setSuccessMessage(`${eventoPrivadoForm.alos.length} alojamiento(s) bloqueados correctamente`);
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err: any) {
+      setEventoPrivadoError(err.message || "Error al crear el bloqueo");
+    } finally {
+      setEventoPrivadoLoading(false);
+    }
   };
 
   const toggleAdminServicio = (s: string, hospedaje: string, numHuespedes: number) => {
@@ -1878,6 +1928,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
                     )}
                   </button>
+                  {/* Evento Privado */}
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors text-sm"
+                    onClick={() => { setEventoPrivadoError(""); setShowEventoPrivadoModal(true); }}
+                  >
+                    <Lock size={16} /> Evento Privado
+                  </button>
                   {/* Nueva reserva */}
                   <button
                     className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors text-sm"
@@ -2014,7 +2071,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </thead>
                     <tbody>
                       {reservasFiltradas.map((r) => (
-                        <tr key={r.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                        <tr key={r.id} className={`border-b border-slate-200 transition-colors ${r.tipoHospedaje === "Evento Privado" ? "bg-slate-100/80 hover:bg-slate-100" : "hover:bg-slate-50"}`}>
                           <td className="py-4 px-6 font-medium text-[#3d2010]">
                             <div className="flex items-center gap-2">
                               {r.creadorColor && (
@@ -2047,19 +2104,27 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             {formatCurrency(r.remainingValue)}
                           </td>
                           <td className="py-4 px-6">
-                            <span className={`px-3 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
-                              {r.status}
-                            </span>
+                            {r.tipoHospedaje === "Evento Privado" ? (
+                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs border bg-slate-200 text-slate-600 border-slate-300 font-medium whitespace-nowrap">
+                                <Lock size={10} /> Evento Privado
+                              </span>
+                            ) : (
+                              <span className={`px-3 py-1 rounded-full text-xs border ${getStatusColor(r.status)}`}>
+                                {r.status}
+                              </span>
+                            )}
                           </td>
                           <td className="py-4 px-6 whitespace-nowrap">
                             <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleOpenReservaModal(r)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                title="Editar reserva"
-                              >
-                                <Edit2 size={16} />
-                              </button>
+                              {r.tipoHospedaje !== "Evento Privado" && (
+                                <button
+                                  onClick={() => handleOpenReservaModal(r)}
+                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  title="Editar reserva"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                              )}
                               {r.tokenPublico && (
                                 <button
                                   disabled={r.datosCompletados}
@@ -3015,6 +3080,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             </div>
                             {r.email && (
                               <p className="text-xs text-slate-400 mt-0.5">{r.email}</p>
+                            )}
+                            {r.observacion && (
+                              <div className="mt-2 flex items-start gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                <MessageCircle size={12} className="text-amber-600 mt-0.5 shrink-0" />
+                                <p className="text-xs text-amber-800" style={{ fontFamily: "'DM Sans', sans-serif" }}>{r.observacion}</p>
+                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -4254,10 +4325,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       setTimeout(() => setToastMsg(""), 2000);
                     }
                   }}
-                  className="mt-2 text-xs text-[#8a6038] hover:underline font-medium"
-                  style={{ fontFamily: "'DM Mono', monospace" }}
+                  className="mt-3 w-full py-2.5 bg-[#5a3518] text-white rounded-xl text-sm font-medium hover:bg-[#3d2010] transition-colors flex items-center justify-center gap-2"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  Guardar motivo
+                  <CheckCircle size={15} /> Confirmar mensaje
                 </button>
               )}
             </div>
@@ -4299,6 +4370,122 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             >
               Cerrar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Evento Privado */}
+      {showEventoPrivadoModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 sm:p-8 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl relative text-[#3d2010]">
+            <button
+              className="absolute top-4 right-4 text-[#728875] hover:text-[#3d2010] transition-colors"
+              onClick={() => { setShowEventoPrivadoModal(false); setEventoPrivadoError(""); }}
+            >
+              <X size={20} />
+            </button>
+            <div className="flex items-center gap-3 mb-2">
+              <Lock size={20} className="text-slate-600" />
+              <h3 className="text-xl font-semibold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                Evento Privado
+              </h3>
+            </div>
+            <p className="text-sm text-slate-500 mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              Bloquea alojamientos como no disponibles para el rango de fechas indicado.
+            </p>
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm mb-1 text-[#7a4828]">Check-in</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border rounded text-[#3d2010] focus:outline-none focus:border-primary"
+                    value={eventoPrivadoForm.checkIn}
+                    onChange={e => {
+                      const ci = e.target.value;
+                      setEventoPrivadoForm(f => ({
+                        ...f,
+                        checkIn: ci,
+                        checkOut: f.checkOut && f.checkOut <= ci ? "" : f.checkOut,
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm mb-1 text-[#7a4828]">Check-out</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border rounded text-[#3d2010] focus:outline-none focus:border-primary"
+                    min={eventoPrivadoForm.checkIn || undefined}
+                    value={eventoPrivadoForm.checkOut}
+                    onChange={e => setEventoPrivadoForm(f => ({ ...f, checkOut: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm text-[#7a4828]">Alojamientos a bloquear</label>
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => {
+                      const allNames = alojamientos.map(a => a.nombre);
+                      const allSelected = allNames.every(n => eventoPrivadoForm.alos.includes(n));
+                      setEventoPrivadoForm(f => ({ ...f, alos: allSelected ? [] : allNames }));
+                    }}
+                  >
+                    {alojamientos.length > 0 && alojamientos.every(a => eventoPrivadoForm.alos.includes(a.nombre))
+                      ? "Deseleccionar todos"
+                      : "Seleccionar todos"}
+                  </button>
+                </div>
+                <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100">
+                  {alojamientos.map(a => (
+                    <label key={a.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={eventoPrivadoForm.alos.includes(a.nombre)}
+                        onChange={e => {
+                          setEventoPrivadoForm(f => ({
+                            ...f,
+                            alos: e.target.checked
+                              ? [...f.alos, a.nombre]
+                              : f.alos.filter(n => n !== a.nombre),
+                          }));
+                        }}
+                        className="w-4 h-4 rounded"
+                      />
+                      <span className="text-sm text-[#3d2010]" style={{ fontFamily: "'DM Sans', sans-serif" }}>{a.nombre}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {eventoPrivadoError && (
+                <p className="text-sm text-red-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>{eventoPrivadoError}</p>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowEventoPrivadoModal(false); setEventoPrivadoError(""); }}
+                  className="flex-1 py-2 border border-slate-300 rounded text-slate-600 hover:bg-slate-50 text-sm transition-colors"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCrearEventoPrivado}
+                  disabled={eventoPrivadoLoading || eventoPrivadoForm.alos.length === 0 || !eventoPrivadoForm.checkIn || !eventoPrivadoForm.checkOut}
+                  className="flex-1 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  <Lock size={14} />
+                  {eventoPrivadoLoading
+                    ? "Bloqueando..."
+                    : `Bloquear${eventoPrivadoForm.alos.length > 0 ? ` (${eventoPrivadoForm.alos.length})` : ""}`}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
