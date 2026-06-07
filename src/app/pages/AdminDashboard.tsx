@@ -159,6 +159,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [enlaceGenerado, setEnlaceGenerado] = useState<string | null>(null);
   const [showEnlaceModal, setShowEnlaceModal] = useState(false);
   const [enlaceCopiado, setEnlaceCopiado] = useState(false);
+  const [enlaceReservaId, setEnlaceReservaId] = useState<number | null>(null);
+  const [motivoPendiente, setMotivoPendiente] = useState("");
   const [toastMsg, setToastMsg] = useState("");
   const [indicativoAdmin, setIndicativoAdmin] = useState("+57");
   const [showUsuarioModal, setShowUsuarioModal] = useState(false);
@@ -478,6 +480,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setShowEnlaceModal(false);
     setEnlaceGenerado(null);
     setEnlaceCopiado(false);
+    setEnlaceReservaId(null);
+    setMotivoPendiente("");
   };
 
   const toggleAdminServicio = (s: string, hospedaje: string, numHuespedes: number) => {
@@ -2062,12 +2066,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                   disabled={r.datosCompletados}
                                   onClick={() => {
                                     const url = `${window.location.origin}/reservar/${r.tokenPublico}`;
-                                    navigator.clipboard.writeText(url);
-                                    setToastMsg("¡Enlace copiado!");
-                                    setTimeout(() => setToastMsg(""), 2000);
+                                    setEnlaceGenerado(url);
+                                    setEnlaceReservaId(r.id);
+                                    setMotivoPendiente(r.observacion || "");
+                                    setShowEnlaceModal(true);
                                   }}
                                   className={`p-2 rounded transition-colors ${r.datosCompletados ? "text-slate-300 cursor-not-allowed" : "text-[#5a3518] hover:bg-[#f0e4d0] cursor-pointer"}`}
-                                  title={r.datosCompletados ? "El huésped ya completó sus datos" : "Copiar enlace para el huésped"}
+                                  title={r.datosCompletados ? "El huésped ya completó sus datos" : "Completar datos / ver enlace"}
                                 >
                                   <Link size={16} />
                                 </button>
@@ -4197,6 +4202,65 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <p className="text-sm text-slate-500 mt-1">
                 Comparte este enlace con el huésped para que complete sus datos.
               </p>
+            </div>
+
+            {/* Motivo de pendiente */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-[#7a4828] mb-1.5">
+                Motivo / razón de pendiente
+                <span className="ml-1 text-xs text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <textarea
+                rows={3}
+                value={motivoPendiente}
+                onChange={e => setMotivoPendiente(e.target.value)}
+                placeholder="Ej: Pendiente de verificar pago, pendiente de confirmar disponibilidad..."
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-[#3d2010] placeholder:text-slate-400 focus:outline-none focus:border-[#8a6038] focus:ring-2 focus:ring-[#8a6038]/10 resize-none transition-all"
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              />
+              {enlaceReservaId && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem("authToken");
+                      const reserva = reservas.find(r => r.id === enlaceReservaId);
+                      if (!reserva || !token) return;
+                      await reservasAPI.editarReserva(enlaceReservaId, {
+                        nombre_huesped: reserva.guest,
+                        cedula_huesped: reserva.document,
+                        email_huesped: reserva.email,
+                        telefono_huesped: reserva.phone,
+                        hospedaje: reserva.accommodation,
+                        check_in: reserva.checkIn,
+                        check_out: reserva.checkOut,
+                        numero_huespedes: reserva.guests,
+                        numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : "",
+                        servicio_adicional: reserva.additionalService,
+                        color_decoracion: reserva.color_decoracion || "",
+                        mensaje_decoracion: reserva.mensaje_decoracion || "",
+                        valor_alojamiento: reserva.accommodationValue,
+                        valor_servicio_adicional: reserva.additionalServiceValue,
+                        abono: reserva.deposit,
+                        estado: reserva.status,
+                        observacion: motivoPendiente,
+                        usuario_id: user?.id,
+                        tipo_hospedaje: "Glamping",
+                      }, token);
+                      await reloadReservas();
+                      setToastMsg("Motivo guardado");
+                      setTimeout(() => setToastMsg(""), 2000);
+                    } catch {
+                      setToastMsg("Error al guardar");
+                      setTimeout(() => setToastMsg(""), 2000);
+                    }
+                  }}
+                  className="mt-2 text-xs text-[#8a6038] hover:underline font-medium"
+                  style={{ fontFamily: "'DM Mono', monospace" }}
+                >
+                  Guardar motivo
+                </button>
+              )}
             </div>
 
             {/* Enlace */}
