@@ -208,7 +208,7 @@ export function maxHuespedes(hospedaje: string): number {
 
 // ─── Servicios adicionales ────────────────────────────────────────────────────
 
-type GrupoServicio = 'perla-esmeralda-diamante' | 'zafiro-turquesa' | 'habitacion-pareja' | 'habitacion-cuadruple';
+type GrupoServicio = 'perla-esmeralda-diamante' | 'zafiro-turquesa' | 'habitacion-pareja' | 'habitacion-cuadruple' | 'dia-de-sol';
 
 function getGrupoServicio(hospedaje: string): GrupoServicio | null {
   const n = normalizar(hospedaje);
@@ -217,6 +217,7 @@ function getGrupoServicio(hospedaje: string): GrupoServicio | null {
   if (n.includes('glamping')) return 'perla-esmeralda-diamante';
   if (n.includes('pareja')) return 'habitacion-pareja';
   if (n.includes('cuadruple') || n.includes('cuadruple') || n.includes('familiar')) return 'habitacion-cuadruple';
+  if (n.includes('dia de sol') || n.includes('día de sol')) return 'dia-de-sol';
   return null;
 }
 
@@ -260,6 +261,7 @@ const SERVICIOS: Record<string, ServicioConfig> = {
       'zafiro-turquesa': 30_000,
       'habitacion-pareja': 30_000,
       'habitacion-cuadruple': 30_000,
+      'dia-de-sol': 30_000,
     },
     requiereColor: true,
     precioDinamico: (_grupo, huespedes) => huespedes > 2 ? 45_000 : 30_000,
