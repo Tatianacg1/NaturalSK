@@ -2729,7 +2729,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
                         {/* Lista de reservas del día */}
                         {selRes.length > 0 && (
-                          <div className="space-y-2 mb-5">
+                          <div className="space-y-2 mb-5 max-h-[55vh] overflow-y-auto pr-1">
                             {selRes.map(r => (
                               <div
                                 key={r.id}
