@@ -88,6 +88,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     () => (sessionStorage.getItem("adminTab") as any) || "calendario"
   );
   const [overviewSubTab, setOverviewSubTab] = useState<"proximas" | "concluidas">("proximas");
+  const [overviewPeriodo, setOverviewPeriodo] = useState<"dia" | "mes" | "año">("mes");
+  const [overviewFechaRef, setOverviewFechaRef] = useState<Date>(() => new Date());
+  const [ocupacionOrden, setOcupacionOrden] = useState<"desc" | "asc">("desc");
 
   // Estados de búsqueda y filtros del tab Reservas
   const [searchQuery, setSearchQuery] = useState("");
@@ -910,28 +913,67 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   // Calcular estadísticas dinámicamente
   const hoy = new Date().toISOString().slice(0, 10);
-  const reservasConfirmadas = reservasDisplay.filter(r => r.status === "Confirmada");
-  // Reservas cuyo checkout ya ocurrió generan ingreso total; las activas solo el abono recibido.
-  const ingresosTotales = reservasConfirmadas.reduce((acc, r) => {
+  const totalAlojamientos = alojamientos.length || 1;
+
+  // Helpers de período
+  const periodoLabel = (() => {
+    const y = overviewFechaRef.getFullYear();
+    const m = overviewFechaRef.getMonth();
+    const d = overviewFechaRef.getDate();
+    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    if (overviewPeriodo === "dia") return `${d} ${meses[m]} ${y}`;
+    if (overviewPeriodo === "mes") return `${meses[m]} ${y}`;
+    return `${y}`;
+  })();
+
+  const navegarPeriodo = (dir: -1 | 1) => {
+    setOverviewFechaRef(prev => {
+      const d = new Date(prev);
+      if (overviewPeriodo === "dia") d.setDate(d.getDate() + dir);
+      else if (overviewPeriodo === "mes") d.setMonth(d.getMonth() + dir);
+      else d.setFullYear(d.getFullYear() + dir);
+      return d;
+    });
+  };
+
+  const reservasPeriodo = reservasDisplay.filter(r => {
+    const ci = r.checkIn; // "YYYY-MM-DD"
+    const y = overviewFechaRef.getFullYear();
+    const m = String(overviewFechaRef.getMonth() + 1).padStart(2, "0");
+    const d = String(overviewFechaRef.getDate()).padStart(2, "0");
+    if (overviewPeriodo === "dia") return ci === `${y}-${m}-${d}`;
+    if (overviewPeriodo === "mes") return ci.startsWith(`${y}-${m}`);
+    return ci.startsWith(`${y}`);
+  });
+
+  const reservasConfirmadasPeriodo = reservasPeriodo.filter(r => r.status === "Confirmada");
+
+  const ingresosTotales = reservasConfirmadasPeriodo.reduce((acc, r) => {
     const completada = r.checkOut <= hoy;
     return acc + (completada ? r.fullValue : r.deposit);
   }, 0);
-  // Suponiendo que la ocupación es el porcentaje de reservas confirmadas sobre el total de alojamientos * días del mes actual
-  const totalAlojamientos = alojamientos.length || 1;
-  const diasMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-  // Sumar noches reservadas
-  const nochesReservadas = reservasConfirmadas.reduce((acc, r) => {
-    const inDate = new Date(r.checkIn);
-    const outDate = new Date(r.checkOut);
-    const noches = (outDate - inDate) / (1000 * 60 * 60 * 24);
+
+  const diasPeriodo = (() => {
+    if (overviewPeriodo === "dia") return 1;
+    if (overviewPeriodo === "mes") {
+      return new Date(overviewFechaRef.getFullYear(), overviewFechaRef.getMonth() + 1, 0).getDate();
+    }
+    const y = overviewFechaRef.getFullYear();
+    return ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) ? 366 : 365;
+  })();
+
+  const nochesReservadas = reservasConfirmadasPeriodo.reduce((acc, r) => {
+    const inDate = new Date(r.checkIn + "T12:00:00");
+    const outDate = new Date(r.checkOut + "T12:00:00");
+    const noches = (outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24);
     return acc + (noches > 0 ? noches : 0);
   }, 0);
-  const ocupacion = Math.round((nochesReservadas / (totalAlojamientos * diasMes)) * 100);
+  const ocupacion = Math.round((nochesReservadas / (totalAlojamientos * diasPeriodo)) * 100);
 
   const stats = [
-    { label: "Reservas Totales", value: reservasDisplay.length.toString(), icon: Calendar, change: "+12% este mes", modalType: "reservas" as const },
-    { label: "Ingresos", value: formatCurrency(ingresosTotales), icon: BarChart3, change: "+8.5% este mes", modalType: "ingresos" as const },
-    { label: "Ocupación", value: `${ocupacion}%`, icon: Home, change: "+5% este mes", modalType: "ocupacion" as const },
+    { label: "Reservas Totales", value: reservasPeriodo.length.toString(), icon: Calendar, change: periodoLabel, modalType: "reservas" as const },
+    { label: "Ingresos", value: formatCurrency(ingresosTotales), icon: BarChart3, change: periodoLabel, modalType: "ingresos" as const },
+    { label: "Ocupación", value: `${ocupacion}%`, icon: Home, change: periodoLabel, modalType: "ocupacion" as const },
   ];
 
   // Devuelve clases de estilo según el estado de la reserva.
@@ -1158,6 +1200,53 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* Filtro de período */}
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+                  {(["dia", "mes", "año"] as const).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => { setOverviewPeriodo(p); setOverviewFechaRef(new Date()); }}
+                      className={`px-4 py-2 text-sm font-medium transition-colors capitalize ${
+                        overviewPeriodo === p
+                          ? "bg-[#8a6038] text-white"
+                          : "text-slate-500 hover:text-[#3d2010] hover:bg-slate-50"
+                      }`}
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      {p === "dia" ? "Día" : p === "mes" ? "Mes" : "Año"}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
+                  <button
+                    onClick={() => navegarPeriodo(-1)}
+                    className="text-slate-400 hover:text-[#8a6038] transition-colors"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span
+                    className="text-sm font-semibold text-[#3d2010] min-w-[110px] text-center"
+                    style={{ fontFamily: "'DM Mono', monospace" }}
+                  >
+                    {periodoLabel}
+                  </span>
+                  <button
+                    onClick={() => navegarPeriodo(1)}
+                    className="text-slate-400 hover:text-[#8a6038] transition-colors"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+                <button
+                  onClick={() => setOverviewFechaRef(new Date())}
+                  className="text-xs text-[#8a6038] hover:underline"
+                  style={{ fontFamily: "'DM Mono', monospace" }}
+                >
+                  Hoy
+                </button>
               </div>
 
               {/* Cuadrícula de estadísticas */}
@@ -1635,26 +1724,41 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           const monthOcup = hoyOcup.getMonth();
                           const daysInMonthOcup = new Date(yearOcup, monthOcup + 1, 0).getDate();
                           const monthNamesOcup = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-                          const alosToShow = filtroAlo ? alojamientos.filter(a => a.nombre === filtroAlo) : alojamientos;
+                          const alosBase = filtroAlo ? alojamientos.filter(a => a.nombre === filtroAlo) : alojamientos;
+
+                          // Calcular pct por alojamiento primero para poder ordenar
+                          const alosConPct = alosBase.map(a => {
+                            const aRes = reservasDisplay.filter(r => r.accommodation === a.nombre && r.status !== "Cancelada");
+                            const noches = aRes.reduce((acc, r) => {
+                              const ci = new Date(r.checkIn + "T00:00:00");
+                              const co = new Date(r.checkOut + "T00:00:00");
+                              const mesInicio = new Date(yearOcup, monthOcup, 1);
+                              const mesFin = new Date(yearOcup, monthOcup + 1, 0);
+                              const solapInicio = ci < mesInicio ? mesInicio : ci;
+                              const solapFin = co > mesFin ? mesFin : co;
+                              const n = (solapFin.getTime() - solapInicio.getTime()) / (1000 * 60 * 60 * 24);
+                              return acc + (n > 0 ? n : 0);
+                            }, 0);
+                            return { a, aRes, noches, pct: Math.min(100, Math.round((noches / daysInMonthOcup) * 100)) };
+                          }).sort((x, y) => ocupacionOrden === "desc" ? y.pct - x.pct : x.pct - y.pct);
+
                           return (
                             <>
-                              <p className="text-xs text-slate-500 mb-5" style={{ fontFamily: "'DM Mono', monospace" }}>
-                                {monthNamesOcup[monthOcup]} {yearOcup} — {daysInMonthOcup} días disponibles por alojamiento
-                              </p>
+                              <div className="flex items-center justify-between mb-5">
+                                <p className="text-xs text-slate-500" style={{ fontFamily: "'DM Mono', monospace" }}>
+                                  {monthNamesOcup[monthOcup]} {yearOcup} — {daysInMonthOcup} días disponibles por alojamiento
+                                </p>
+                                <button
+                                  onClick={() => setOcupacionOrden(o => o === "desc" ? "asc" : "desc")}
+                                  className="flex items-center gap-1.5 text-xs border border-slate-200 rounded-md px-2.5 py-1.5 text-slate-600 hover:border-[#8a6038] hover:text-[#8a6038] transition-colors bg-white"
+                                  style={{ fontFamily: "'DM Mono', monospace" }}
+                                >
+                                  {ocupacionOrden === "desc" ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+                                  {ocupacionOrden === "desc" ? "Mayor a menor" : "Menor a mayor"}
+                                </button>
+                              </div>
                               <div className="space-y-3">
-                                {alosToShow.map(a => {
-                                  const aRes = reservasDisplay.filter(r => r.accommodation === a.nombre && r.status !== "Cancelada");
-                                  const noches = aRes.reduce((acc, r) => {
-                                    const ci = new Date(r.checkIn + "T00:00:00");
-                                    const co = new Date(r.checkOut + "T00:00:00");
-                                    const mesInicio = new Date(yearOcup, monthOcup, 1);
-                                    const mesFin = new Date(yearOcup, monthOcup + 1, 0);
-                                    const solapInicio = ci < mesInicio ? mesInicio : ci;
-                                    const solapFin = co > mesFin ? mesFin : co;
-                                    const n = (solapFin.getTime() - solapInicio.getTime()) / (1000 * 60 * 60 * 24);
-                                    return acc + (n > 0 ? n : 0);
-                                  }, 0);
-                                  const pct = Math.min(100, Math.round((noches / daysInMonthOcup) * 100));
+                                {alosConPct.map(({ a, aRes, noches, pct }) => {
                                   const barColor = pct > 80 ? "bg-red-500" : pct > 50 ? "bg-yellow-500" : pct > 0 ? "bg-amber-500" : "bg-slate-300";
                                   return (
                                     <div key={a.id} className="bg-slate-50 rounded-lg p-4">
@@ -1961,13 +2065,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                   <X size={16} />
                                 </button>
                               )}
-                              <button
-                                onClick={() => handleDeleteReserva(r.id)}
-                                className="p-2 text-red-700 hover:bg-red-100 rounded transition-colors"
-                                title="Eliminar reserva"
-                              >
-                                <Trash2 size={16} />
-                              </button>
                             </div>
                           </td>
                         </tr>
@@ -2393,14 +2490,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
                     {/* Pie del modal */}
                     <div className="px-6 pb-6 flex gap-3">
-                      <button
-                        onClick={() => handleDeleteReserva(historialReserva.id)}
-                        className="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                        style={{ fontFamily: "'DM Sans', sans-serif" }}
-                      >
-                        <Trash2 size={14} />
-                        Eliminar
-                      </button>
                       <button
                         onClick={() => setHistorialReserva(null)}
                         className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
@@ -2921,13 +3010,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               title="Cancelar reserva"
                             >
                               <X size={15} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteReserva(r.id)}
-                              className="p-2 text-red-700 hover:bg-red-100 rounded transition-colors"
-                              title="Eliminar reserva"
-                            >
-                              <Trash2 size={15} />
                             </button>
                           </div>
                         </div>
@@ -3654,6 +3736,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               color_decoracion: "",
                               mensaje_decoracion: "",
                               valor_servicio_adicional: 0,
+                              ...(e.target.value === "Día de Sol" ? { abono: 0 } : {}),
                             }));
                           }}
                           required
@@ -3900,31 +3983,37 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             </div>
                           )}
 
-                          <div>
-                            <label className="block text-sm mb-1 text-[#7a4828]">Abono</label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
-                                placeholder="0"
-                                value={displayCOP(reservaForm.abono)}
-                                onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
-                                onChange={e => {
-                                  const val = parseCOP(e.target.value);
-                                  if (val <= valorAlojamiento + valorServicioAdicional) {
-                                    setReservaForm(f => ({ ...f, abono: val }));
-                                  }
-                                }}
-                              />
+                          {!reservaForm.hospedaje.toLowerCase().includes("de sol") && (
+                            <div>
+                              <label className="block text-sm mb-1 text-[#7a4828]">Abono</label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
+                                  placeholder="0"
+                                  value={displayCOP(reservaForm.abono)}
+                                  onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
+                                  onChange={e => {
+                                    const val = parseCOP(e.target.value);
+                                    if (val <= valorAlojamiento + valorServicioAdicional) {
+                                      setReservaForm(f => ({ ...f, abono: val }));
+                                    }
+                                  }}
+                                />
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           <div className="rounded-md bg-[#f0e4d0] p-4">
                             <label className="block text-sm mb-1 text-[#7a4828]">Total a pagar</label>
                             <p className="text-xl font-semibold text-[#3d2010]">{formatCurrency(totalReserva)}</p>
-                            <p className="text-xs text-[#8b5e38] mt-1">Valor alojamiento + servicio adicional − abono</p>
+                            <p className="text-xs text-[#8b5e38] mt-1">
+                              {reservaForm.hospedaje.toLowerCase().includes("de sol")
+                                ? "Pago completo — no aplica abono"
+                                : "Valor alojamiento + servicio adicional − abono"}
+                            </p>
                           </div>
                         </>
                       )}
