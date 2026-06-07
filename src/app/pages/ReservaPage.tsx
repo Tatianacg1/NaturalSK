@@ -232,6 +232,7 @@ export function ReservaPage() {
     email_huesped: "",
     telefono_huesped: "",
     numero_huespedes: "1",
+    numero_habitacion: "",
   });
   const [serviciosSeleccionados, setServiciosSeleccionados] = useState<
     Array<{ servicio: string; color: string; mensaje: string }>
@@ -262,6 +263,11 @@ export function ReservaPage() {
 
   useEffect(() => {
     setServiciosSeleccionados([]);
+    const n = normalize(form.hospedaje);
+    setForm(p => ({
+      ...p,
+      numero_habitacion: n.includes("cuadruple") ? "5" : "",
+    }));
   }, [form.hospedaje]);
 
   useEffect(() => {
@@ -324,9 +330,10 @@ export function ReservaPage() {
   const colorRequerido = serviciosSeleccionados.some(
     x => servicioRequiereColor(x.servicio) && !x.color
   );
+  const esHabitacion = normalize(form.hospedaje).includes("pareja") || normalize(form.hospedaje).includes("cuadruple");
   const huesped1Completo = !!form.nombre_huesped.trim() && !!form.cedula_huesped.trim() && !!form.email_huesped.trim() && !!form.telefono_huesped.trim();
   const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre?.trim() && h.cedula?.trim());
-  const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos && !colorRequerido;
+  const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos && !colorRequerido && (!esHabitacion || !!form.numero_habitacion);
 
   const toggleServicio = (s: string) => {
     setServiciosSeleccionados(prev => {
@@ -1211,6 +1218,36 @@ export function ReservaPage() {
                         </div>
                       )}
                     </div>
+
+                    {esHabitacion && (
+                      <div>
+                        <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                          Número de habitación
+                        </label>
+                        {normalize(form.hospedaje).includes("cuadruple") ? (
+                          <div
+                            className="w-full bg-gray-50 border border-gray-200 text-gray-500 text-sm rounded-xl px-4 py-3"
+                            style={{ fontFamily: "'DM Sans', sans-serif" }}
+                          >
+                            Habitación 5
+                          </div>
+                        ) : (
+                          <select
+                            name="numero_habitacion"
+                            value={form.numero_habitacion}
+                            onChange={handleChange}
+                            required
+                            className={inputCls}
+                            style={{ fontFamily: "'DM Sans', sans-serif" }}
+                          >
+                            <option value="">Selecciona una habitación</option>
+                            {[1, 2, 3, 4].map(n => (
+                              <option key={n} value={String(n)}>Habitación {n}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    )}
 
                     {serviciosAlo.length > 0 && (
                       <div className="space-y-2">

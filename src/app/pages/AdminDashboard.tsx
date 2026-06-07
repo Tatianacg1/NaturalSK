@@ -26,6 +26,7 @@ interface ReservaForm {
   check_in: string;
   check_out: string;
   numero_huespedes: number;
+  numero_habitacion: string;
   servicio_adicional: string;
   color_decoracion: string;
   mensaje_decoracion: string;
@@ -134,6 +135,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     check_in: "",
     check_out: "",
     numero_huespedes: 1,
+    numero_habitacion: "",
     servicio_adicional: "N/A",
     color_decoracion: "",
     mensaje_decoracion: "",
@@ -269,6 +271,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       color_decoracion: reserva.color_decoracion || "",
       mensaje_decoracion: reserva.mensaje_decoracion || "",
       servicios_adicionales: reserva.servicios_adicionales || null,
+      numeroHabitacion: reserva.numero_habitacion ?? null,
       accommodationValue: Number(reserva.valor_alojamiento || 0),
       additionalServiceValue: Number(reserva.valor_servicio_adicional || 0),
       deposit: Number(reserva.abono || 0),
@@ -389,6 +392,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_in: reserva.checkIn,
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests || 1,
+        numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : (reserva.accommodation?.toLowerCase().includes("cuadruple") ? "5" : ""),
         servicio_adicional: reserva.additionalService || "N/A",
         color_decoracion: reserva.color_decoracion || "",
         mensaje_decoracion: reserva.mensaje_decoracion || "",
@@ -431,6 +435,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_in: prefillDate || "",
         check_out: "",
         numero_huespedes: 1,
+        numero_habitacion: "",
         servicio_adicional: "N/A",
         color_decoracion: "",
         mensaje_decoracion: "",
@@ -687,6 +692,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           check_in: reserva.checkIn,
           check_out: reserva.checkOut,
           numero_huespedes: reserva.guests,
+          numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : "",
           servicio_adicional: reserva.additionalService,
           color_decoracion: reserva.color_decoracion || "",
           mensaje_decoracion: reserva.mensaje_decoracion || "",
@@ -727,6 +733,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_in: reserva.checkIn,
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests,
+        numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : "",
         servicio_adicional: reserva.additionalService,
         color_decoracion: reserva.color_decoracion || "",
         mensaje_decoracion: reserva.mensaje_decoracion || "",
@@ -767,6 +774,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_in: reserva.checkIn,
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests,
+        numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : "",
         servicio_adicional: reserva.additionalService,
         color_decoracion: reserva.color_decoracion || "",
         mensaje_decoracion: reserva.mensaje_decoracion || "",
@@ -3653,6 +3661,28 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               ))}
                             </select>
                           </div>
+                          {(reservaForm.hospedaje.toLowerCase().includes("pareja") || reservaForm.hospedaje.toLowerCase().includes("cuadruple")) && (
+                            <div>
+                              <label className="block text-sm mb-1 text-[#7a4828]">Número de habitación</label>
+                              {reservaForm.hospedaje.toLowerCase().includes("cuadruple") ? (
+                                <div className="w-full px-3 py-2 border rounded bg-gray-50 text-gray-500 text-sm">
+                                  Habitación 5
+                                </div>
+                              ) : (
+                                <select
+                                  className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                                  value={reservaForm.numero_habitacion}
+                                  onChange={e => setReservaForm(f => ({ ...f, numero_habitacion: e.target.value }))}
+                                  required
+                                >
+                                  <option value="">Selecciona una habitación</option>
+                                  {[1, 2, 3, 4].map(n => (
+                                    <option key={n} value={String(n)}>Habitación {n}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          )}
                           {(() => {
                             const serviciosAlo = serviciosDisponibles(reservaForm.hospedaje);
                             if (serviciosAlo.length === 0) return null;
