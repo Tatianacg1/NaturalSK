@@ -90,6 +90,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [overviewSubTab, setOverviewSubTab] = useState<"proximas" | "concluidas">("proximas");
   const [overviewPeriodo, setOverviewPeriodo] = useState<"dia" | "mes" | "año">("mes");
   const [overviewFechaRef, setOverviewFechaRef] = useState<Date>(() => new Date());
+  const [overviewFiltroAlo, setOverviewFiltroAlo] = useState("");
   const [ocupacionOrden, setOcupacionOrden] = useState<"desc" | "asc">("desc");
 
   // Estados de búsqueda y filtros del tab Reservas
@@ -941,9 +942,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     const y = overviewFechaRef.getFullYear();
     const m = String(overviewFechaRef.getMonth() + 1).padStart(2, "0");
     const d = String(overviewFechaRef.getDate()).padStart(2, "0");
-    if (overviewPeriodo === "dia") return ci === `${y}-${m}-${d}`;
-    if (overviewPeriodo === "mes") return ci.startsWith(`${y}-${m}`);
-    return ci.startsWith(`${y}`);
+    const pasaPeriodo = overviewPeriodo === "dia" ? ci === `${y}-${m}-${d}`
+      : overviewPeriodo === "mes" ? ci.startsWith(`${y}-${m}`)
+      : ci.startsWith(`${y}`);
+    const pasaAlo = !overviewFiltroAlo || r.accommodation === overviewFiltroAlo;
+    return pasaPeriodo && pasaAlo;
   });
 
   const reservasConfirmadasPeriodo = reservasPeriodo.filter(r => r.status === "Confirmada");
@@ -1202,7 +1205,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </div>
               </div>
 
-              {/* Filtro de período */}
+              {/* Filtro de período y alojamiento */}
               <div className="flex flex-wrap items-center gap-3 mb-6">
                 <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
                   {(["dia", "mes", "año"] as const).map(p => (
@@ -1247,6 +1250,28 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 >
                   Hoy
                 </button>
+                <select
+                  value={overviewFiltroAlo}
+                  onChange={e => setOverviewFiltroAlo(e.target.value)}
+                  className={`bg-white border rounded-lg px-3 py-2 text-sm shadow-sm transition-colors focus:outline-none focus:border-[#8a6038] ${
+                    overviewFiltroAlo ? "border-[#8a6038] text-[#3d2010] font-medium" : "border-slate-200 text-slate-500"
+                  }`}
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  <option value="">Todos los alojamientos</option>
+                  {alojamientos.map(a => (
+                    <option key={a.id} value={a.nombre}>{a.nombre}</option>
+                  ))}
+                </select>
+                {overviewFiltroAlo && (
+                  <button
+                    onClick={() => setOverviewFiltroAlo("")}
+                    className="text-xs text-slate-400 hover:text-[#8a6038] transition-colors"
+                    style={{ fontFamily: "'DM Mono', monospace" }}
+                  >
+                    Limpiar
+                  </button>
+                )}
               </div>
 
               {/* Cuadrícula de estadísticas */}
