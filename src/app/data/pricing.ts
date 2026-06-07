@@ -203,7 +203,7 @@ export function maxHuespedes(hospedaje: string): number {
   if (n === 'habitacion pareja') return 2;
   if (n === 'habitacion cuadruple') return 4;
   if (n.includes('dia de sol') || n.includes('día de sol')) return 8;
-  return 20;
+  return 8;
 }
 
 // ─── Servicios adicionales ────────────────────────────────────────────────────
