@@ -150,7 +150,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     abono: 0,
     estado: "Pendiente",
     observacion: "",
-    huespedes_adicionales: [],
+    huespedes_adicionales: [{ nombre: "", cedula: "", email: "", celular: "" }],
   });
   const [adminServiciosSeleccionados, setAdminServiciosSeleccionados] = useState<
     Array<{ servicio: string; color: string; mensaje: string }>
@@ -467,7 +467,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         abono: 0,
         estado: "Pendiente",
         observacion: "",
-        huespedes_adicionales: [],
+        huespedes_adicionales: [{ nombre: "", cedula: "", email: "", celular: "" }],
       });
       setAdminServiciosSeleccionados([]);
       setIndicativoAdmin("+57");
