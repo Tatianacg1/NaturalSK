@@ -729,6 +729,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         handleCloseReservaModal();
         if (resultado?.token_publico) {
           setEnlaceGenerado(`${window.location.origin}/reservar/${resultado.token_publico}`);
+          setEnlaceReservaId(resultado.id ?? null);
           setShowEnlaceModal(true);
         }
       }
@@ -1552,164 +1553,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   })()}
                 </div>
               </div>
-
-              {/* Modal detalle de reserva individual — desde Panel General */}
-              {overviewDetailReserva && (
-                <div
-                  className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4"
-                  onClick={() => setOverviewDetailReserva(null)}
-                >
-                  <div
-                    className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <div className="flex items-start justify-between p-6 border-b border-slate-200">
-                      <div>
-                        <h3 className="text-xl font-semibold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
-                          Detalle de Reserva
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
-                          ID #{overviewDetailReserva.id}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs border ${getStatusColor(overviewDetailReserva.status)}`}>
-                          {overviewDetailReserva.status}
-                        </span>
-                        <button onClick={() => setOverviewDetailReserva(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                          <X size={20} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="p-6 space-y-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Huésped Principal</p>
-                        <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Nombre</span><span className="font-medium text-[#3d2010]">{overviewDetailReserva.guest}</span></div>
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Cédula</span><span className="text-[#3d2010]">{overviewDetailReserva.document || "—"}</span></div>
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Email</span><span className="text-[#3d2010] break-all text-right max-w-[60%]">{overviewDetailReserva.email}</span></div>
-                          {overviewDetailReserva.phone && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Teléfono</span><span className="text-[#3d2010]">{overviewDetailReserva.phone}</span></div>
-                          )}
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Personas</span><span className="text-[#3d2010]">{overviewDetailReserva.guests}</span></div>
-                          {overviewDetailReserva.creadorNombre && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Creado por</span>
-                              <span className="flex items-center gap-1.5 text-[#3d2010]">
-                                {overviewDetailReserva.creadorColor && (
-                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: overviewDetailReserva.creadorColor }} />
-                                )}
-                                {overviewDetailReserva.creadorNombre}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {overviewDetailReserva.additionalGuests?.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Huéspedes Adicionales</p>
-                          <div className="space-y-2">
-                            {overviewDetailReserva.additionalGuests.map((h: any, i: number) => (
-                              <div key={i} className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
-                                <div className="flex justify-between"><span className="text-slate-500">Nombre</span><span className="text-[#3d2010] font-medium">{h.nombre}</span></div>
-                                <div className="flex justify-between"><span className="text-slate-500">Cédula</span><span className="text-[#3d2010]">{h.cedula}</span></div>
-                                <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="text-[#3d2010] break-all text-right max-w-[60%]">{h.email}</span></div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Alojamiento y Fechas</p>
-                        <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Alojamiento</span><span className="font-medium text-[#3d2010]">{overviewDetailReserva.accommodation}</span></div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">{overviewDetailReserva.accommodation === "Día de Sol" ? "Fecha" : "Check-in"}</span>
-                            <span className="text-[#3d2010]">{overviewDetailReserva.checkIn}</span>
-                          </div>
-                          {overviewDetailReserva.accommodation !== "Día de Sol" && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Check-out</span><span className="text-[#3d2010]">{overviewDetailReserva.checkOut}</span></div>
-                          )}
-                          {overviewDetailReserva.additionalService && overviewDetailReserva.additionalService !== "N/A" && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{overviewDetailReserva.additionalService}</span></div>
-                          )}
-                          {overviewDetailReserva.color_decoracion && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Color decoración</span><span className="text-[#3d2010]">{overviewDetailReserva.color_decoracion}</span></div>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Resumen Financiero</p>
-                        <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
-                          <div className="flex justify-between text-sm"><span className="text-slate-500">Valor alojamiento</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.accommodationValue)}</span></div>
-                          {overviewDetailReserva.additionalServiceValue > 0 && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.additionalServiceValue)}</span></div>
-                          )}
-                          {overviewDetailReserva.deposit > 0 && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Abono</span><span className="text-amber-700">− {formatCurrency(overviewDetailReserva.deposit)}</span></div>
-                          )}
-                          <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2 mt-1">
-                            <span className="text-[#3d2010]">Total</span>
-                            <span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.fullValue)}</span>
-                          </div>
-                          {overviewDetailReserva.checkOut < new Date().toISOString().slice(0, 10) && (
-                            <div className="mt-3 flex items-center gap-2 py-2.5 px-3 bg-amber-50 border border-amber-200 rounded-lg">
-                              <span className="text-amber-700 font-bold text-base leading-none">✓</span>
-                              <span className="text-sm font-medium text-amber-800">Pago completado</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {(overviewDetailReserva.observacion || overviewDetailReserva.consumible || overviewDetailReserva.mensaje_decoracion) && (
-                        <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Observaciones y Notas</p>
-                          <div className="space-y-2">
-                            {overviewDetailReserva.observacion && (
-                              <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
-                                <MessageCircle size={14} className="text-amber-600 mt-0.5 shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Observación</p>
-                                  <p className="text-sm text-amber-900">{overviewDetailReserva.observacion}</p>
-                                </div>
-                              </div>
-                            )}
-                            {overviewDetailReserva.consumible && (
-                              <div className="flex items-start gap-2.5 bg-[#f0e4d0] border border-[#8a6038]/20 rounded-lg px-3 py-2.5">
-                                <span className="text-[10px] font-semibold text-[#8a6038] mt-0.5 shrink-0 uppercase tracking-wide">Consumible</span>
-                                <p className="text-sm text-[#3d2010]">{overviewDetailReserva.consumible}</p>
-                              </div>
-                            )}
-                            {overviewDetailReserva.mensaje_decoracion && (
-                              <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5">
-                                <span className="text-[10px] font-semibold text-purple-700 mt-0.5 shrink-0 uppercase tracking-wide">Decoración</span>
-                                <p className="text-sm text-purple-900">{overviewDetailReserva.mensaje_decoracion}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="px-6 pb-6 flex gap-3">
-                      {canEdit && overviewDetailReserva.guest !== "Evento Privado" && (
-                        <button
-                          onClick={() => { setOverviewDetailReserva(null); setOverviewModal(null); setActiveTab("reservas"); handleOpenReservaModal(overviewDetailReserva); }}
-                          className="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 transition-colors"
-                          style={{ fontFamily: "'DM Sans', sans-serif" }}
-                        >
-                          Editar Reserva
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setOverviewDetailReserva(null)}
-                        className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
-                        style={{ fontFamily: "'DM Sans', sans-serif" }}
-                      >
-                        Cerrar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Modal interactivo Panel General — Reservas / Ingresos / Ocupación */}
               {overviewModal && (() => {
@@ -3229,6 +3072,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                 {r.guest || "Sin nombre — pendiente de completar datos"}
                               </p>
                             </div>
+                            {r.observacion && (
+                              <p className="text-xs text-[#7a4828] italic mt-0.5 ml-0.5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                                {r.observacion}
+                              </p>
+                            )}
                             <div className="flex flex-wrap gap-2 mt-1 text-xs text-slate-500" style={{ fontFamily: "'DM Mono', monospace" }}>
                               <span>{r.accommodation}</span>
                               <span>·</span>
@@ -3910,6 +3758,170 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
             </div>
           )}
+          {/* Modal detalle de reserva — global, visible desde cualquier pestaña */}
+          {overviewDetailReserva && (
+            <div
+              className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4"
+              onClick={() => setOverviewDetailReserva(null)}
+            >
+              <div
+                className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between p-6 border-b border-slate-200">
+                  <div>
+                    <h3 className="text-xl font-semibold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      Detalle de Reserva
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      {overviewDetailReserva.numeroReserva ? `#${String(overviewDetailReserva.numeroReserva).padStart(4, "0")}` : `ID #${overviewDetailReserva.id}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {overviewDetailReserva.guest === "Evento Privado" ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs border bg-slate-200 text-slate-600 border-slate-300 font-medium">
+                        <Lock size={10} /> Evento Privado
+                      </span>
+                    ) : (
+                      <span className={`px-3 py-1 rounded-full text-xs border ${getStatusColor(overviewDetailReserva.status)}`}>
+                        {overviewDetailReserva.status}
+                      </span>
+                    )}
+                    <button onClick={() => setOverviewDetailReserva(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                      <X size={20} />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-6 space-y-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Huésped Principal</p>
+                    <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
+                      <div className="flex justify-between text-sm"><span className="text-slate-500">Nombre</span><span className="font-medium text-[#3d2010]">{overviewDetailReserva.guest}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-slate-500">Cédula</span><span className="text-[#3d2010]">{overviewDetailReserva.document || "—"}</span></div>
+                      <div className="flex justify-between text-sm"><span className="text-slate-500">Email</span><span className="text-[#3d2010] break-all text-right max-w-[60%]">{overviewDetailReserva.email}</span></div>
+                      {overviewDetailReserva.phone && (
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Teléfono</span><span className="text-[#3d2010]">{overviewDetailReserva.phone}</span></div>
+                      )}
+                      <div className="flex justify-between text-sm"><span className="text-slate-500">Personas</span><span className="text-[#3d2010]">{overviewDetailReserva.guests}</span></div>
+                      {overviewDetailReserva.creadorNombre && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Creado por</span>
+                          <span className="flex items-center gap-1.5 text-[#3d2010]">
+                            {overviewDetailReserva.creadorColor && (
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: overviewDetailReserva.creadorColor }} />
+                            )}
+                            {overviewDetailReserva.creadorNombre}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {overviewDetailReserva.additionalGuests?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Huéspedes Adicionales</p>
+                      <div className="space-y-2">
+                        {overviewDetailReserva.additionalGuests.map((h: any, i: number) => (
+                          <div key={i} className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
+                            <div className="flex justify-between"><span className="text-slate-500">Nombre</span><span className="text-[#3d2010] font-medium">{h.nombre}</span></div>
+                            <div className="flex justify-between"><span className="text-slate-500">Cédula</span><span className="text-[#3d2010]">{h.cedula}</span></div>
+                            <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="text-[#3d2010] break-all text-right max-w-[60%]">{h.email}</span></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Alojamiento y Fechas</p>
+                    <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
+                      <div className="flex justify-between text-sm"><span className="text-slate-500">Alojamiento</span><span className="font-medium text-[#3d2010]">{overviewDetailReserva.accommodation}</span></div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">{overviewDetailReserva.accommodation === "Día de Sol" ? "Fecha" : "Check-in"}</span>
+                        <span className="text-[#3d2010]">{overviewDetailReserva.checkIn}</span>
+                      </div>
+                      {overviewDetailReserva.accommodation !== "Día de Sol" && (
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Check-out</span><span className="text-[#3d2010]">{overviewDetailReserva.checkOut}</span></div>
+                      )}
+                      {overviewDetailReserva.additionalService && overviewDetailReserva.additionalService !== "N/A" && (
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{overviewDetailReserva.additionalService}</span></div>
+                      )}
+                      {overviewDetailReserva.color_decoracion && (
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Color decoración</span><span className="text-[#3d2010]">{overviewDetailReserva.color_decoracion}</span></div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Resumen Financiero</p>
+                    <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
+                      <div className="flex justify-between text-sm"><span className="text-slate-500">Valor alojamiento</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.accommodationValue)}</span></div>
+                      {overviewDetailReserva.additionalServiceValue > 0 && (
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.additionalServiceValue)}</span></div>
+                      )}
+                      {overviewDetailReserva.deposit > 0 && (
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Abono</span><span className="text-amber-700">− {formatCurrency(overviewDetailReserva.deposit)}</span></div>
+                      )}
+                      <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2 mt-1">
+                        <span className="text-[#3d2010]">Total</span>
+                        <span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.fullValue)}</span>
+                      </div>
+                      {overviewDetailReserva.remainingValue > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Restante por pagar</span>
+                          <span className="font-medium text-red-600">{formatCurrency(overviewDetailReserva.remainingValue)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {(overviewDetailReserva.observacion || overviewDetailReserva.consumible || overviewDetailReserva.mensaje_decoracion) && (
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Observaciones y Notas</p>
+                      <div className="space-y-2">
+                        {overviewDetailReserva.observacion && (
+                          <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                            <MessageCircle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Observación</p>
+                              <p className="text-sm text-amber-900">{overviewDetailReserva.observacion}</p>
+                            </div>
+                          </div>
+                        )}
+                        {overviewDetailReserva.consumible && (
+                          <div className="flex items-start gap-2.5 bg-[#f0e4d0] border border-[#8a6038]/20 rounded-lg px-3 py-2.5">
+                            <span className="text-[10px] font-semibold text-[#8a6038] mt-0.5 shrink-0 uppercase tracking-wide">Consumible</span>
+                            <p className="text-sm text-[#3d2010]">{overviewDetailReserva.consumible}</p>
+                          </div>
+                        )}
+                        {overviewDetailReserva.mensaje_decoracion && (
+                          <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5">
+                            <span className="text-[10px] font-semibold text-purple-700 mt-0.5 shrink-0 uppercase tracking-wide">Decoración</span>
+                            <p className="text-sm text-purple-900">{overviewDetailReserva.mensaje_decoracion}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="px-6 pb-6 flex gap-3">
+                  {canEdit && overviewDetailReserva.guest !== "Evento Privado" && (
+                    <button
+                      onClick={() => { setOverviewDetailReserva(null); setOverviewModal(null); setActiveTab("reservas"); handleOpenReservaModal(overviewDetailReserva); }}
+                      className="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 transition-colors"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      Editar Reserva
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setOverviewDetailReserva(null)}
+                    className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Modal crear/editar reserva — global, visible desde cualquier pestaña */}
           {showReservaModal && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -4546,7 +4558,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   className="mt-3 w-full py-2.5 bg-[#5a3518] text-white rounded-xl text-sm font-medium hover:bg-[#3d2010] transition-colors flex items-center justify-center gap-2"
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  <CheckCircle size={15} /> Confirmar mensaje
+                  <CheckCircle size={15} /> Guardar motivo
                 </button>
               )}
             </div>

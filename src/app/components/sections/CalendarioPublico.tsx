@@ -6,7 +6,7 @@ import { esFestivo } from "../../data/pricing";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-interface Rango {
+export interface Rango {
   check_in: string;
   check_out: string;
   numero_huespedes?: number;  // solo para Día de Sol
@@ -31,6 +31,7 @@ interface Props {
   checkIn: string;
   checkOut: string;
   onRangeChange: (ci: string, co: string) => void;
+  eventosPrivados?: Rango[];  // rangos bloqueados por evento privado (para modoFecha)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -79,6 +80,7 @@ export function CalendarioPublico({
   checkIn,
   checkOut,
   onRangeChange,
+  eventosPrivados = [],
 }: Props) {
   const modoFecha = datosGenerales !== undefined;
   // Single-day mode: detección inmediata por nombre, sin esperar el fetch
@@ -102,9 +104,11 @@ export function CalendarioPublico({
   const [esDiaDeSol, setEsDiaDeSol] = useState(false);
   const [capSemana, setCapSemana] = useState(25);
   const [capDomingo, setCapDomingo] = useState(30);
+  // Bloqueos de evento privado (solo modo individual)
+  const [eventosPrivadosLocal, setEventosPrivadosLocal] = useState<Rango[]>([]);
 
   useEffect(() => {
-    if (modoFecha || !alojamiento) { setReservasAlo([]); setEsDiaDeSol(false); return; }
+    if (modoFecha || !alojamiento) { setReservasAlo([]); setEsDiaDeSol(false); setEventosPrivadosLocal([]); return; }
     setLoadingAlo(true);
     fetch(`${API_BASE_URL}/reservas/publica/disponibilidad?hospedaje=${encodeURIComponent(alojamiento)}`)
       .then((r) => r.json())
@@ -114,8 +118,9 @@ export function CalendarioPublico({
         setEsDiaDeSol(data.es_dia_de_sol ?? false);
         setCapSemana(data.capacidad_semana ?? 25);
         setCapDomingo(data.capacidad_domingo ?? 30);
+        setEventosPrivadosLocal(Array.isArray(data.eventos_privados) ? data.eventos_privados : []);
       })
-      .catch(() => setReservasAlo([]))
+      .catch(() => { setReservasAlo([]); setEventosPrivadosLocal([]); })
       .finally(() => setLoadingAlo(false));
   }, [alojamiento, modoFecha]);
 
@@ -136,8 +141,15 @@ export function CalendarioPublico({
 
   const isBookedAlo = useCallback(
     (y: number, m: number, d: number) => {
-      if (esDiaDeSol) return getCuposDiaDeSol(y, m, d) === 0;
       const date = new Date(y, m, d);
+      // Bloquear si hay un evento privado que cubre esta fecha
+      const bloqueadoPorEvento = eventosPrivadosLocal.some(ep => {
+        const ci = parseLocal(ep.check_in);
+        const co = parseLocal(ep.check_out);
+        return date >= ci && date < co;
+      });
+      if (bloqueadoPorEvento) return true;
+      if (esDiaDeSol) return getCuposDiaDeSol(y, m, d) === 0;
       return (
         reservasAlo.filter((r) => {
           const ci = parseLocal(r.check_in);
@@ -146,7 +158,7 @@ export function CalendarioPublico({
         }).length >= limite
       );
     },
-    [reservasAlo, limite, esDiaDeSol, getCuposDiaDeSol]
+    [reservasAlo, limite, esDiaDeSol, getCuposDiaDeSol, eventosPrivadosLocal]
   );
 
   const availableCountAt = useCallback(
@@ -154,6 +166,13 @@ export function CalendarioPublico({
       if (!datosGenerales) return 0;
       const date = new Date(y, m, d);
       const ds = toStr(y, m, d);
+      // Bloquear todo si hay un evento privado que cubre esta fecha
+      const bloqueadoPorEvento = eventosPrivados.some(ep => {
+        const ci = parseLocal(ep.check_in);
+        const co = parseLocal(ep.check_out);
+        return date >= ci && date < co;
+      });
+      if (bloqueadoPorEvento) return 0;
       return datosGenerales.filter((alo) => {
         if (alo.es_dia_de_sol) {
           const esDomingo = date.getDay() === 0;
@@ -171,7 +190,7 @@ export function CalendarioPublico({
         return booked < alo.limite_reservas;
       }).length;
     },
-    [datosGenerales]
+    [datosGenerales, eventosPrivados]
   );
 
   const totalAlos = datosGenerales?.length ?? 0;

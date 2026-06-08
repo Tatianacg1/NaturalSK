@@ -2,7 +2,7 @@
 import { ArrowLeft, CheckCircle, AlertCircle, Loader, CalendarDays, MapPin, Expand, Info, MessageCircle, Clock } from "lucide-react";
 import { accommodations } from "../data/accommodations";
 import { reservaPublicaAPI } from "../../services/api";
-import { CalendarioPublico, type AloData } from "../components/sections/CalendarioPublico";
+import { CalendarioPublico, type AloData, type Rango } from "../components/sections/CalendarioPublico";
 import { AccommodationLightbox } from "../components/sections/AccommodationLightbox";
 import { cn } from "../components/ui/utils";
 import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
@@ -27,6 +27,18 @@ function formatDateLong(str: string): string {
 function nightsBetween(ci: string, co: string): number {
   if (!ci || !co) return 0;
   return Math.round((parseLocal(co).getTime() - parseLocal(ci).getTime()) / 86400000);
+}
+
+function isBlockedByPrivateEvent(eventosPrivados: Rango[], checkIn: string, checkOut: string): boolean {
+  const startDate = parseLocal(checkIn);
+  const isSingleDay = checkIn === checkOut;
+  const endDate = isSingleDay ? startDate : parseLocal(checkOut);
+  return eventosPrivados.some(ep => {
+    const ci = parseLocal(ep.check_in);
+    const co = parseLocal(ep.check_out);
+    if (isSingleDay) return startDate >= ci && startDate < co;
+    return startDate < co && endDate > ci;
+  });
 }
 
 function isAvailableForRange(alo: AloData, ci: string, co: string): boolean {
@@ -249,6 +261,7 @@ export function ReservaPage() {
 
   const [datosGenerales, setDatosGenerales] = useState<AloData[] | undefined>(undefined);
   const [loadingGeneral, setLoadingGeneral] = useState(false);
+  const [eventosPrivados, setEventosPrivados] = useState<Rango[]>([]);
 
   // Carga datos generales para ambos modos
   useEffect(() => {
@@ -257,6 +270,7 @@ export function ReservaPage() {
     reservaPublicaAPI.disponibilidadGeneral()
       .then((data) => {
         setDatosGenerales(data.alojamientos ?? []);
+        setEventosPrivados(Array.isArray(data.eventos_privados) ? data.eventos_privados : []);
       })
       .catch(() => setDatosGenerales([]))
       .finally(() => setLoadingGeneral(false));
@@ -305,7 +319,7 @@ export function ReservaPage() {
         .filter((alo) => alo.es_dia_de_sol)
         .map((alo) => ({
           ...alo,
-          disponible: isAvailableForRange(alo, form.check_in, form.check_in),
+          disponible: !isBlockedByPrivateEvent(eventosPrivados, form.check_in, form.check_in) && isAvailableForRange(alo, form.check_in, form.check_in),
         }))
     : [];
 
@@ -315,7 +329,7 @@ export function ReservaPage() {
         .filter((alo) => !alo.es_dia_de_sol)
         .map((alo) => ({
           ...alo,
-          disponible: isAvailableForRange(alo, form.check_in, form.check_out),
+          disponible: !isBlockedByPrivateEvent(eventosPrivados, form.check_in, form.check_out) && isAvailableForRange(alo, form.check_in, form.check_out),
         }))
     : [];
 
@@ -670,7 +684,7 @@ export function ReservaPage() {
                 const conDisp = (list: typeof datosGenerales, ci: string, co: string) =>
                   list.map(a => ({
                     ...a,
-                    disponible: (ci && co) ? isAvailableForRange(a, ci, co) : true,
+                    disponible: (ci && co) ? (!isBlockedByPrivateEvent(eventosPrivados, ci, co) && isAvailableForRange(a, ci, co)) : true,
                   }));
 
                 const isDDS = normalize(form.hospedaje) === "dia de sol";
@@ -774,6 +788,7 @@ export function ReservaPage() {
                     checkIn={form.check_in}
                     checkOut={form.check_out}
                     onRangeChange={handleRangeChange}
+                    eventosPrivados={eventosPrivados}
                   />
                 </div>
 
