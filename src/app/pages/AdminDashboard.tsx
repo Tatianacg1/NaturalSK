@@ -4029,30 +4029,73 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             const co = reservaForm.check_out;
                             const isDiaSolAlo = !!a.es_dia_de_sol;
                             const coEff = isDiaSolAlo ? ci : co;
+                            const normNombre = (s: string) => (s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
                             let ocupado = false;
+                            let solapadasCount = 0;
+                            let debugInfo = "";
                             if (ci && coEff) {
                               const solapadas = reservasDisplay.filter((r: any) => {
                                 if (r.status === "Cancelada") return false;
-                                if (r.accommodation !== a.nombre) return false;
+                                if (normNombre(r.accommodation) !== normNombre(a.nombre)) return false;
                                 if (editingReserva && r.id === editingReserva.id) return false;
                                 if (isDiaSolAlo) return r.checkIn === ci;
                                 return r.checkIn < coEff && r.checkOut > ci;
                               });
+                              solapadasCount = solapadas.length;
                               if (isDiaSolAlo) {
                                 const esDom = new Date(ci + "T12:00:00").getDay() === 0;
                                 const cap = esDom ? (a.capacidad_domingo ?? 30) : (a.capacidad_semana ?? 25);
-                                ocupado = solapadas.reduce((acc: number, r: any) => acc + (r.guests || 0), 0) >= cap;
+                                const total = solapadas.reduce((acc: number, r: any) => acc + (r.guests || 0), 0);
+                                ocupado = total >= cap;
+                                if (ocupado) debugInfo = ` (${total}/${cap} personas)`;
                               } else {
-                                ocupado = solapadas.length >= (a.limite_reservas ?? 1);
+                                const limite = (a.limite_reservas > 0) ? a.limite_reservas : 1;
+                                ocupado = solapadas.length >= limite;
+                                if (ocupado) debugInfo = ` (${solapadasCount}/${limite} reservas)`;
                               }
                             }
                             return (
                               <option key={a.id} value={a.nombre} disabled={ocupado} style={ocupado ? { color: '#9ca3af' } : {}}>
-                                {a.nombre}{ocupado ? " — no disponible" : ""}
+                                {a.nombre}{ocupado ? ` — no disponible${debugInfo}` : ""}
                               </option>
                             );
                           })}
                         </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="block text-sm mb-1 text-[#7a4828]">
+                            {reservaForm.hospedaje === "Día de Sol" ? "Fecha" : "Check-in"}
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                            value={reservaForm.check_in}
+                            onChange={e => {
+                              const ci = e.target.value;
+                              setReservaForm(f => {
+                                if (f.hospedaje === "Día de Sol") return { ...f, check_in: ci, check_out: ci };
+                                const nextDay = ci ? new Date(ci + "T12:00:00") : null;
+                                if (nextDay) nextDay.setDate(nextDay.getDate() + 1);
+                                const coAuto = nextDay ? nextDay.toISOString().slice(0, 10) : f.check_out;
+                                return { ...f, check_in: ci, check_out: coAuto };
+                              });
+                            }}
+                            required
+                          />
+                        </div>
+                        {reservaForm.hospedaje !== "Día de Sol" && (
+                          <div className="flex-1">
+                            <label className="block text-sm mb-1 text-[#7a4828]">Check-out</label>
+                            <input
+                              type="date"
+                              className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                              value={reservaForm.check_out}
+                              onChange={e => setReservaForm(f => ({ ...f, check_out: e.target.value }))}
+                              required
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="relative">
                         <label className="block text-sm mb-1 text-[#7a4828]">
@@ -4128,41 +4171,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           />
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <label className="block text-sm mb-1 text-[#7a4828]">
-                            {reservaForm.hospedaje === "Día de Sol" ? "Fecha" : "Check-in"}
-                          </label>
-                          <input
-                            type="date"
-                            className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                            value={reservaForm.check_in}
-                            onChange={e => {
-                              const ci = e.target.value;
-                              setReservaForm(f => {
-                                if (f.hospedaje === "Día de Sol") return { ...f, check_in: ci, check_out: ci };
-                                const nextDay = ci ? new Date(ci + "T12:00:00") : null;
-                                if (nextDay) nextDay.setDate(nextDay.getDate() + 1);
-                                const coAuto = nextDay ? nextDay.toISOString().slice(0, 10) : f.check_out;
-                                return { ...f, check_in: ci, check_out: coAuto };
-                              });
-                            }}
-                            required
-                          />
-                        </div>
-                        {reservaForm.hospedaje !== "Día de Sol" && (
-                          <div className="flex-1">
-                            <label className="block text-sm mb-1 text-[#7a4828]">Check-out</label>
-                            <input
-                              type="date"
-                              className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                              value={reservaForm.check_out}
-                              onChange={e => setReservaForm(f => ({ ...f, check_out: e.target.value }))}
-                              required
-                            />
-                          </div>
-                        )}
-                      </div>
                       {reservaForm.hospedaje && (
                         <>
                           <div>
@@ -4190,16 +4198,35 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             const co = reservaForm.check_out;
                             const habitacionesOcupadas = new Set<string>();
                             if (ci && co && reservaForm.hospedaje.toLowerCase().includes("pareja")) {
-                              reservasDisplay.forEach((r: any) => {
-                                if (r.status === "Cancelada") return;
-                                if (!r.accommodation.toLowerCase().includes("pareja")) return;
-                                if (editingReserva && r.id === editingReserva.id) return;
-                                if (r.checkIn >= co || r.checkOut <= ci) return;
-                                const n = String(r.numeroHabitacion);
-                                if (n && n !== "null" && n !== "undefined" && n !== "0") habitacionesOcupadas.add(n);
+                              const solapadas = reservasDisplay.filter((r: any) => {
+                                if (r.status === "Cancelada") return false;
+                                if (r.accommodation !== reservaForm.hospedaje) return false;
+                                if (editingReserva && r.id === editingReserva.id) return false;
+                                return r.checkIn < co && r.checkOut > ci;
                               });
+                              let sinNumero = 0;
+                              solapadas.forEach((r: any) => {
+                                const n = String(r.numeroHabitacion ?? "");
+                                if (n && n !== "null" && n !== "undefined" && n !== "0") {
+                                  habitacionesOcupadas.add(n);
+                                } else {
+                                  sinNumero++;
+                                }
+                              });
+                              // Reservas sin número asignado ocupan los primeros cupos libres
+                              for (let i = 1; i <= 4 && sinNumero > 0; i++) {
+                                if (!habitacionesOcupadas.has(String(i))) {
+                                  habitacionesOcupadas.add(String(i));
+                                  sinNumero--;
+                                }
+                              }
                             }
-                            const roomsDisponibles = [1, 2, 3, 4].filter(n => !habitacionesOcupadas.has(String(n)));
+                            const roomsBase = [1, 2, 3, 4].filter(n => !habitacionesOcupadas.has(String(n)));
+                            // Al editar: siempre incluir la habitación ya asignada a esta reserva
+                            const habitacionActual = editingReserva && reservaForm.numero_habitacion ? Number(reservaForm.numero_habitacion) : null;
+                            const roomsDisponibles = (habitacionActual && !roomsBase.includes(habitacionActual))
+                              ? [...roomsBase, habitacionActual].sort((a, b) => a - b)
+                              : roomsBase;
                             return (
                               <div>
                                 <label className="block text-sm mb-1 text-[#7a4828]">Número de habitación</label>
@@ -4220,11 +4247,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                         <option key={n} value={String(n)}>Habitación {n}</option>
                                       ))}
                                     </select>
+                                    {(!ci || !co) && (
+                                      <p className="text-[10px] text-amber-600 mt-1">
+                                        Selecciona las fechas para ver solo las habitaciones disponibles
+                                      </p>
+                                    )}
                                     {habitacionesOcupadas.size > 0 && ci && co && (
                                       <p className="text-[10px] text-slate-400 mt-1">
                                         {habitacionesOcupadas.size === 1
                                           ? `Habitación ${[...habitacionesOcupadas][0]} ocupada para estas fechas`
                                           : `Habitaciones ${[...habitacionesOcupadas].sort().join(", ")} ocupadas para estas fechas`}
+                                      </p>
+                                    )}
+                                    {ci && co && habitacionesOcupadas.size === 0 && (
+                                      <p className="text-[10px] text-emerald-600 mt-1">
+                                        Todas las habitaciones disponibles para estas fechas
                                       </p>
                                     )}
                                   </>
