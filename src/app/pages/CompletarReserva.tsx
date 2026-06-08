@@ -57,8 +57,16 @@ export function CompletarReserva({ token }: Props) {
       .finally(() => setCargando(false));
   }, [token]);
 
+  const maxHuespedes = () => {
+    const tipo = reservaInfo?.tipo_hospedaje ?? "";
+    if (tipo === "Día de Sol") return 8;
+    if (tipo.toLowerCase().includes("zafiro")) return 6;
+    if (tipo.toLowerCase().includes("glamping")) return 2;
+    return 8;
+  };
+
   const handleCantChange = (val: number) => {
-    const n = Math.max(1, val);
+    const n = Math.min(Math.max(1, val), maxHuespedes());
     setCantPersonas(n);
     setAdicionales(prev => {
       const nuevos = [...prev];
@@ -307,16 +315,20 @@ export function CompletarReserva({ token }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm mb-1 text-[#7a4828]">Número de personas *</label>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] focus:outline-none focus:border-[#5a3518]"
+            <label className="block text-sm mb-1 text-[#7a4828]">
+              Número de personas *
+              <span className="ml-2 text-slate-400 font-normal text-xs">(máx. {maxHuespedes()})</span>
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] focus:outline-none focus:border-[#5a3518] bg-white"
               value={cantPersonas}
               onChange={e => handleCantChange(Number(e.target.value))}
               required
-            />
+            >
+              {Array.from({ length: maxHuespedes() }, (_, i) => i + 1).map(n => (
+                <option key={n} value={n}>{n} {n === 1 ? "persona" : "personas"}</option>
+              ))}
+            </select>
           </div>
 
           {/* Datos de huéspedes adicionales */}
