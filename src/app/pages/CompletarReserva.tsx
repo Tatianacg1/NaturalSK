@@ -28,6 +28,7 @@ interface ReservaInfo {
   datos_completados: boolean;
   estado: string;
   servicio_adicional: string;
+  nombre_huesped?: string;
 }
 
 export function CompletarReserva({ token }: Props) {
@@ -51,16 +52,17 @@ export function CompletarReserva({ token }: Props) {
     reservaPublicaAPI.getByToken(token)
       .then(data => {
         setReservaInfo(data);
-        if (data.datos_completados) setEnviado(true);
+        if (data.datos_completados && data.nombre_huesped) setEnviado(true);
       })
       .catch(err => setError(err.message))
       .finally(() => setCargando(false));
   }, [token]);
 
   const maxHuespedes = () => {
+    const hospedaje = reservaInfo?.hospedaje ?? "";
     const tipo = reservaInfo?.tipo_hospedaje ?? "";
-    if (tipo === "Día de Sol") return 8;
-    if (tipo.toLowerCase().includes("zafiro")) return 6;
+    if (hospedaje.toLowerCase().includes("día de sol") || tipo.toLowerCase().includes("día de sol")) return 8;
+    if (hospedaje.toLowerCase().includes("zafiro") || tipo.toLowerCase().includes("zafiro")) return 6;
     if (tipo.toLowerCase().includes("glamping")) return 2;
     return 8;
   };
