@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette, Lock, Eye } from "lucide-react";
-import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
+import { reservasAPI, reservaPublicaAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
 import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
 
 interface AdminDashboardProps {
@@ -501,29 +501,76 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setEventoPrivadoError("");
     try {
       const token = localStorage.getItem("authToken");
+
+      // Obtener límites reales de la API pública para saber cuántos bloqueos crear por alojamiento
+      type AloInfo = { limite_reservas: number; es_dia_de_sol: boolean; capacidad_domingo: number; capacidad_semana: number };
+      const limites: Record<string, AloInfo> = {};
+      try {
+        const disp = await reservaPublicaAPI.disponibilidadGeneral();
+        for (const a of disp.alojamientos ?? []) {
+          limites[a.nombre] = {
+            limite_reservas: a.limite_reservas ?? 1,
+            es_dia_de_sol: a.es_dia_de_sol ?? false,
+            capacidad_domingo: a.capacidad_domingo ?? 30,
+            capacidad_semana: a.capacidad_semana ?? 25,
+          };
+        }
+      } catch { /* si falla usamos defaults */ }
+
       for (const hospedaje of eventoPrivadoForm.alos) {
         const n = hospedaje.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-        const isDiaSol = n.includes("sol");
+        const infoAlo = limites[hospedaje];
+        const isDiaSol = infoAlo?.es_dia_de_sol ?? n.includes("sol");
         const tipoHosp = n.includes("habitaci") ? "Habitacion" : "Glamping";
         const checkOut = isDiaSol ? eventoPrivadoForm.checkIn : eventoPrivadoForm.checkOut;
-        await reservasAPI.crearReserva({
-          nombre_huesped: "Evento Privado",
-          cedula_huesped: "0",
-          email_huesped: "evento@naturalsk.com",
-          telefono_huesped: "",
-          hospedaje,
-          check_in: eventoPrivadoForm.checkIn,
-          check_out: checkOut,
-          numero_huespedes: 1,
-          valor_alojamiento: 0,
-          valor_servicio_adicional: 0,
-          abono: 0,
-          estado: "Confirmada",
-          usuario_id: user?.id,
-          tipo_hospedaje: tipoHosp,
-          servicio_adicional: "N/A",
-          observacion: "Bloqueado por evento privado",
-        }, token);
+
+        if (isDiaSol) {
+          // Para Día de Sol: crear una reserva con suficientes huéspedes para llenar la capacidad del día
+          const fecha = new Date(eventoPrivadoForm.checkIn + "T12:00:00");
+          const esDomingo = fecha.getDay() === 0;
+          const capacidad = esDomingo ? (infoAlo?.capacidad_domingo ?? 30) : (infoAlo?.capacidad_semana ?? 25);
+          await reservasAPI.crearReserva({
+            nombre_huesped: "Evento Privado",
+            cedula_huesped: "0",
+            email_huesped: "evento@naturalsk.com",
+            telefono_huesped: "",
+            hospedaje,
+            check_in: eventoPrivadoForm.checkIn,
+            check_out: checkOut,
+            numero_huespedes: capacidad,
+            valor_alojamiento: 0,
+            valor_servicio_adicional: 0,
+            abono: 0,
+            estado: "Confirmada",
+            usuario_id: user?.id,
+            tipo_hospedaje: tipoHosp,
+            servicio_adicional: "N/A",
+            observacion: "Bloqueado por evento privado",
+          }, token);
+        } else {
+          // Para alojamientos normales: crear tantos bloqueos como el límite de reservas simultáneas
+          const limite = infoAlo?.limite_reservas ?? 1;
+          for (let i = 0; i < limite; i++) {
+            await reservasAPI.crearReserva({
+              nombre_huesped: "Evento Privado",
+              cedula_huesped: "0",
+              email_huesped: "evento@naturalsk.com",
+              telefono_huesped: "",
+              hospedaje,
+              check_in: eventoPrivadoForm.checkIn,
+              check_out: checkOut,
+              numero_huespedes: 1,
+              valor_alojamiento: 0,
+              valor_servicio_adicional: 0,
+              abono: 0,
+              estado: "Confirmada",
+              usuario_id: user?.id,
+              tipo_hospedaje: tipoHosp,
+              servicio_adicional: "N/A",
+              observacion: "Bloqueado por evento privado",
+            }, token);
+          }
+        }
       }
       await reloadReservas();
       setShowEventoPrivadoModal(false);
@@ -1160,7 +1207,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           </div>
 
           <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
-            {[
+            {(canEdit ? [
               { id: "overview", label: "Panel General", icon: BarChart3 },
               { id: "calendario", label: "Calendario", icon: CalendarDays },
               { id: "pendientes", label: "Pendientes", icon: Clock },
@@ -1169,7 +1216,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               ...(user?.role === "admin" ? [{ id: "usuarios", label: "Usuarios", icon: Users }] : []),
               { id: "correos", label: "Correos", icon: Mail },
               { id: "configuracion", label: "Configuración", icon: Settings },
-            ].map((item) => {
+            ] : [
+              { id: "calendario", label: "Calendario", icon: CalendarDays },
+              { id: "reservas", label: "Reservas", icon: Calendar },
+            ]).map((item) => {
               const pendientesCount = item.id === "pendientes"
                 ? reservasDisplay.filter(r => r.status === "Pendiente").length
                 : 0;

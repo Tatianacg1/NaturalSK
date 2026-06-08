@@ -35,9 +35,8 @@ function isAvailableForRange(alo: AloData, ci: string, co: string): boolean {
     const date = parseLocal(ci);
     const esDomingo = date.getDay() === 0;
     const cap = esDomingo ? (alo.capacidad_domingo ?? 30) : (alo.capacidad_semana ?? 25);
-    const total = alo.reservas
-      .filter((r) => r.check_in === ci)
-      .reduce((acc, r) => acc + ((r as { numero_huespedes?: number }).numero_huespedes ?? 0), 0);
+    const reservasDia = alo.reservas.filter((r) => r.check_in.slice(0, 10) === ci.slice(0, 10));
+    const total = reservasDia.reduce((acc, r) => acc + ((r as { numero_huespedes?: number }).numero_huespedes ?? 0), 0);
     return total < cap;
   }
 
