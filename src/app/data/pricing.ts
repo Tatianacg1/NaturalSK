@@ -274,6 +274,11 @@ const SERVICIOS: Record<string, ServicioConfig> = {
     precios: { 'perla-diamante': 150_000, 'zafiro-turquesa': 190_000 },
     requiereColor: false,
   },
+  'Decoracion casate conmigo': {
+    label: '¿Cásate conmigo? 💍',
+    precios: { 'perla-diamante': 150_000, 'zafiro-turquesa': 190_000 },
+    requiereColor: false,
+  },
 };
 
 export const COLORES_DECORACION = ['Rosada', 'Roja', 'Plateado', 'Dorado'] as const;
