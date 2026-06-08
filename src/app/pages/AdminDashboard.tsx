@@ -490,12 +490,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const handleCrearEventoPrivado = async () => {
-    if (!eventoPrivadoForm.checkIn || !eventoPrivadoForm.checkOut || eventoPrivadoForm.alos.length === 0) {
+    if (!eventoPrivadoForm.checkIn || eventoPrivadoForm.alos.length === 0) {
       setEventoPrivadoError("Selecciona al menos un alojamiento y completa las fechas");
-      return;
-    }
-    if (eventoPrivadoForm.checkOut <= eventoPrivadoForm.checkIn) {
-      setEventoPrivadoError("La fecha de check-out debe ser posterior al check-in");
       return;
     }
     setEventoPrivadoLoading(true);
@@ -503,6 +499,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     try {
       const token = localStorage.getItem("authToken");
       for (const hospedaje of eventoPrivadoForm.alos) {
+        const n = hospedaje.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        const isDiaSol = n.includes("sol");
+        const tipoHosp = n.includes("habitaci") ? "Habitacion" : "Glamping";
+        const checkOut = isDiaSol ? eventoPrivadoForm.checkIn : eventoPrivadoForm.checkOut;
         await reservasAPI.crearReserva({
           nombre_huesped: "Evento Privado",
           cedula_huesped: "0",
@@ -510,14 +510,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           telefono_huesped: "",
           hospedaje,
           check_in: eventoPrivadoForm.checkIn,
-          check_out: eventoPrivadoForm.checkOut,
-          numero_huespedes: 1,
+          check_out: checkOut,
+          numero_huespedes: 8,
           valor_alojamiento: 0,
           valor_servicio_adicional: 0,
           abono: 0,
           estado: "Confirmada",
           usuario_id: user?.id,
-          tipo_hospedaje: "Evento Privado",
+          tipo_hospedaje: tipoHosp,
           servicio_adicional: "N/A",
           observacion: "Bloqueado por evento privado",
         }, token);
@@ -2071,7 +2071,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </thead>
                     <tbody>
                       {reservasFiltradas.map((r) => (
-                        <tr key={r.id} className={`border-b border-slate-200 transition-colors ${r.tipoHospedaje === "Evento Privado" ? "bg-slate-100/80 hover:bg-slate-100" : "hover:bg-slate-50"}`}>
+                        <tr key={r.id} className={`border-b border-slate-200 transition-colors ${r.guest === "Evento Privado" ? "bg-slate-100/80 hover:bg-slate-100" : "hover:bg-slate-50"}`}>
                           <td className="py-4 px-6 font-medium text-[#3d2010]">
                             <div className="flex items-center gap-2">
                               {r.creadorColor && (
@@ -2104,7 +2104,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             {formatCurrency(r.remainingValue)}
                           </td>
                           <td className="py-4 px-6">
-                            {r.tipoHospedaje === "Evento Privado" ? (
+                            {r.guest === "Evento Privado" ? (
                               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs border bg-slate-200 text-slate-600 border-slate-300 font-medium whitespace-nowrap">
                                 <Lock size={10} /> Evento Privado
                               </span>
@@ -2116,7 +2116,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           </td>
                           <td className="py-4 px-6 whitespace-nowrap">
                             <div className="flex items-center gap-1">
-                              {r.tipoHospedaje !== "Evento Privado" && (
+                              {r.guest !== "Evento Privado" && (
                                 <button
                                   onClick={() => handleOpenReservaModal(r)}
                                   className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -4395,120 +4395,160 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       )}
 
       {/* Modal Evento Privado */}
-      {showEventoPrivadoModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 sm:p-8 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl relative text-[#3d2010]">
-            <button
-              className="absolute top-4 right-4 text-[#728875] hover:text-[#3d2010] transition-colors"
-              onClick={() => { setShowEventoPrivadoModal(false); setEventoPrivadoError(""); }}
-            >
-              <X size={20} />
-            </button>
-            <div className="flex items-center gap-3 mb-2">
-              <Lock size={20} className="text-slate-600" />
-              <h3 className="text-xl font-semibold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
-                Evento Privado
-              </h3>
-            </div>
-            <p className="text-sm text-slate-500 mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-              Bloquea alojamientos como no disponibles para el rango de fechas indicado.
-            </p>
-            <div className="space-y-4">
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-sm mb-1 text-[#7a4828]">Check-in</label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 border rounded text-[#3d2010] focus:outline-none focus:border-primary"
-                    value={eventoPrivadoForm.checkIn}
-                    onChange={e => {
-                      const ci = e.target.value;
-                      setEventoPrivadoForm(f => ({
-                        ...f,
-                        checkIn: ci,
-                        checkOut: f.checkOut && f.checkOut <= ci ? "" : f.checkOut,
-                      }));
-                    }}
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm mb-1 text-[#7a4828]">Check-out</label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 border rounded text-[#3d2010] focus:outline-none focus:border-primary"
-                    min={eventoPrivadoForm.checkIn || undefined}
-                    value={eventoPrivadoForm.checkOut}
-                    onChange={e => setEventoPrivadoForm(f => ({ ...f, checkOut: e.target.value }))}
-                  />
-                </div>
+      {showEventoPrivadoModal && (() => {
+        const alosEvento = alojamientos;
+        const eventosActivos = reservas.filter(r => r.guest === "Evento Privado" && r.status !== "Cancelada");
+        const allSelected = alosEvento.length > 0 && alosEvento.every(a => eventoPrivadoForm.alos.includes(a.nombre));
+        return (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 sm:p-8 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl relative text-[#3d2010]">
+              <button
+                className="absolute top-4 right-4 text-[#728875] hover:text-[#3d2010] transition-colors"
+                onClick={() => { setShowEventoPrivadoModal(false); setEventoPrivadoError(""); }}
+              >
+                <X size={20} />
+              </button>
+              <div className="flex items-center gap-3 mb-2">
+                <Lock size={20} className="text-slate-600" />
+                <h3 className="text-xl font-semibold text-[#5a3518]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  Evento Privado
+                </h3>
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm text-[#7a4828]">Alojamientos a bloquear</label>
+              <p className="text-sm text-slate-500 mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                Bloquea alojamientos como no disponibles para el rango de fechas indicado.
+              </p>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="block text-sm mb-1 text-[#7a4828]">Check-in</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border rounded text-[#3d2010] focus:outline-none focus:border-primary"
+                      value={eventoPrivadoForm.checkIn}
+                      onChange={e => {
+                        const ci = e.target.value;
+                        setEventoPrivadoForm(f => ({
+                          ...f,
+                          checkIn: ci,
+                          checkOut: f.checkOut && f.checkOut <= ci ? "" : f.checkOut,
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm mb-1 text-[#7a4828]">Check-out</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border rounded text-[#3d2010] focus:outline-none focus:border-primary"
+                      min={eventoPrivadoForm.checkIn || undefined}
+                      value={eventoPrivadoForm.checkOut}
+                      onChange={e => setEventoPrivadoForm(f => ({ ...f, checkOut: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm text-[#7a4828]">Alojamientos a bloquear</label>
+                    <button
+                      type="button"
+                      className="text-xs text-primary hover:underline"
+                      onClick={() => {
+                        const names = alosEvento.map(a => a.nombre);
+                        setEventoPrivadoForm(f => ({ ...f, alos: allSelected ? [] : names }));
+                      }}
+                    >
+                      {allSelected ? "Deseleccionar todos" : "Seleccionar todos"}
+                    </button>
+                  </div>
+                  <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100">
+                    {alosEvento.map(a => (
+                      <label key={a.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={eventoPrivadoForm.alos.includes(a.nombre)}
+                          onChange={e => {
+                            setEventoPrivadoForm(f => ({
+                              ...f,
+                              alos: e.target.checked
+                                ? [...f.alos, a.nombre]
+                                : f.alos.filter(n => n !== a.nombre),
+                            }));
+                          }}
+                          className="w-4 h-4 rounded"
+                        />
+                        <span className="text-sm text-[#3d2010]" style={{ fontFamily: "'DM Sans', sans-serif" }}>{a.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {eventoPrivadoError && (
+                  <p className="text-sm text-red-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>{eventoPrivadoError}</p>
+                )}
+                <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    className="text-xs text-primary hover:underline"
-                    onClick={() => {
-                      const allNames = alojamientos.map(a => a.nombre);
-                      const allSelected = allNames.every(n => eventoPrivadoForm.alos.includes(n));
-                      setEventoPrivadoForm(f => ({ ...f, alos: allSelected ? [] : allNames }));
-                    }}
+                    onClick={() => { setShowEventoPrivadoModal(false); setEventoPrivadoError(""); }}
+                    className="flex-1 py-2 border border-slate-300 rounded text-slate-600 hover:bg-slate-50 text-sm transition-colors"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
-                    {alojamientos.length > 0 && alojamientos.every(a => eventoPrivadoForm.alos.includes(a.nombre))
-                      ? "Deseleccionar todos"
-                      : "Seleccionar todos"}
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCrearEventoPrivado}
+                    disabled={eventoPrivadoLoading || eventoPrivadoForm.alos.length === 0 || !eventoPrivadoForm.checkIn || !eventoPrivadoForm.checkOut}
+                    className="flex-1 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    <Lock size={14} />
+                    {eventoPrivadoLoading
+                      ? "Bloqueando..."
+                      : `Bloquear${eventoPrivadoForm.alos.length > 0 ? ` (${eventoPrivadoForm.alos.length})` : ""}`}
                   </button>
                 </div>
-                <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100">
-                  {alojamientos.map(a => (
-                    <label key={a.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={eventoPrivadoForm.alos.includes(a.nombre)}
-                        onChange={e => {
-                          setEventoPrivadoForm(f => ({
-                            ...f,
-                            alos: e.target.checked
-                              ? [...f.alos, a.nombre]
-                              : f.alos.filter(n => n !== a.nombre),
-                          }));
-                        }}
-                        className="w-4 h-4 rounded"
-                      />
-                      <span className="text-sm text-[#3d2010]" style={{ fontFamily: "'DM Sans', sans-serif" }}>{a.nombre}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              {eventoPrivadoError && (
-                <p className="text-sm text-red-500" style={{ fontFamily: "'DM Sans', sans-serif" }}>{eventoPrivadoError}</p>
-              )}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowEventoPrivadoModal(false); setEventoPrivadoError(""); }}
-                  className="flex-1 py-2 border border-slate-300 rounded text-slate-600 hover:bg-slate-50 text-sm transition-colors"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCrearEventoPrivado}
-                  disabled={eventoPrivadoLoading || eventoPrivadoForm.alos.length === 0 || !eventoPrivadoForm.checkIn || !eventoPrivadoForm.checkOut}
-                  className="flex-1 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  <Lock size={14} />
-                  {eventoPrivadoLoading
-                    ? "Bloqueando..."
-                    : `Bloquear${eventoPrivadoForm.alos.length > 0 ? ` (${eventoPrivadoForm.alos.length})` : ""}`}
-                </button>
+                {eventosActivos.length > 0 && (
+                  <div className="border-t border-slate-200 pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm text-slate-600" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                        <span className="font-medium text-[#3d2010]">{eventosActivos.length}</span> alojamiento{eventosActivos.length !== 1 ? "s" : ""} bloqueado{eventosActivos.length !== 1 ? "s" : ""} actualmente
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={eventoPrivadoLoading}
+                      onClick={async () => {
+                        if (!window.confirm(`¿Finalizar el evento privado y liberar los ${eventosActivos.length} alojamiento(s) bloqueados?`)) return;
+                        setEventoPrivadoLoading(true);
+                        setEventoPrivadoError("");
+                        try {
+                          const token = localStorage.getItem("authToken");
+                          for (const r of eventosActivos) {
+                            await reservasAPI.cancelarReserva(r.id, token);
+                          }
+                          await reloadReservas();
+                          setShowEventoPrivadoModal(false);
+                          setEventoPrivadoForm({ checkIn: "", checkOut: "", alos: [] });
+                          setSuccessMessage(`${eventosActivos.length} alojamiento(s) liberados correctamente`);
+                          setTimeout(() => setSuccessMessage(""), 3000);
+                        } catch (err: any) {
+                          setEventoPrivadoError(err.message || "Error al finalizar el evento");
+                        } finally {
+                          setEventoPrivadoLoading(false);
+                        }
+                      }}
+                      className="w-full py-2.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <XCircle size={15} />
+                      {eventoPrivadoLoading ? "Liberando..." : "Finalizar evento privado"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
