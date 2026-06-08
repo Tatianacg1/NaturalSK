@@ -6,6 +6,7 @@ import { CalendarioPublico, type AloData } from "../components/sections/Calendar
 import { AccommodationLightbox } from "../components/sections/AccommodationLightbox";
 import { cn } from "../components/ui/utils";
 import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
+import { INDICATIVOS } from "../data/indicativos";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1087,31 +1088,19 @@ export function ReservaPage() {
                         WhatsApp
                       </label>
                       <div className="flex rounded-xl border border-gray-200 overflow-hidden focus-within:border-[#8a6038] focus-within:ring-2 focus-within:ring-[#8a6038]/10 transition-all bg-white">
-                        <select
+                        <input
+                          list="indicativos-publica-list"
                           value={indicativo}
                           onChange={(e) => setIndicativo(e.target.value)}
-                          className="w-[96px] shrink-0 bg-gray-50 border-r border-gray-200 text-gray-700 text-sm pl-2 pr-1 py-3 focus:outline-none cursor-pointer"
+                          className="w-[88px] shrink-0 bg-gray-50 border-r border-gray-200 text-gray-700 text-sm px-2 py-3 focus:outline-none"
                           style={{ fontFamily: "'DM Sans', sans-serif" }}
-                        >
-                          {[
-                            { code: "+57",  flag: "🇨🇴", name: "Colombia" },
-                            { code: "+1",   flag: "🇺🇸", name: "EE.UU." },
-                            { code: "+52",  flag: "🇲🇽", name: "México" },
-                            { code: "+54",  flag: "🇦🇷", name: "Argentina" },
-                            { code: "+55",  flag: "🇧🇷", name: "Brasil" },
-                            { code: "+56",  flag: "🇨🇱", name: "Chile" },
-                            { code: "+51",  flag: "🇵🇪", name: "Perú" },
-                            { code: "+58",  flag: "🇻🇪", name: "Venezuela" },
-                            { code: "+593", flag: "🇪🇨", name: "Ecuador" },
-                            { code: "+507", flag: "🇵🇦", name: "Panamá" },
-                            { code: "+34",  flag: "🇪🇸", name: "España" },
-                            { code: "+44",  flag: "🇬🇧", name: "Reino Unido" },
-                          ].map(({ code, flag, name }) => (
-                            <option key={code} value={code} title={name}>
-                              {flag} {code}
-                            </option>
+                          placeholder="+57"
+                        />
+                        <datalist id="indicativos-publica-list">
+                          {INDICATIVOS.map(({ code, flag, name }) => (
+                            <option key={code + name} value={code}>{flag} {name} ({code})</option>
                           ))}
-                        </select>
+                        </datalist>
                         <input
                           type="text"
                           inputMode="tel"

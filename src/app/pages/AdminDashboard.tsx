@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette, Lock, Eye } from "lucide-react";
 import { reservasAPI, reservaPublicaAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
 import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
+import { INDICATIVOS } from "../data/indicativos";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -53,22 +54,16 @@ const COLORES_USUARIO = [
   '#14B8A6', '#A855F7',
 ];
 
-const INDICATIVOS_ADMIN = [
-  { code: "+57", flag: "🇨🇴" }, { code: "+1",   flag: "🇺🇸" }, { code: "+52",  flag: "🇲🇽" },
-  { code: "+54", flag: "🇦🇷" }, { code: "+55",  flag: "🇧🇷" }, { code: "+56",  flag: "🇨🇱" },
-  { code: "+51", flag: "🇵🇪" }, { code: "+58",  flag: "🇻🇪" }, { code: "+593", flag: "🇪🇨" },
-  { code: "+507", flag: "🇵🇦" }, { code: "+34", flag: "🇪🇸" }, { code: "+44",  flag: "🇬🇧" },
-];
 
 function parsearTelefono(phone: string): { indicativo: string; numero: string } {
   if (!phone) return { indicativo: "+57", numero: "" };
-  // Con prefijo +
-  const codigos = ["+593", "+507", "+57", "+1", "+52", "+54", "+55", "+56", "+51", "+58", "+34", "+44"];
+  // Con prefijo + — ordenar de mayor a menor longitud para evitar coincidencias parciales
+  const codigos = INDICATIVOS.map(i => i.code).sort((a, b) => b.length - a.length);
   for (const c of codigos) {
     if (phone.startsWith(c)) return { indicativo: c, numero: phone.slice(c.length) };
   }
   // Sin prefijo + (ej: "573046643574" guardado desde el admin anterior)
-  const codigosSin = ["593", "507", "57", "1", "52", "54", "55", "56", "51", "58", "34", "44"];
+  const codigosSin = codigos.map(c => c.slice(1));
   for (const c of codigosSin) {
     if (phone.startsWith(c) && phone.length > c.length + 5) {
       return { indicativo: "+" + c, numero: phone.slice(c.length) };
@@ -3964,15 +3959,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <div>
                         <label className="block text-sm mb-1 text-[#7a4828]">WhatsApp del huésped</label>
                         <div className="flex rounded border border-slate-200 overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
-                          <select
+                          <input
+                            list="indicativos-admin-list"
                             value={indicativoAdmin}
                             onChange={e => setIndicativoAdmin(e.target.value)}
-                            className="w-[82px] shrink-0 bg-slate-50 border-r border-slate-200 text-[#3d2010] text-sm pl-2 pr-1 py-2 focus:outline-none cursor-pointer"
-                          >
-                            {INDICATIVOS_ADMIN.map(({ code, flag }) => (
-                              <option key={code} value={code}>{flag} {code}</option>
+                            className="w-[88px] shrink-0 bg-slate-50 border-r border-slate-200 text-[#3d2010] text-sm px-2 py-2 focus:outline-none"
+                            placeholder="+57"
+                          />
+                          <datalist id="indicativos-admin-list">
+                            {INDICATIVOS.map(({ code, flag, name }) => (
+                              <option key={code + name} value={code}>{flag} {name} ({code})</option>
                             ))}
-                          </select>
+                          </datalist>
                           <input
                             type="text"
                             inputMode="tel"
