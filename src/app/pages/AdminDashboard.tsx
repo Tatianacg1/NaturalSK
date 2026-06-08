@@ -2602,6 +2602,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
             const calAloData = calFiltroAlojamiento ? alojamientos.find(a => a.nombre === calFiltroAlojamiento) : null;
             const calLimite: number = calAloData?.limite_reservas ?? 1;
+            const calEsDiaDeSol = !!(calAloData as any)?.es_dia_de_sol;
 
             const parseLocalDate = (dateStr: string) => {
               const [y, m, d] = dateStr.split('-').map(Number);
@@ -2743,8 +2744,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       const isToday = date.getTime() === hoy.getTime();
                       const isPast = date < hoy;
                       const dayRes = getDayReservations(day);
-                      const isFullyBooked = dayRes.length >= calLimite;
-                      const isPartiallyBooked = dayRes.length > 0 && !isFullyBooked;
+                      const esDomingoCell = date.getDay() === 0;
+                      const calCapDia = calEsDiaDeSol
+                        ? (esDomingoCell ? ((calAloData as any)?.capacidad_domingo ?? 30) : ((calAloData as any)?.capacidad_semana ?? 25))
+                        : calLimite;
+                      const totalHuespedesDia = calEsDiaDeSol
+                        ? dayRes.reduce((acc, r) => acc + (r.guests || 0), 0)
+                        : dayRes.length;
+                      const cuposLibresDia = calEsDiaDeSol ? Math.max(0, calCapDia - totalHuespedesDia) : 0;
+                      const isFullyBooked = calEsDiaDeSol
+                        ? cuposLibresDia === 0 && totalHuespedesDia > 0
+                        : dayRes.length >= calLimite;
+                      const isPartiallyBooked = calEsDiaDeSol
+                        ? totalHuespedesDia > 0 && !isFullyBooked
+                        : dayRes.length > 0 && !isFullyBooked;
                       const calDateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
                       const esFestivoDay = !isPast && esFestivo(calDateStr);
 
@@ -2768,9 +2781,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           onClick={() => setCalSelectedDay({ year, month, day })}
                           title={
                             isPast ? `${day}/${month + 1}/${year}`
-                            : isFullyBooked ? `Sin disponibilidad (${dayRes.length}/${calLimite})${esFestivoDay ? " · Festivo" : ""}`
-                            : isPartiallyBooked ? `${dayRes.length}/${calLimite} ocupados — crear reserva${esFestivoDay ? " · Festivo" : ""}`
+                            : isFullyBooked
+                              ? `Sin disponibilidad${calEsDiaDeSol ? ` (${totalHuespedesDia}/${calCapDia} personas)` : ` (${dayRes.length}/${calLimite})`}${esFestivoDay ? " · Festivo" : ""}`
+                            : isPartiallyBooked
+                              ? `${calEsDiaDeSol ? `${cuposLibresDia} de ${calCapDia} cupos disponibles` : `${dayRes.length}/${calLimite} ocupados`} — crear reserva${esFestivoDay ? " · Festivo" : ""}`
                             : esFestivoDay ? "Festivo — crear reserva"
+                            : calEsDiaDeSol ? `${cuposLibresDia} cupos disponibles`
                             : "Crear reserva"
                           }
                         >
@@ -2785,7 +2801,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           </div>
                           {dayRes.length > 0 && (
                             <div className="space-y-0.5">
-                              {dayRes.slice(0, 2).map(r => (
+                              {!calEsDiaDeSol && dayRes.slice(0, 2).map(r => (
                                 <div
                                   key={r.id}
                                   className={`truncate text-[10px] leading-tight rounded px-1 py-0.5 ${
@@ -2802,12 +2818,28 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                   {calFiltroAlojamiento ? r.guest : r.accommodation}
                                 </div>
                               ))}
-                              {dayRes.length > 2 && (
+                              {calEsDiaDeSol && (
+                                <div className={`text-[10px] leading-tight rounded px-1 py-0.5 ${isPast ? "bg-slate-200 text-slate-500" : isFullyBooked ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                                  {totalHuespedesDia} pers. · {dayRes.length} res.
+                                </div>
+                              )}
+                              {!calEsDiaDeSol && dayRes.length > 2 && (
                                 <div className={`text-[10px] ${isPast ? "text-slate-400" : isFullyBooked ? "text-red-500" : "text-amber-500"}`}>+{dayRes.length - 2} más</div>
                               )}
-                              {isPartiallyBooked && calLimite > 1 && (
+                              {!calEsDiaDeSol && isPartiallyBooked && calLimite > 1 && (
                                 <div className="text-[10px] text-amber-600 font-medium">{dayRes.length}/{calLimite}</div>
                               )}
+                            </div>
+                          )}
+                          {calEsDiaDeSol && !isPast && (
+                            <div className={`text-[9px] font-bold leading-tight mt-0.5 ${
+                              isFullyBooked
+                                ? "text-red-600"
+                                : cuposLibresDia <= Math.floor(calCapDia * 0.25) && totalHuespedesDia > 0
+                                  ? "text-orange-500"
+                                  : "text-emerald-700"
+                            }`}>
+                              {isFullyBooked ? "Lleno" : `${cuposLibresDia}/${calCapDia} cupos`}
                             </div>
                           )}
                         </button>
@@ -3992,9 +4024,34 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           required
                         >
                           <option value="">Selecciona...</option>
-                          {alojamientos.map((a) => (
-                            <option key={a.id} value={a.nombre}>{a.nombre}</option>
-                          ))}
+                          {alojamientos.map((a) => {
+                            const ci = reservaForm.check_in;
+                            const co = reservaForm.check_out;
+                            const isDiaSolAlo = !!a.es_dia_de_sol;
+                            const coEff = isDiaSolAlo ? ci : co;
+                            let ocupado = false;
+                            if (ci && coEff) {
+                              const solapadas = reservasDisplay.filter((r: any) => {
+                                if (r.status === "Cancelada") return false;
+                                if (r.accommodation !== a.nombre) return false;
+                                if (editingReserva && r.id === editingReserva.id) return false;
+                                if (isDiaSolAlo) return r.checkIn === ci;
+                                return r.checkIn < coEff && r.checkOut > ci;
+                              });
+                              if (isDiaSolAlo) {
+                                const esDom = new Date(ci + "T12:00:00").getDay() === 0;
+                                const cap = esDom ? (a.capacidad_domingo ?? 30) : (a.capacidad_semana ?? 25);
+                                ocupado = solapadas.reduce((acc: number, r: any) => acc + (r.guests || 0), 0) >= cap;
+                              } else {
+                                ocupado = solapadas.length >= (a.limite_reservas ?? 1);
+                              }
+                            }
+                            return (
+                              <option key={a.id} value={a.nombre} disabled={ocupado} style={ocupado ? { color: '#9ca3af' } : {}}>
+                                {a.nombre}{ocupado ? " — no disponible" : ""}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                       <div className="relative">
@@ -4128,28 +4185,53 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               </p>
                             )}
                           </div>
-                          {(reservaForm.hospedaje.toLowerCase().includes("pareja") || reservaForm.hospedaje.toLowerCase().includes("cuadruple")) && (
-                            <div>
-                              <label className="block text-sm mb-1 text-[#7a4828]">Número de habitación</label>
-                              {reservaForm.hospedaje.toLowerCase().includes("cuadruple") ? (
-                                <div className="w-full px-3 py-2 border rounded bg-gray-50 text-gray-500 text-sm">
-                                  Habitación 5
-                                </div>
-                              ) : (
-                                <select
-                                  className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                                  value={reservaForm.numero_habitacion}
-                                  onChange={e => setReservaForm(f => ({ ...f, numero_habitacion: e.target.value }))}
-                                  required
-                                >
-                                  <option value="">Selecciona una habitación</option>
-                                  {[1, 2, 3, 4].map(n => (
-                                    <option key={n} value={String(n)}>Habitación {n}</option>
-                                  ))}
-                                </select>
-                              )}
-                            </div>
-                          )}
+                          {(reservaForm.hospedaje.toLowerCase().includes("pareja") || reservaForm.hospedaje.toLowerCase().includes("cuadruple")) && (() => {
+                            const ci = reservaForm.check_in;
+                            const co = reservaForm.check_out;
+                            const habitacionesOcupadas = new Set<string>();
+                            if (ci && co && reservaForm.hospedaje.toLowerCase().includes("pareja")) {
+                              reservasDisplay.forEach((r: any) => {
+                                if (r.status === "Cancelada") return;
+                                if (!r.accommodation.toLowerCase().includes("pareja")) return;
+                                if (editingReserva && r.id === editingReserva.id) return;
+                                if (r.checkIn >= co || r.checkOut <= ci) return;
+                                const n = String(r.numeroHabitacion);
+                                if (n && n !== "null" && n !== "undefined" && n !== "0") habitacionesOcupadas.add(n);
+                              });
+                            }
+                            const roomsDisponibles = [1, 2, 3, 4].filter(n => !habitacionesOcupadas.has(String(n)));
+                            return (
+                              <div>
+                                <label className="block text-sm mb-1 text-[#7a4828]">Número de habitación</label>
+                                {reservaForm.hospedaje.toLowerCase().includes("cuadruple") ? (
+                                  <div className="w-full px-3 py-2 border rounded bg-gray-50 text-gray-500 text-sm">
+                                    Habitación 5
+                                  </div>
+                                ) : (
+                                  <>
+                                    <select
+                                      className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                                      value={reservaForm.numero_habitacion}
+                                      onChange={e => setReservaForm(f => ({ ...f, numero_habitacion: e.target.value }))}
+                                      required
+                                    >
+                                      <option value="">Selecciona una habitación</option>
+                                      {roomsDisponibles.map(n => (
+                                        <option key={n} value={String(n)}>Habitación {n}</option>
+                                      ))}
+                                    </select>
+                                    {habitacionesOcupadas.size > 0 && ci && co && (
+                                      <p className="text-[10px] text-slate-400 mt-1">
+                                        {habitacionesOcupadas.size === 1
+                                          ? `Habitación ${[...habitacionesOcupadas][0]} ocupada para estas fechas`
+                                          : `Habitaciones ${[...habitacionesOcupadas].sort().join(", ")} ocupadas para estas fechas`}
+                                      </p>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })()}
                           {(() => {
                             const serviciosAlo = serviciosDisponibles(reservaForm.hospedaje);
                             if (serviciosAlo.length === 0) return null;
