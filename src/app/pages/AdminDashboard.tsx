@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette, Lock, Eye } from "lucide-react";
 import { reservasAPI, reservaPublicaAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
-import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
+import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes, ZAFIRO_EXTRA_PERSONA } from "../data/pricing";
 import { INDICATIVOS } from "../data/indicativos";
 
 interface AdminDashboardProps {
@@ -4122,6 +4122,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                 </option>
                               ))}
                             </select>
+                            {reservaForm.hospedaje.toLowerCase().includes("zafiro") && reservaForm.numero_huespedes === 7 && (
+                              <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+                                Precio 5–6 personas + {formatCOP(ZAFIRO_EXTRA_PERSONA)} por noche por la persona adicional.
+                              </p>
+                            )}
                           </div>
                           {(reservaForm.hospedaje.toLowerCase().includes("pareja") || reservaForm.hospedaje.toLowerCase().includes("cuadruple")) && (
                             <div>
@@ -4279,6 +4284,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     {calc > 0 && (
                                       <span className="ml-2 text-[10px] font-normal text-[#8a6038] bg-[#f0e4d0] px-1.5 py-0.5 rounded">
                                         Tarifa: {formatCOP(bases.low)}{unit} lun–jue · {formatCOP(bases.high)}{unit} fin sem/festivo
+                                        {g === 7 && reservaForm.hospedaje.toLowerCase().includes("zafiro") && ` + ${formatCOP(ZAFIRO_EXTRA_PERSONA)}/noche (pers. adicional)`}
                                       </span>
                                     )}
                                   </>

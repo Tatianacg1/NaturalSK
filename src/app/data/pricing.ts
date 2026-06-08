@@ -42,6 +42,9 @@ const ZAFIRO_TIERS: ZafiroTier[] = [
   { minGuests: 5, maxGuests: 6, low: 1_290_000, high: 1_390_000 },
 ];
 
+// Cargo adicional por la 7ma persona en Zafiro (por noche)
+export const ZAFIRO_EXTRA_PERSONA = 150_000;
+
 // Festivos colombianos observados 2025-2027
 const FESTIVOS = new Set([
   // 2025
@@ -119,7 +122,8 @@ function getZafiroTier(guests: number): ZafiroTier {
 /** Precio de una noche en Zafiro según día y número de huéspedes. */
 function precioNocheZafiro(dateStr: string, guests: number): number {
   const tier = getZafiroTier(guests);
-  return esTarifaAlta(dateStr) ? tier.high : tier.low;
+  const base = esTarifaAlta(dateStr) ? tier.high : tier.low;
+  return base + (guests > 6 ? ZAFIRO_EXTRA_PERSONA : 0);
 }
 
 // ─── API pública ──────────────────────────────────────────────────────────────

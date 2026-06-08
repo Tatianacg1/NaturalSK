@@ -4,7 +4,7 @@ import { accommodations } from "../../data/accommodations";
 import { reservaPublicaAPI } from "../../../services/api";
 import { CalendarioPublico, type AloData } from "./CalendarioPublico";
 import { cn } from "../ui/utils";
-import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../../data/pricing";
+import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes, ZAFIRO_EXTRA_PERSONA } from "../../data/pricing";
 
 interface Props {
   open: boolean;
@@ -596,6 +596,14 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                     <p className="text-gray-400 text-[10px] mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
                       Lun–Jue {formatCOP(bases.low)} · Fin de semana/festivo/temp. alta {formatCOP(bases.high)} — por noche
                     </p>
+                    {g === 7 && form.hospedaje.toLowerCase().includes("zafiro") && (
+                      <div className="flex items-start gap-1.5 mb-2">
+                        <Info size={10} className="text-[#8a6038] mt-0.5 shrink-0" />
+                        <p className="text-[#8a6038] text-[10px] leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                          Tarifa 5–6 personas + {formatCOP(ZAFIRO_EXTRA_PERSONA)} por noche por la persona adicional.
+                        </p>
+                      </div>
+                    )}
                     <div className="flex items-start gap-1.5">
                       <Info size={10} className="text-amber-500 mt-0.5 shrink-0" />
                       <p className="text-amber-700 text-[10px] leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -690,6 +698,10 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                         <span>Lun–Jue {formatCOP(t.low)} · F.S. {formatCOP(t.high)}</span>
                       </div>
                     ))}
+                    <div className={`flex justify-between px-3 py-1.5 ${Number(form.numero_huespedes) === 7 ? "bg-[#f0f5ec] text-[#3d2010] font-semibold" : "bg-white text-gray-400"}`}>
+                      <span>7 huéspedes</span>
+                      <span>Precio 5–6 personas + {formatCOP(ZAFIRO_EXTRA_PERSONA)}/noche</span>
+                    </div>
                   </div>
                 )}
               </div>
