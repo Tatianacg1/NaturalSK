@@ -525,10 +525,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         const checkOut = isDiaSol ? eventoPrivadoForm.checkIn : eventoPrivadoForm.checkOut;
 
         if (isDiaSol) {
-          // Para Día de Sol: crear una reserva con suficientes huéspedes para llenar la capacidad del día
+          // Para Día de Sol: llenar la capacidad del día para que no queden cupos disponibles
           const fecha = new Date(eventoPrivadoForm.checkIn + "T12:00:00");
           const esDomingo = fecha.getDay() === 0;
           const capacidad = esDomingo ? (infoAlo?.capacidad_domingo ?? 30) : (infoAlo?.capacidad_semana ?? 25);
+          // El backend requiere huespedes_adicionales cuando numero_huespedes > 1
+          const huespedesAdicionales = Array.from({ length: capacidad - 1 }, () => ({
+            nombre: "Evento Privado",
+            cedula: "0",
+            email: "evento@naturalsk.com",
+            celular: "0",
+          }));
           await reservasAPI.crearReserva({
             nombre_huesped: "Evento Privado",
             cedula_huesped: "0",
@@ -538,6 +545,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             check_in: eventoPrivadoForm.checkIn,
             check_out: checkOut,
             numero_huespedes: capacidad,
+            huespedes_adicionales: huespedesAdicionales,
             valor_alojamiento: 0,
             valor_servicio_adicional: 0,
             abono: 0,
