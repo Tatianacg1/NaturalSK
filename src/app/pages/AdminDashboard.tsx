@@ -36,6 +36,7 @@ interface ReservaForm {
   abono: number | string;
   estado: string;
   observacion: string;
+  consumible: string;
   huespedes_adicionales: HuespedAdicional[];
 }
 
@@ -145,6 +146,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     abono: 0,
     estado: "Pendiente",
     observacion: "",
+    consumible: "",
     huespedes_adicionales: [{ nombre: "", cedula: "", email: "", celular: "" }],
   });
   const [adminServiciosSeleccionados, setAdminServiciosSeleccionados] = useState<
@@ -292,6 +294,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       creadorColor: reserva.creador_color ?? null,
       creadorNombre: reserva.creador_nombre ?? null,
       observacion: reserva.observacion || "",
+      consumible: reserva.consumible || "",
       tipoHospedaje: reserva.tipo_hospedaje || "",
     };
   };
@@ -413,6 +416,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         abono: reserva.deposit || 0,
         estado: reserva.status,
         observacion: reserva.observacion || "",
+        consumible: reserva.consumible || "",
         huespedes_adicionales: (() => {
           const numGuests = reserva.guests || 1;
           const existing = reserva.additionalGuests || [];
@@ -462,6 +466,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         abono: 0,
         estado: "Pendiente",
         observacion: "",
+        consumible: "",
         huespedes_adicionales: [{ nombre: "", cedula: "", email: "", celular: "" }],
       });
       setAdminServiciosSeleccionados([]);
@@ -685,9 +690,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         ? adminServiciosSeleccionados.map(x => labelServicio(x.servicio)).join(", ")
         : "N/A";
       const esPendiente = reservaForm.estado === "Pendiente";
-      const huespedesToSend = esPendiente
-        ? reservaForm.huespedes_adicionales.filter(h => h.nombre?.trim() || h.cedula?.trim())
-        : reservaForm.huespedes_adicionales;
+      const huespedesToSend = reservaForm.numero_huespedes <= 1
+        ? []
+        : esPendiente
+          ? reservaForm.huespedes_adicionales.filter(h => h.nombre?.trim() || h.cedula?.trim())
+          : reservaForm.huespedes_adicionales;
       const { huespedes_adicionales: _huespedesIgnorados, ...restReservaForm } = reservaForm;
       const reservaPayload = {
         ...restReservaForm,
@@ -1581,7 +1588,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           <div className="flex justify-between text-sm"><span className="text-slate-500">Nombre</span><span className="font-medium text-[#3d2010]">{overviewDetailReserva.guest}</span></div>
                           <div className="flex justify-between text-sm"><span className="text-slate-500">Cédula</span><span className="text-[#3d2010]">{overviewDetailReserva.document || "—"}</span></div>
                           <div className="flex justify-between text-sm"><span className="text-slate-500">Email</span><span className="text-[#3d2010] break-all text-right max-w-[60%]">{overviewDetailReserva.email}</span></div>
+                          {overviewDetailReserva.phone && (
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Teléfono</span><span className="text-[#3d2010]">{overviewDetailReserva.phone}</span></div>
+                          )}
                           <div className="flex justify-between text-sm"><span className="text-slate-500">Personas</span><span className="text-[#3d2010]">{overviewDetailReserva.guests}</span></div>
+                          {overviewDetailReserva.creadorNombre && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Creado por</span>
+                              <span className="flex items-center gap-1.5 text-[#3d2010]">
+                                {overviewDetailReserva.creadorColor && (
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: overviewDetailReserva.creadorColor }} />
+                                )}
+                                {overviewDetailReserva.creadorNombre}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       {overviewDetailReserva.additionalGuests?.length > 0 && (
@@ -1639,15 +1660,45 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           )}
                         </div>
                       </div>
+                      {(overviewDetailReserva.observacion || overviewDetailReserva.consumible || overviewDetailReserva.mensaje_decoracion) && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Observaciones y Notas</p>
+                          <div className="space-y-2">
+                            {overviewDetailReserva.observacion && (
+                              <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                                <MessageCircle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Observación</p>
+                                  <p className="text-sm text-amber-900">{overviewDetailReserva.observacion}</p>
+                                </div>
+                              </div>
+                            )}
+                            {overviewDetailReserva.consumible && (
+                              <div className="flex items-start gap-2.5 bg-[#f0e4d0] border border-[#8a6038]/20 rounded-lg px-3 py-2.5">
+                                <span className="text-[10px] font-semibold text-[#8a6038] mt-0.5 shrink-0 uppercase tracking-wide">Consumible</span>
+                                <p className="text-sm text-[#3d2010]">{overviewDetailReserva.consumible}</p>
+                              </div>
+                            )}
+                            {overviewDetailReserva.mensaje_decoracion && (
+                              <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5">
+                                <span className="text-[10px] font-semibold text-purple-700 mt-0.5 shrink-0 uppercase tracking-wide">Decoración</span>
+                                <p className="text-sm text-purple-900">{overviewDetailReserva.mensaje_decoracion}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="px-6 pb-6 flex gap-3">
-                      <button
-                        onClick={() => { setOverviewDetailReserva(null); setOverviewModal(null); setActiveTab("reservas"); handleOpenReservaModal(overviewDetailReserva); }}
-                        className="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 transition-colors"
-                        style={{ fontFamily: "'DM Sans', sans-serif" }}
-                      >
-                        Editar Reserva
-                      </button>
+                      {canEdit && overviewDetailReserva.guest !== "Evento Privado" && (
+                        <button
+                          onClick={() => { setOverviewDetailReserva(null); setOverviewModal(null); setActiveTab("reservas"); handleOpenReservaModal(overviewDetailReserva); }}
+                          className="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 transition-colors"
+                          style={{ fontFamily: "'DM Sans', sans-serif" }}
+                        >
+                          Editar Reserva
+                        </button>
+                      )}
                       <button
                         onClick={() => setOverviewDetailReserva(null)}
                         className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
@@ -2142,7 +2193,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </thead>
                     <tbody>
                       {reservasFiltradas.map((r) => (
-                        <tr key={r.id} className={`border-b border-slate-200 transition-colors ${r.guest === "Evento Privado" ? "bg-slate-100/80 hover:bg-slate-100" : "hover:bg-slate-50"}`}>
+                        <tr
+                          key={r.id}
+                          onClick={() => setOverviewDetailReserva(r)}
+                          className={`border-b border-slate-200 transition-colors cursor-pointer ${r.guest === "Evento Privado" ? "bg-slate-100/80 hover:bg-slate-100" : "hover:bg-slate-50"}`}
+                        >
                           <td className="py-4 px-6 font-medium text-[#3d2010]">
                             <div className="flex items-center gap-2">
                               {r.creadorColor && (
@@ -2185,7 +2240,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               </span>
                             )}
                           </td>
-                          <td className="py-4 px-6 whitespace-nowrap">
+                          <td className="py-4 px-6 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                             <div className="flex items-center gap-1">
                               {canEdit && r.guest !== "Evento Privado" && (
                                 <button
@@ -2614,6 +2669,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-500">Color decoración</span>
                               <span className="text-[#3d2010]">{historialReserva.color_decoracion}</span>
+                            </div>
+                          )}
+                          {historialReserva.consumible && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Consumible</span>
+                              <span className="text-[#3d2010] text-right max-w-[60%]">{historialReserva.consumible}</span>
                             </div>
                           )}
                         </div>
@@ -3177,6 +3238,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             </div>
                             {r.email && (
                               <p className="text-xs text-slate-400 mt-0.5">{r.email}</p>
+                            )}
+                            {r.consumible && (
+                              <div className="mt-2 flex items-start gap-1.5 bg-[#f0e4d0] border border-[#8a6038]/20 rounded-lg px-3 py-2">
+                                <span className="text-[10px] font-semibold text-[#8a6038] mt-0.5 shrink-0 uppercase tracking-wide">Consumible:</span>
+                                <p className="text-xs text-[#3d2010]" style={{ fontFamily: "'DM Sans', sans-serif" }}>{r.consumible}</p>
+                              </div>
                             )}
                             {r.observacion && (
                               <div className="mt-2 flex items-start gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -4159,6 +4226,19 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               </div>
                             );
                           })()}
+
+                          {reservaForm.hospedaje.toLowerCase().includes("de sol") && (
+                            <div>
+                              <label className="block text-sm mb-1 text-[#7a4828]">Consumible</label>
+                              <input
+                                type="text"
+                                className="w-full px-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
+                                placeholder="Ej: Paquete bebidas, snacks, etc."
+                                value={reservaForm.consumible}
+                                onChange={e => setReservaForm(f => ({ ...f, consumible: e.target.value }))}
+                              />
+                            </div>
+                          )}
 
                           <div>
                             <label className="block text-sm mb-1 text-[#7a4828]">
