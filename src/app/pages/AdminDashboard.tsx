@@ -511,7 +511,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           hospedaje,
           check_in: eventoPrivadoForm.checkIn,
           check_out: checkOut,
-          numero_huespedes: 8,
+          numero_huespedes: 1,
           valor_alojamiento: 0,
           valor_servicio_adicional: 0,
           abono: 0,
