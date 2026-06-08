@@ -693,7 +693,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const huespedesToSend = reservaForm.numero_huespedes <= 1
         ? []
         : esPendiente
-          ? reservaForm.huespedes_adicionales.filter(h => h.nombre?.trim() || h.cedula?.trim())
+          ? Array.from({ length: reservaForm.numero_huespedes - 1 }, (_, i) => {
+              const h = reservaForm.huespedes_adicionales[i];
+              return {
+                nombre: h?.nombre?.trim() || "Pendiente",
+                cedula: h?.cedula?.trim() || "Pendiente",
+                email: h?.email?.trim() || "pendiente@naturalsk.com",
+                celular: h?.celular?.trim() || "0",
+              };
+            })
           : reservaForm.huespedes_adicionales;
       const { huespedes_adicionales: _huespedesIgnorados, ...restReservaForm } = reservaForm;
       const reservaPayload = {
@@ -701,7 +709,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         ...(esPendiente && !restReservaForm.cedula_huesped?.trim() ? { cedula_huesped: "Pendiente" } : {}),
         ...(esPendiente && !restReservaForm.nombre_huesped?.trim() ? { nombre_huesped: "Sin nombre" } : {}),
         ...(esPendiente && !restReservaForm.email_huesped?.trim() ? { email_huesped: "pendiente@naturalsk.com" } : {}),
-        ...(huespedesToSend.length > 0 ? { huespedes_adicionales: huespedesToSend } : {}),
+        huespedes_adicionales: huespedesToSend,
         servicio_adicional: servicioLabel,
         color_decoracion: adminServiciosSeleccionados.find(x => x.color)?.color ?? "",
         mensaje_decoracion: adminServiciosSeleccionados.find(x => x.mensaje)?.mensaje ?? "",
