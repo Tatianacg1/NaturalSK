@@ -2,7 +2,7 @@
 // Muestra estadísticas, gestiona reservas, usuarios y configuración en un dashboard.
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette, Lock } from "lucide-react";
+import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette, Lock, Eye } from "lucide-react";
 import { reservasAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
 import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
 
@@ -81,6 +81,7 @@ function parsearTelefono(phone: string): { indicativo: string; numero: string } 
 // Incluye navegación lateral, estadísticas, reservas, usuarios y configuración.
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const { user, logout } = useAuth();
+  const canEdit = (user as any)?.permisos !== "solo_ver";
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarHovered, setSidebarHovered] = useState(false);
@@ -169,13 +170,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [indicativoAdmin, setIndicativoAdmin] = useState("+57");
   const [showUsuarioModal, setShowUsuarioModal] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<any>(null);
-  const [usuarioForm, setUsuarioForm] = useState<UsuarioForm>({
+  const [usuarioForm, setUsuarioForm] = useState<UsuarioForm & { permisos: string }>({
     nombre: "",
     email: "",
     contrasena: "",
     rol: "user",
     activo: true,
     color: COLORES_USUARIO[0],
+    permisos: "ver_editar",
   });
   const [usuarioMessage, setUsuarioMessage] = useState("");
   const [usuarioError, setUsuarioError] = useState("");
@@ -309,6 +311,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     status: usuario.activo ? "Activo" : "Inactivo",
     active: Boolean(usuario.activo),
     color: usuario.color ?? null,
+    permisos: (usuario.permisos as string) || "ver_editar",
   });
 
   // Cierra sesión y navega a la página principal.
@@ -889,6 +892,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         rol: usuario.role === "admin" ? "admin" : "user",
         activo: usuario.active,
         color: usuario.color ?? COLORES_USUARIO[0],
+        permisos: usuario.permisos || "ver_editar",
       });
     } else {
       setEditingUsuario(null);
@@ -899,6 +903,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         rol: "user",
         activo: true,
         color: COLORES_USUARIO[0],
+        permisos: "ver_editar",
       });
     }
     setUsuarioMessage("");
@@ -1929,19 +1934,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     )}
                   </button>
                   {/* Evento Privado */}
-                  <button
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors text-sm"
-                    onClick={() => { setEventoPrivadoError(""); setShowEventoPrivadoModal(true); }}
-                  >
-                    <Lock size={16} /> Evento Privado
-                  </button>
+                  {canEdit && (
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors text-sm"
+                      onClick={() => { setEventoPrivadoError(""); setShowEventoPrivadoModal(true); }}
+                    >
+                      <Lock size={16} /> Evento Privado
+                    </button>
+                  )}
                   {/* Nueva reserva */}
-                  <button
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors text-sm"
-                    onClick={() => handleOpenReservaModal()}
-                  >
-                    <Plus size={16} /> Nueva Reserva
-                  </button>
+                  {canEdit && (
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors text-sm"
+                      onClick={() => handleOpenReservaModal()}
+                    >
+                      <Plus size={16} /> Nueva Reserva
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2116,7 +2125,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           </td>
                           <td className="py-4 px-6 whitespace-nowrap">
                             <div className="flex items-center gap-1">
-                              {r.guest !== "Evento Privado" && (
+                              {canEdit && r.guest !== "Evento Privado" && (
                                 <button
                                   onClick={() => handleOpenReservaModal(r)}
                                   className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -2125,7 +2134,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                   <Edit2 size={16} />
                                 </button>
                               )}
-                              {r.tokenPublico && (
+                              {canEdit && r.tokenPublico && (
                                 <button
                                   disabled={r.datosCompletados}
                                   onClick={() => {
@@ -2150,7 +2159,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                   <MessageCircle size={16} />
                                 </button>
                               )}
-                              {r.status !== "Cancelada" && (
+                              {canEdit && r.status !== "Cancelada" && (
                                 <button
                                   onClick={() => handleCancelReserva(r.id)}
                                   className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
@@ -2670,20 +2679,24 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <option key={a.id} value={a.nombre}>{a.nombre}</option>
                       ))}
                     </select>
-                    <button
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors text-sm"
-                      onClick={() => { setEventoPrivadoError(""); setShowEventoPrivadoModal(true); }}
-                      style={{ fontFamily: "'DM Sans', sans-serif" }}
-                    >
-                      <Lock size={15} /> Evento Privado
-                    </button>
-                    <button
-                      className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors text-sm"
-                      onClick={() => handleOpenReservaModal()}
-                      style={{ fontFamily: "'DM Sans', sans-serif" }}
-                    >
-                      <Plus size={15} /> Nueva Reserva
-                    </button>
+                    {canEdit && (
+                      <button
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700 transition-colors text-sm"
+                        onClick={() => { setEventoPrivadoError(""); setShowEventoPrivadoModal(true); }}
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        <Lock size={15} /> Evento Privado
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors text-sm"
+                        onClick={() => handleOpenReservaModal()}
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      >
+                        <Plus size={15} /> Nueva Reserva
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -2864,25 +2877,27 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               {r.status}
                             </span>
                           </div>
-                          <div className="flex flex-col gap-1 shrink-0">
-                            {r.status === "Pendiente" && (
+                          {canEdit && (
+                            <div className="flex flex-col gap-1 shrink-0">
+                              {r.status === "Pendiente" && (
+                                <button
+                                  onClick={() => handleConfirmarReserva(r.id)}
+                                  className="px-2 py-1 text-[11px] bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors font-medium"
+                                  style={{ fontFamily: "'DM Mono', monospace" }}
+                                  title="Confirmar reserva"
+                                >
+                                  Confirmar
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleConfirmarReserva(r.id)}
-                                className="px-2 py-1 text-[11px] bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors font-medium"
-                                style={{ fontFamily: "'DM Mono', monospace" }}
-                                title="Confirmar reserva"
+                                onClick={() => handleOpenReservaModal(r)}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Editar reserva"
                               >
-                                Confirmar
+                                <Edit2 size={14} />
                               </button>
-                            )}
-                            <button
-                              onClick={() => handleOpenReservaModal(r)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              title="Editar reserva"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                          </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2975,48 +2990,52 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     {r.status}
                                   </span>
                                 </div>
-                                  <div className="flex flex-col gap-1 shrink-0">
-                                  {r.status === "Pendiente" && (
-                                    <button
-                                      onClick={() => {
-                                        setCalSelectedDay(null);
-                                        handleConfirmarReserva(r.id);
-                                      }}
-                                      className="px-2 py-1 text-[11px] bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors font-medium"
-                                      style={{ fontFamily: "'DM Mono', monospace" }}
-                                      title="Confirmar reserva"
-                                    >
-                                      Confirmar
-                                    </button>
+                                  {canEdit && (
+                                    <div className="flex flex-col gap-1 shrink-0">
+                                      {r.status === "Pendiente" && (
+                                        <button
+                                          onClick={() => {
+                                            setCalSelectedDay(null);
+                                            handleConfirmarReserva(r.id);
+                                          }}
+                                          className="px-2 py-1 text-[11px] bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors font-medium"
+                                          style={{ fontFamily: "'DM Mono', monospace" }}
+                                          title="Confirmar reserva"
+                                        >
+                                          Confirmar
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => {
+                                          setCalSelectedDay(null);
+                                          handleOpenReservaModal(r);
+                                        }}
+                                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                        title="Editar reserva"
+                                      >
+                                        <Edit2 size={14} />
+                                      </button>
+                                    </div>
                                   )}
-                                  <button
-                                    onClick={() => {
-                                      setCalSelectedDay(null);
-                                      handleOpenReservaModal(r);
-                                    }}
-                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                    title="Editar reserva"
-                                  >
-                                    <Edit2 size={14} />
-                                  </button>
-                                </div>
                               </div>
                             ))}
                           </div>
                         )}
 
                         {/* Botón nueva reserva siempre disponible */}
-                        <button
-                          onClick={() => {
-                            setCalSelectedDay(null);
-                            handleOpenReservaModal(undefined, selDateStr);
-                          }}
-                          className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-                          style={{ fontFamily: "'DM Sans', sans-serif" }}
-                        >
-                          <Plus size={16} />
-                          Nueva reserva para este día
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => {
+                              setCalSelectedDay(null);
+                              handleOpenReservaModal(undefined, selDateStr);
+                            }}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                            style={{ fontFamily: "'DM Sans', sans-serif" }}
+                          >
+                            <Plus size={16} />
+                            Nueva reserva para este día
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -3104,30 +3123,32 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={() => handleConfirmarReserva(r.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-800 transition-colors text-xs font-medium"
-                              title="Confirmar reserva"
-                            >
-                              <CheckCircle size={13} />
-                              Confirmar
-                            </button>
-                            <button
-                              onClick={() => handleOpenReservaModal(r)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              title="Editar reserva"
-                            >
-                              <Edit2 size={15} />
-                            </button>
-                            <button
-                              onClick={() => handleCancelReserva(r.id)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
-                              title="Cancelar reserva"
-                            >
-                              <X size={15} />
-                            </button>
-                          </div>
+                          {canEdit && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => handleConfirmarReserva(r.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-800 transition-colors text-xs font-medium"
+                                title="Confirmar reserva"
+                              >
+                                <CheckCircle size={13} />
+                                Confirmar
+                              </button>
+                              <button
+                                onClick={() => handleOpenReservaModal(r)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Editar reserva"
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                              <button
+                                onClick={() => handleCancelReserva(r.id)}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                title="Cancelar reserva"
+                              >
+                                <X size={15} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                         <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-4 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>
                           <div className="flex items-center gap-1">
@@ -3234,6 +3255,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         }`}>
                           {u.role === "admin" ? "Admin" : "Usuario"}
                         </span>
+                        {u.role !== "admin" && u.permisos === "solo_ver" && (
+                          <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded border bg-blue-50 text-blue-600 border-blue-200">
+                            <Eye size={10} /> Solo ver
+                          </span>
+                        )}
                         {!u.active && (
                           <span className="text-xs px-2 py-0.5 rounded border bg-red-50 text-red-600 border-red-200">
                             Deshabilitado
@@ -3385,6 +3411,33 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           <option value="admin">Administrador</option>
                         </select>
                       </div>
+                      {usuarioForm.rol !== "admin" && (
+                        <div>
+                          <label className="block text-sm mb-2 text-[#7a4828]">Permisos</label>
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-2 cursor-pointer text-sm text-[#3d2010]">
+                              <input
+                                type="radio"
+                                name="permisos"
+                                value="ver_editar"
+                                checked={usuarioForm.permisos === "ver_editar"}
+                                onChange={() => setUsuarioForm(f => ({ ...f, permisos: "ver_editar" }))}
+                              />
+                              <Edit2 size={14} /> Ver y editar
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer text-sm text-[#3d2010]">
+                              <input
+                                type="radio"
+                                name="permisos"
+                                value="solo_ver"
+                                checked={usuarioForm.permisos === "solo_ver"}
+                                onChange={() => setUsuarioForm(f => ({ ...f, permisos: "solo_ver" }))}
+                              />
+                              <Eye size={14} /> Solo ver
+                            </label>
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <label className="flex items-center gap-1.5 text-sm text-[#7a4828] mb-2">
                           <Palette size={14} />
