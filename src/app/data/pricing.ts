@@ -271,12 +271,12 @@ const SERVICIOS: Record<string, ServicioConfig> = {
   },
   'Decoracion quieres ser mi novia': {
     label: '¿Quieres ser mi novia? 💍',
-    precios: { 'perla-diamante': 150_000, 'esmeralda': 150_000, 'zafiro-turquesa': 190_000 },
+    precios: { 'perla-diamante': 150_000, 'zafiro-turquesa': 190_000 },
     requiereColor: false,
   },
   'Decoracion casate conmigo': {
     label: '¿Cásate conmigo? 💍',
-    precios: { 'perla-diamante': 150_000, 'esmeralda': 150_000, 'zafiro-turquesa': 190_000 },
+    precios: { 'perla-diamante': 150_000, 'zafiro-turquesa': 190_000 },
     requiereColor: false,
   },
 };
