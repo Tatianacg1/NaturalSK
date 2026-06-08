@@ -81,7 +81,7 @@ function parsearTelefono(phone: string): { indicativo: string; numero: string } 
 // Incluye navegación lateral, estadísticas, reservas, usuarios y configuración.
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const { user, logout } = useAuth();
-  const canEdit = (user as any)?.permisos !== "solo_ver";
+  const canEdit = user?.permisos !== "solo_ver";
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarHovered, setSidebarHovered] = useState(false);
@@ -503,7 +503,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const token = localStorage.getItem("authToken");
 
       // Obtener límites reales de la API pública para saber cuántos bloqueos crear por alojamiento
-      type AloInfo = { limite_reservas: number; es_dia_de_sol: boolean; capacidad_domingo: number; capacidad_semana: number };
+      type AloInfo = {
+        limite_reservas: number;
+        es_dia_de_sol: boolean;
+        capacidad_domingo: number;
+        capacidad_semana: number;
+        max_por_reserva: number;
+      };
       const limites: Record<string, AloInfo> = {};
       try {
         const disp = await reservaPublicaAPI.disponibilidadGeneral();
@@ -513,9 +519,24 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             es_dia_de_sol: a.es_dia_de_sol ?? false,
             capacidad_domingo: a.capacidad_domingo ?? 30,
             capacidad_semana: a.capacidad_semana ?? 25,
+            max_por_reserva: a.max_por_reserva ?? 8,
           };
         }
       } catch { /* si falla usamos defaults */ }
+
+      const bloqueBase = {
+        nombre_huesped: "Evento Privado",
+        cedula_huesped: "0",
+        email_huesped: "evento@naturalsk.com",
+        telefono_huesped: "",
+        valor_alojamiento: 0,
+        valor_servicio_adicional: 0,
+        abono: 0,
+        estado: "Confirmada",
+        usuario_id: user?.id,
+        servicio_adicional: "N/A",
+        observacion: "Bloqueado por evento privado",
+      };
 
       for (const hospedaje of eventoPrivadoForm.alos) {
         const n = hospedaje.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -525,57 +546,45 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         const checkOut = isDiaSol ? eventoPrivadoForm.checkIn : eventoPrivadoForm.checkOut;
 
         if (isDiaSol) {
-          // Para Día de Sol: llenar la capacidad del día para que no queden cupos disponibles
+          // Día de Sol: crear reservas hasta llenar la capacidad del día
+          // El backend limita max_por_reserva=8, así que se crean varias reservas
           const fecha = new Date(eventoPrivadoForm.checkIn + "T12:00:00");
           const esDomingo = fecha.getDay() === 0;
           const capacidad = esDomingo ? (infoAlo?.capacidad_domingo ?? 30) : (infoAlo?.capacidad_semana ?? 25);
-          // El backend requiere huespedes_adicionales cuando numero_huespedes > 1
-          const huespedesAdicionales = Array.from({ length: capacidad - 1 }, () => ({
-            nombre: "Evento Privado",
-            cedula: "0",
-            email: "evento@naturalsk.com",
-            celular: "0",
-          }));
-          await reservasAPI.crearReserva({
-            nombre_huesped: "Evento Privado",
-            cedula_huesped: "0",
-            email_huesped: "evento@naturalsk.com",
-            telefono_huesped: "",
-            hospedaje,
-            check_in: eventoPrivadoForm.checkIn,
-            check_out: checkOut,
-            numero_huespedes: capacidad,
-            huespedes_adicionales: huespedesAdicionales,
-            valor_alojamiento: 0,
-            valor_servicio_adicional: 0,
-            abono: 0,
-            estado: "Confirmada",
-            usuario_id: user?.id,
-            tipo_hospedaje: tipoHosp,
-            servicio_adicional: "N/A",
-            observacion: "Bloqueado por evento privado",
-          }, token);
+          const maxPorReserva = infoAlo?.max_por_reserva ?? 8;
+          let restante = capacidad;
+          while (restante > 0) {
+            const numEstaReserva = Math.min(maxPorReserva, restante);
+            const huespedesAdicionales = numEstaReserva > 1
+              ? Array.from({ length: numEstaReserva - 1 }, () => ({
+                  nombre: "Evento Privado",
+                  cedula: "0",
+                  email: "evento@naturalsk.com",
+                  celular: "0",
+                }))
+              : [];
+            await reservasAPI.crearReserva({
+              ...bloqueBase,
+              hospedaje,
+              check_in: eventoPrivadoForm.checkIn,
+              check_out: checkOut,
+              numero_huespedes: numEstaReserva,
+              tipo_hospedaje: tipoHosp,
+              ...(huespedesAdicionales.length > 0 ? { huespedes_adicionales: huespedesAdicionales } : {}),
+            }, token);
+            restante -= numEstaReserva;
+          }
         } else {
-          // Para alojamientos normales: crear tantos bloqueos como el límite de reservas simultáneas
+          // Alojamientos normales: crear tantos bloqueos como el límite de reservas simultáneas
           const limite = infoAlo?.limite_reservas ?? 1;
           for (let i = 0; i < limite; i++) {
             await reservasAPI.crearReserva({
-              nombre_huesped: "Evento Privado",
-              cedula_huesped: "0",
-              email_huesped: "evento@naturalsk.com",
-              telefono_huesped: "",
+              ...bloqueBase,
               hospedaje,
               check_in: eventoPrivadoForm.checkIn,
               check_out: checkOut,
               numero_huespedes: 1,
-              valor_alojamiento: 0,
-              valor_servicio_adicional: 0,
-              abono: 0,
-              estado: "Confirmada",
-              usuario_id: user?.id,
               tipo_hospedaje: tipoHosp,
-              servicio_adicional: "N/A",
-              observacion: "Bloqueado por evento privado",
             }, token);
           }
         }

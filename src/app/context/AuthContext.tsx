@@ -7,6 +7,7 @@ interface User {
   email: string;
   name: string;
   role: "admin" | "user";
+  permisos?: "ver_editar" | "solo_ver";
 }
 
 interface AuthContextType {
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: currentUser.nombre,
             email: currentUser.email,
             role: currentUser.rol === "admin" ? "admin" : "user",
+            permisos: currentUser.permisos,
           });
         }
       } catch (error) {
@@ -95,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: response.usuario.name,
         email: response.usuario.email,
         role: response.usuario.role,
+        permisos: response.usuario.permisos,
       });
     } catch (error) {
       throw new Error("Usuario o contraseña incorrectos");
