@@ -5,7 +5,7 @@ import { reservaPublicaAPI } from "../../services/api";
 import { CalendarioPublico, type AloData, type Rango } from "../components/sections/CalendarioPublico";
 import { AccommodationLightbox } from "../components/sections/AccommodationLightbox";
 import { cn } from "../components/ui/utils";
-import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes } from "../data/pricing";
+import { precioTotal, tarifasBase, tarifasZafiroTiers, formatCOP, tieneTarifa, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes, minHuespedes } from "../data/pricing";
 import { INDICATIVOS } from "../data/indicativos";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -295,6 +295,15 @@ export function ReservaPage() {
   }, [form.check_out, modoVista]);
 
   const numHuespedes = parseInt(form.numero_huespedes) || 1;
+  const minH = minHuespedes(form.hospedaje, form.check_in || undefined);
+
+  // Auto-corrige número de huéspedes si cae por debajo del mínimo requerido
+  useEffect(() => {
+    if (numHuespedes < minH) {
+      setForm(p => ({ ...p, numero_huespedes: String(minH) }));
+      setTabActivo(0);
+    }
+  }, [form.hospedaje, form.check_in]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const extra = Math.max(0, numHuespedes - 1);
@@ -348,7 +357,7 @@ export function ReservaPage() {
   const esHabitacion = normalize(form.hospedaje).includes("pareja") || normalize(form.hospedaje).includes("cuadruple");
   const huesped1Completo = !!form.nombre_huesped.trim() && !!form.cedula_huesped.trim() && !!form.email_huesped.trim() && !!form.telefono_huesped.trim();
   const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre?.trim() && h.cedula?.trim());
-  const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos && !colorRequerido && (!esHabitacion || !!form.numero_habitacion);
+  const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos && !colorRequerido && (!esHabitacion || !!form.numero_habitacion) && numHuespedes >= minH;
 
   const toggleServicio = (s: string) => {
     setServiciosSeleccionados(prev => {
@@ -1196,7 +1205,7 @@ export function ReservaPage() {
                       <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
                         Número de huéspedes
                         <span className="ml-2 text-gray-400 font-normal normal-case tracking-normal text-[10px]">
-                          (máx. {maxHuespedes(form.hospedaje)})
+                          {minH > 1 ? `(mín. ${minH} · máx. ${maxHuespedes(form.hospedaje)})` : `(máx. ${maxHuespedes(form.hospedaje)})`}
                         </span>
                       </label>
                       <select
@@ -1207,10 +1216,15 @@ export function ReservaPage() {
                         className={inputCls}
                         style={{ fontFamily: "'DM Sans', sans-serif" }}
                       >
-                        {Array.from({ length: maxHuespedes(form.hospedaje) }, (_, i) => i + 1).map(n => (
+                        {Array.from({ length: maxHuespedes(form.hospedaje) - minH + 1 }, (_, i) => i + minH).map(n => (
                           <option key={n} value={n}>{n} {n === 1 ? "huésped" : "huéspedes"}</option>
                         ))}
                       </select>
+                      {minH > 1 && (
+                        <p className="text-xs text-amber-600 mt-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                          En días de semana se requieren mínimo {minH} personas.
+                        </p>
+                      )}
                       {normalize(form.hospedaje) === "glamping zafiro" && (
                         <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden text-[10px]" style={{ fontFamily: "'DM Mono', monospace" }}>
                           {tarifasZafiroTiers().map(t => (

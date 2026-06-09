@@ -6,8 +6,8 @@
 
 interface SimpleRates { low: number; high: number }
 
-// Zafiro: 2 franjas tarifarias (lun–jue / fin sem·festivos) según número de huéspedes
-interface ZafiroTier {
+// Zafiro / Cuádruple: 2 franjas tarifarias según número de huéspedes
+interface GuestTier {
   minGuests: number;
   maxGuests: number;
   low: number;   // lun–jue, no festivo, no temporada
@@ -17,13 +17,20 @@ interface ZafiroTier {
 // ─── Tarifas simples ──────────────────────────────────────────────────────────
 
 const RATES: Record<string, SimpleRates> = {
-  "habitacion pareja":     { low: 370_000, high: 450_000 },
-  "habitacion cuadruple":  { low: 620_000, high: 750_000 },
-  "glamping turquesa":     { low: 480_000, high: 650_000 },
-  "glamping esmeralda":    { low: 480_000, high: 650_000 },
-  "glamping perla":        { low: 480_000, high: 650_000 },
-  "glamping diamante":     { low: 530_000, high: 690_000 },
+  "habitacion pareja":  { low: 370_000, high: 450_000 },
+  "glamping turquesa":  { low: 480_000, high: 650_000 },
+  "glamping esmeralda": { low: 480_000, high: 650_000 },
+  "glamping perla":     { low: 480_000, high: 650_000 },
+  "glamping diamante":  { low: 530_000, high: 690_000 },
 };
+
+// ─── Tarifas Cuádruple (por número de huéspedes) ─────────────────────────────
+// Entre semana mínimo 3 personas; fin de semana/festivo/temporada desde 2.
+
+const CUADRUPLE_TIERS: GuestTier[] = [
+  { minGuests: 2, maxGuests: 2, low: 0,       high: 550_000 },
+  { minGuests: 3, maxGuests: 4, low: 620_000, high: 750_000 },
+];
 
 // ─── Tarifa Día de Sol (entrada + consumibles por persona) ───────────────────
 
@@ -36,7 +43,7 @@ const DIA_DE_SOL_RATES: { low: DiaSolTarifa; high: DiaSolTarifa } = {
 
 // ─── Tarifas Zafiro (por número de huéspedes) ─────────────────────────────────
 
-const ZAFIRO_TIERS: ZafiroTier[] = [
+const ZAFIRO_TIERS: GuestTier[] = [
   { minGuests: 1, maxGuests: 2, low: 590_000,   high: 850_000   },
   { minGuests: 3, maxGuests: 4, low: 850_000,   high: 950_000   },
   { minGuests: 5, maxGuests: 6, low: 1_290_000, high: 1_390_000 },
@@ -111,8 +118,12 @@ function esTarifaAlta(dateStr: string): boolean {
   return esFinDeSemana || esTemporadaAlta || esFestivo;
 }
 
+function esCuadruple(hospedaje: string): boolean {
+  return normalizar(hospedaje) === "habitacion cuadruple";
+}
+
 /** Devuelve el tier de Zafiro según número de huéspedes. */
-function getZafiroTier(guests: number): ZafiroTier {
+function getZafiroTier(guests: number): GuestTier {
   return (
     ZAFIRO_TIERS.find(t => guests >= t.minGuests && guests <= t.maxGuests) ??
     ZAFIRO_TIERS[ZAFIRO_TIERS.length - 1]
@@ -126,11 +137,24 @@ function precioNocheZafiro(dateStr: string, guests: number): number {
   return base + (guests > 6 ? ZAFIRO_EXTRA_PERSONA : 0);
 }
 
+function getCuadrupleTier(guests: number): GuestTier {
+  return (
+    CUADRUPLE_TIERS.find(t => guests >= t.minGuests && guests <= t.maxGuests) ??
+    CUADRUPLE_TIERS[CUADRUPLE_TIERS.length - 1]
+  );
+}
+
+function precioNocheCuadruple(dateStr: string, guests: number): number {
+  const tier = getCuadrupleTier(guests);
+  return esTarifaAlta(dateStr) ? tier.high : tier.low;
+}
+
 // ─── API pública ──────────────────────────────────────────────────────────────
 
 /** Precio de UNA noche (la que comienza en `dateStr`) en COP. 0 si no hay tarifa. */
 export function precioNoche(hospedaje: string, dateStr: string, guests = 2): number {
   if (esZafiro(hospedaje)) return precioNocheZafiro(dateStr, guests);
+  if (esCuadruple(hospedaje)) return precioNocheCuadruple(dateStr, guests);
   const rates = obtenerRates(hospedaje);
   if (!rates) return 0;
   return esTarifaAlta(dateStr) ? rates.high : rates.low;
@@ -159,6 +183,14 @@ export function precioTotal(hospedaje: string, checkIn: string, checkOut: string
     return total;
   }
 
+  if (esCuadruple(hospedaje)) {
+    while (cur < end) {
+      total += precioNocheCuadruple(toDateStr(cur), guests);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return total;
+  }
+
   const rates = obtenerRates(hospedaje);
   if (!rates) return 0;
   while (cur < end) {
@@ -175,6 +207,10 @@ export function tarifasBase(hospedaje: string, guests = 2): SimpleRates | null {
     const tier = getZafiroTier(guests);
     return { low: tier.low, high: tier.high };
   }
+  if (esCuadruple(hospedaje)) {
+    const tier = getCuadrupleTier(guests);
+    return { low: tier.low, high: tier.high };
+  }
   if (esDiaDeSol(hospedaje)) {
     return {
       low: DIA_DE_SOL_RATES.low.entrada,
@@ -185,7 +221,7 @@ export function tarifasBase(hospedaje: string, guests = 2): SimpleRates | null {
 }
 
 /** Devuelve todos los tiers de Zafiro (para mostrar tabla de tarifas en UI). */
-export function tarifasZafiroTiers(): ZafiroTier[] {
+export function tarifasZafiroTiers(): GuestTier[] {
   return ZAFIRO_TIERS;
 }
 
@@ -196,7 +232,7 @@ export function tarifasDiaDeSol(): { low: DiaSolTarifa; high: DiaSolTarifa } {
 
 /** True si el alojamiento tiene tarifa definida. */
 export function tieneTarifa(hospedaje: string): boolean {
-  return esZafiro(hospedaje) || esDiaDeSol(hospedaje) || obtenerRates(hospedaje) !== null;
+  return esZafiro(hospedaje) || esCuadruple(hospedaje) || esDiaDeSol(hospedaje) || obtenerRates(hospedaje) !== null;
 }
 
 /** Máximo de huéspedes permitido según alojamiento. */
@@ -208,6 +244,14 @@ export function maxHuespedes(hospedaje: string): number {
   if (n === 'habitacion cuadruple') return 4;
   if (n.includes('dia de sol') || n.includes('día de sol')) return 8;
   return 8;
+}
+
+/** Mínimo de huéspedes requerido según alojamiento y fecha de check-in. */
+export function minHuespedes(hospedaje: string, dateStr?: string): number {
+  const n = normalizar(hospedaje);
+  // Habitación cuádruple en semana (tarifa baja): mínimo 3 personas
+  if (n === 'habitacion cuadruple' && dateStr && !esTarifaAlta(dateStr)) return 3;
+  return 1;
 }
 
 // ─── Servicios adicionales ────────────────────────────────────────────────────

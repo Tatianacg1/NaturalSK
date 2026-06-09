@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { LogOut, BarChart3, Users, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings, Menu, X, Home, ArrowLeft, Plus, Edit2, Trash2, RefreshCw, History, Search, SlidersHorizontal, MessageCircle, Mail, CheckCircle, XCircle, Send, Link, Clock, UserCheck, UserX, Palette, Lock, Eye } from "lucide-react";
 import { reservasAPI, reservaPublicaAPI, usuariosAPI, alojamientosAPI, correosAPI } from "../../services/api";
-import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes, ZAFIRO_EXTRA_PERSONA } from "../data/pricing";
+import { precioTotal, tarifasBase, formatCOP, tieneTarifa, esFestivo, precioServicio, serviciosDisponibles, servicioRequiereColor, servicioTieneMensaje, COLORES_DECORACION, labelServicio, maxHuespedes, minHuespedes, ZAFIRO_EXTRA_PERSONA } from "../data/pricing";
 import { INDICATIVOS } from "../data/indicativos";
 
 interface AdminDashboardProps {
@@ -621,7 +621,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const handleCantidadHuespedesChange = (cantidad: number) => {
-    const numero_huespedes = Math.max(1, cantidad || 1);
+    const minH = minHuespedes(reservaForm.hospedaje, reservaForm.check_in || undefined);
+    const numero_huespedes = Math.max(minH, cantidad || minH);
     const totalServicios = adminServiciosSeleccionados.reduce(
       (acc, x) => acc + precioServicio(reservaForm.hospedaje, x.servicio, numero_huespedes), 0
     );
@@ -1081,7 +1082,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     const pasaPeriodo = overviewPeriodo === "dia" ? ci === `${y}-${m}-${d}`
       : overviewPeriodo === "mes" ? ci.startsWith(`${y}-${m}`)
       : ci.startsWith(`${y}`);
-    const pasaAlo = !overviewFiltroAlo || r.accommodation === overviewFiltroAlo;
+    const HABITACIONES = ["Habitación Pareja", "Habitación Cuadruple"];
+    const pasaAlo = !overviewFiltroAlo || (overviewFiltroAlo === "__habitaciones__" ? HABITACIONES.includes(r.accommodation) : r.accommodation === overviewFiltroAlo);
     return pasaPeriodo && pasaAlo;
   });
 
@@ -1398,6 +1400,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
                   <option value="">Todos los alojamientos</option>
+                  <option value="__habitaciones__">Habitaciones</option>
                   {alojamientos.map(a => (
                     <option key={a.id} value={a.nombre}>{a.nombre}</option>
                   ))}
@@ -1570,7 +1573,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 const filtroAlo = overviewModal.filtroAlojamiento;
                 const filtroEst = overviewModal.filtroEstado || "";
                 let modalReservas = reservasDisplay;
-                if (filtroAlo) modalReservas = modalReservas.filter(r => r.accommodation === filtroAlo);
+                const HABITACIONES_MODAL = ["Habitación Pareja", "Habitación Cuadruple"];
+                if (filtroAlo) modalReservas = modalReservas.filter(r => filtroAlo === "__habitaciones__" ? HABITACIONES_MODAL.includes(r.accommodation) : r.accommodation === filtroAlo);
                 if (filtroEst) modalReservas = modalReservas.filter(r => r.status === filtroEst);
                 const modalTitles = { reservas: "Reservas Totales", ingresos: "Resumen de Ingresos", ocupacion: "Ocupación General" };
                 return (
@@ -1603,6 +1607,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             style={{ fontFamily: "'DM Sans', sans-serif" }}
                           >
                             <option value="">Todos los alojamientos</option>
+                            <option value="__habitaciones__">Habitaciones</option>
                             {alojamientos.map(a => <option key={a.id} value={a.nombre}>{a.nombre}</option>)}
                           </select>
                         </div>
@@ -1745,7 +1750,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                 </div>
                               ) : (
                                 <div>
-                                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3" style={{ fontFamily: "'DM Mono', monospace" }}>Detalle — {filtroAlo}</p>
+                                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3" style={{ fontFamily: "'DM Mono', monospace" }}>Detalle — {filtroAlo === "__habitaciones__" ? "Habitaciones" : filtroAlo}</p>
                                   <div className="space-y-2">
                                     {confirmadas.length === 0 ? (
                                       <p className="text-center text-slate-400 text-sm py-4">Sin reservas confirmadas para este alojamiento</p>
@@ -1774,7 +1779,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           const monthOcup = hoyOcup.getMonth();
                           const daysInMonthOcup = new Date(yearOcup, monthOcup + 1, 0).getDate();
                           const monthNamesOcup = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-                          const alosBase = filtroAlo ? alojamientos.filter(a => a.nombre === filtroAlo) : alojamientos;
+                          const HABITACIONES_OCUP = ["Habitación Pareja", "Habitación Cuadruple"];
+                          const alosBase = filtroAlo ? (filtroAlo === "__habitaciones__" ? alojamientos.filter(a => HABITACIONES_OCUP.includes(a.nombre)) : alojamientos.filter(a => a.nombre === filtroAlo)) : alojamientos;
 
                           // Calcular pct por alojamiento primero para poder ordenar
                           const alosConPct = alosBase.map(a => {
@@ -1852,7 +1858,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               );
             }
             if (filtroAlojamiento) {
-              reservasFiltradas = reservasFiltradas.filter(r => r.accommodation === filtroAlojamiento);
+              const HAB_RES = ["Habitación Pareja", "Habitación Cuadruple"];
+              reservasFiltradas = reservasFiltradas.filter(r => filtroAlojamiento === "__habitaciones__" ? HAB_RES.includes(r.accommodation) : r.accommodation === filtroAlojamiento);
             }
             if (filtroEstado) {
               reservasFiltradas = reservasFiltradas.filter(r => r.status === filtroEstado);
@@ -1971,6 +1978,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
                       <option value="">Todos</option>
+                      <option value="__habitaciones__">Habitaciones</option>
                       {alojamientos.map(a => (
                         <option key={a.id} value={a.nombre}>{a.nombre}</option>
                       ))}
@@ -2596,8 +2604,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             const monthNames = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
             const dayNames = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 
+            const HAB_CAL = ["Habitación Pareja", "Habitación Cuadruple"];
             const reservasActivas = calFiltroAlojamiento
-              ? reservasDisplay.filter(r => r.accommodation === calFiltroAlojamiento && r.status !== "Cancelada")
+              ? reservasDisplay.filter(r => (calFiltroAlojamiento === "__habitaciones__" ? HAB_CAL.includes(r.accommodation) : r.accommodation === calFiltroAlojamiento) && r.status !== "Cancelada")
               : reservasDisplay.filter(r => r.status !== "Cancelada");
 
             const calAloData = calFiltroAlojamiento ? alojamientos.find(a => a.nombre === calFiltroAlojamiento) : null;
@@ -2653,6 +2662,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
                       <option value="">Todos los alojamientos</option>
+                      <option value="__habitaciones__">Habitaciones</option>
                       {alojamientos.map(a => (
                         <option key={a.id} value={a.nombre}>{a.nombre}</option>
                       ))}
@@ -4174,24 +4184,40 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       {reservaForm.hospedaje && (
                         <>
                           <div>
-                            <label className="block text-sm mb-1 text-[#7a4828]">Número de personas</label>
-                            <select
-                              className="w-full px-3 py-2 border rounded text-[#3d2010]"
-                              value={reservaForm.numero_huespedes}
-                              onChange={e => handleCantidadHuespedesChange(Number(e.target.value))}
-                              required
-                            >
-                              {Array.from({ length: maxHuespedes(reservaForm.hospedaje) }, (_, i) => (
-                                <option key={i + 1} value={i + 1}>
-                                  {i + 1} persona{i + 1 !== 1 ? "s" : ""}
-                                </option>
-                              ))}
-                            </select>
-                            {reservaForm.hospedaje.toLowerCase().includes("zafiro") && reservaForm.numero_huespedes === 7 && (
-                              <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
-                                Precio 5–6 personas + {formatCOP(ZAFIRO_EXTRA_PERSONA)} por noche por la persona adicional.
-                              </p>
-                            )}
+                            {(() => {
+                              const minH = minHuespedes(reservaForm.hospedaje, reservaForm.check_in || undefined);
+                              const maxH = maxHuespedes(reservaForm.hospedaje);
+                              return (
+                                <>
+                                  <label className="block text-sm mb-1 text-[#7a4828]">
+                                    Número de personas
+                                    {minH > 1 && <span className="ml-1 text-amber-600 text-xs">(mín. {minH})</span>}
+                                  </label>
+                                  <select
+                                    className="w-full px-3 py-2 border rounded text-[#3d2010]"
+                                    value={reservaForm.numero_huespedes}
+                                    onChange={e => handleCantidadHuespedesChange(Number(e.target.value))}
+                                    required
+                                  >
+                                    {Array.from({ length: maxH - minH + 1 }, (_, i) => i + minH).map(n => (
+                                      <option key={n} value={n}>
+                                        {n} persona{n !== 1 ? "s" : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {minH > 1 && (
+                                    <p className="text-xs text-amber-600 mt-1">
+                                      En días de semana se requieren mínimo {minH} personas.
+                                    </p>
+                                  )}
+                                  {reservaForm.hospedaje.toLowerCase().includes("zafiro") && reservaForm.numero_huespedes === 7 && (
+                                    <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+                                      Precio 5–6 personas + {formatCOP(ZAFIRO_EXTRA_PERSONA)} por noche por la persona adicional.
+                                    </p>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                           {(reservaForm.hospedaje.toLowerCase().includes("pareja") || reservaForm.hospedaje.toLowerCase().includes("cuadruple")) && (() => {
                             const ci = reservaForm.check_in;
