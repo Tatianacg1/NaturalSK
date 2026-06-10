@@ -34,6 +34,7 @@ interface ReservaForm {
   valor_alojamiento: number | string;
   valor_servicio_adicional: number | string;
   abono: number | string;
+  cuenta_abono: string;
   estado: string;
   observacion: string;
   consumible: string;
@@ -144,6 +145,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     valor_alojamiento: 0,
     valor_servicio_adicional: 0,
     abono: 0,
+    cuenta_abono: "",
     estado: "Pendiente",
     observacion: "",
     consumible: "",
@@ -189,6 +191,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     filtroEstado?: string;
   } | null>(null);
   const [overviewDetailReserva, setOverviewDetailReserva] = useState<any>(null);
+  const [editandoHabitacionModal, setEditandoHabitacionModal] = useState(false);
+  const [habitacionModalTemp, setHabitacionModalTemp] = useState("");
 
   // Estado para el calendario
   const [calMonth, setCalMonth] = useState<{ year: number; month: number }>(() => {
@@ -282,10 +286,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       color_decoracion: reserva.color_decoracion || "",
       mensaje_decoracion: reserva.mensaje_decoracion || "",
       servicios_adicionales: reserva.servicios_adicionales || null,
-      numeroHabitacion: reserva.numero_habitacion ?? null,
+      numeroHabitacion: (() => { const v = reserva.numero_habitacion; const s = v != null ? String(v).trim() : ""; return (s && s !== "null" && s !== "0") ? s : null; })(),
       accommodationValue: Number(reserva.valor_alojamiento || 0),
       additionalServiceValue: Number(reserva.valor_servicio_adicional || 0),
       deposit: Number(reserva.abono || 0),
+      cuentaAbono: reserva.cuenta_abono || "",
       fullValue: Number(reserva.valor_alojamiento || 0) + Number(reserva.valor_servicio_adicional || 0),
       remainingValue: Number(reserva.total || 0),
       additionalGuests,
@@ -407,13 +412,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_in: reserva.checkIn,
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests || 1,
-        numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : (reserva.accommodation?.toLowerCase().includes("cuadruple") ? "5" : ""),
+        numero_habitacion: (reserva.numeroHabitacion != null && String(reserva.numeroHabitacion).trim() !== "" && reserva.numeroHabitacion !== 0) ? String(reserva.numeroHabitacion) : (reserva.accommodation?.toLowerCase().includes("cuadruple") ? "5" : ""),
         servicio_adicional: reserva.additionalService || "N/A",
         color_decoracion: reserva.color_decoracion || "",
         mensaje_decoracion: reserva.mensaje_decoracion || "",
         valor_alojamiento: calc > 0 ? calc : (reserva.accommodationValue || 0),
         valor_servicio_adicional: reserva.additionalServiceValue || 0,
         abono: reserva.deposit || 0,
+        cuenta_abono: reserva.cuentaAbono || "",
         estado: reserva.status,
         observacion: reserva.observacion || "",
         consumible: reserva.consumible || "",
@@ -464,6 +470,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         valor_alojamiento: 0,
         valor_servicio_adicional: 0,
         abono: 0,
+        cuenta_abono: "",
         estado: "Pendiente",
         observacion: "",
         consumible: "",
@@ -848,7 +855,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           check_in: reserva.checkIn,
           check_out: reserva.checkOut,
           numero_huespedes: reserva.guests,
-          numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : "",
+          numero_habitacion: (reserva.numeroHabitacion != null && String(reserva.numeroHabitacion).trim() !== "" && reserva.numeroHabitacion !== 0) ? String(reserva.numeroHabitacion) : (reserva.accommodation?.toLowerCase().includes("cuadruple") ? "5" : ""),
           servicio_adicional: reserva.additionalService,
           color_decoracion: reserva.color_decoracion || "",
           mensaje_decoracion: reserva.mensaje_decoracion || "",
@@ -889,7 +896,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_in: reserva.checkIn,
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests,
-        numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : "",
+        numero_habitacion: (reserva.numeroHabitacion != null && String(reserva.numeroHabitacion).trim() !== "" && reserva.numeroHabitacion !== 0) ? String(reserva.numeroHabitacion) : (reserva.accommodation?.toLowerCase().includes("cuadruple") ? "5" : ""),
         servicio_adicional: reserva.additionalService,
         color_decoracion: reserva.color_decoracion || "",
         mensaje_decoracion: reserva.mensaje_decoracion || "",
@@ -941,7 +948,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         check_in: reserva.checkIn,
         check_out: reserva.checkOut,
         numero_huespedes: reserva.guests,
-        numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : "",
+        numero_habitacion: (reserva.numeroHabitacion != null && String(reserva.numeroHabitacion).trim() !== "" && reserva.numeroHabitacion !== 0) ? String(reserva.numeroHabitacion) : (reserva.accommodation?.toLowerCase().includes("cuadruple") ? "5" : ""),
         servicio_adicional: reserva.additionalService,
         color_decoracion: reserva.color_decoracion || "",
         mensaje_decoracion: reserva.mensaje_decoracion || "",
@@ -1266,7 +1273,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     setSidebarOpen(false);
                     setSidebarCollapsed(true);
                     setOverviewModal(null);
-                    setOverviewDetailReserva(null);
+                    setOverviewDetailReserva(null); setEditandoHabitacionModal(false);
                   }}
                   title={effectiveCollapsed ? item.label : undefined}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative ${
@@ -1502,9 +1509,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               </td>
                             </tr>
                           ) : proximas.map((r) => (
-                            <tr key={r.id} onClick={() => setOverviewDetailReserva(r)} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
+                            <tr key={r.id} onClick={() => { setOverviewDetailReserva(r); setEditandoHabitacionModal(false); }} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
                               <td className="py-3 px-3 font-medium text-[#3d2010]">{r.guest}</td>
-                              <td className="py-3 px-3 text-slate-700 hidden sm:table-cell">{r.accommodation}</td>
+                              <td className="py-3 px-3 text-slate-700 hidden sm:table-cell">
+                                <div>{r.accommodation}</div>
+                                {r.numeroHabitacion && <div className="text-[11px] text-slate-400">Hab. {r.numeroHabitacion}</div>}
+                              </td>
                               <td className="py-3 px-3 text-slate-700">{r.checkIn}</td>
                               <td className="py-3 px-3 text-slate-700 hidden md:table-cell">{r.checkOut}</td>
                               <td className="py-3 px-3">
@@ -1545,9 +1555,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               </td>
                             </tr>
                           ) : concluidas.map((r) => (
-                            <tr key={r.id} onClick={() => setOverviewDetailReserva(r)} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
+                            <tr key={r.id} onClick={() => { setOverviewDetailReserva(r); setEditandoHabitacionModal(false); }} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
                               <td className="py-3 px-3 font-medium text-[#3d2010]">{r.guest}</td>
-                              <td className="py-3 px-3 text-slate-700 hidden sm:table-cell">{r.accommodation}</td>
+                              <td className="py-3 px-3 text-slate-700 hidden sm:table-cell">
+                                <div>{r.accommodation}</div>
+                                {r.numeroHabitacion && <div className="text-[11px] text-slate-400">Hab. {r.numeroHabitacion}</div>}
+                              </td>
                               <td className="py-3 px-3 text-slate-700 hidden md:table-cell">{r.checkIn}</td>
                               <td className="py-3 px-3 text-slate-700">{r.checkOut}</td>
                               <td className="py-3 px-3 hidden sm:table-cell">
@@ -1673,9 +1686,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                   {modalReservas.length === 0 ? (
                                     <tr><td colSpan={6} className="py-6 text-center text-slate-400">Sin reservas</td></tr>
                                   ) : modalReservas.map(r => (
-                                    <tr key={r.id} onClick={() => setOverviewDetailReserva(r)} className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                                    <tr key={r.id} onClick={() => { setOverviewDetailReserva(r); setEditandoHabitacionModal(false); }} className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
                                       <td className="py-3 px-4 font-medium text-[#3d2010]">{r.guest}</td>
-                                      <td className="py-3 px-4 text-slate-600 hidden sm:table-cell">{r.accommodation}</td>
+                                      <td className="py-3 px-4 text-slate-600 hidden sm:table-cell">
+                                        <div>{r.accommodation}</div>
+                                        {r.numeroHabitacion && <div className="text-[11px] text-slate-400">Hab. {r.numeroHabitacion}</div>}
+                                      </td>
                                       <td className="py-3 px-4 text-slate-600">{r.checkIn}</td>
                                       <td className="py-3 px-4 text-slate-600 hidden sm:table-cell">{r.checkOut}</td>
                                       <td className="py-3 px-4">
@@ -1755,11 +1771,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     {confirmadas.length === 0 ? (
                                       <p className="text-center text-slate-400 text-sm py-4">Sin reservas confirmadas para este alojamiento</p>
                                     ) : confirmadas.map(r => (
-                                      <div key={r.id} onClick={() => setOverviewDetailReserva(r)} className="p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                                      <div key={r.id} onClick={() => { setOverviewDetailReserva(r); setEditandoHabitacionModal(false); }} className="p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
                                         <div className="flex justify-between items-start">
                                           <div>
                                             <p className="text-sm font-medium text-[#3d2010]">{r.guest}</p>
-                                            <p className="text-xs text-slate-500">{r.checkIn}{r.accommodation !== "Día de Sol" ? ` → ${r.checkOut}` : ""}</p>
+                                            <p className="text-xs text-slate-500">{r.checkIn}{r.accommodation !== "Día de Sol" ? ` → ${r.checkOut}` : ""}{r.numeroHabitacion ? ` · Hab. ${r.numeroHabitacion}` : ""}</p>
                                           </div>
                                           <p className="text-sm font-semibold text-[#3d2010] whitespace-nowrap">{formatCurrency(r.fullValue)}</p>
                                         </div>
@@ -2057,7 +2073,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       {reservasFiltradas.map((r) => (
                         <tr
                           key={r.id}
-                          onClick={() => setOverviewDetailReserva(r)}
+                          onClick={() => { setOverviewDetailReserva(r); setEditandoHabitacionModal(false); }}
                           className={`border-b border-slate-200 transition-colors cursor-pointer ${r.guest === "Evento Privado" ? "bg-slate-100/80 hover:bg-slate-100" : "hover:bg-slate-50"}`}
                         >
                           <td className="py-4 px-6 font-medium text-[#3d2010]">
@@ -2080,7 +2096,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             </div>
                           </td>
                           <td className="py-4 px-6 text-slate-700 hidden md:table-cell">{r.email}</td>
-                          <td className="py-4 px-6 text-slate-700">{r.accommodation}</td>
+                          <td className="py-4 px-6 text-slate-700">
+                            <div>{r.accommodation}</div>
+                            {r.numeroHabitacion && (
+                              <div className="text-[11px] text-slate-400 mt-0.5">Hab. {r.numeroHabitacion}</div>
+                            )}
+                          </td>
                           <td className="py-4 px-6 text-slate-700 text-sm hidden sm:table-cell">
                             {r.checkIn} → {r.checkOut}
                           </td>
@@ -2560,7 +2581,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           )}
                           {historialReserva.deposit > 0 && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Abono</span>
+                              <span className="text-slate-500">
+                                Abono{historialReserva.cuentaAbono ? ` · ${historialReserva.cuentaAbono}` : ""}
+                              </span>
                               <span className="text-amber-700">− {formatCurrency(historialReserva.deposit)}</span>
                             </div>
                           )}
@@ -3197,9 +3220,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             })()}
                           </div>
                           {r.deposit > 0 && (
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 flex-wrap">
                               <span className="text-slate-400">Abono:</span>
                               <span className="font-medium text-amber-700">{formatCurrency(r.deposit)}</span>
+                              {r.cuentaAbono && <span className="text-slate-400">({r.cuentaAbono})</span>}
                             </div>
                           )}
                           {r.tokenPublico && !r.datosCompletados && (
@@ -3815,7 +3839,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           {overviewDetailReserva && (
             <div
               className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4"
-              onClick={() => setOverviewDetailReserva(null)}
+              onClick={() => { setOverviewDetailReserva(null); setEditandoHabitacionModal(false); }}
             >
               <div
                 className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
@@ -3840,7 +3864,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         {overviewDetailReserva.status}
                       </span>
                     )}
-                    <button onClick={() => setOverviewDetailReserva(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                    <button onClick={() => { setOverviewDetailReserva(null); setEditandoHabitacionModal(false); }} className="text-slate-400 hover:text-slate-600 transition-colors">
                       <X size={20} />
                     </button>
                   </div>
@@ -3887,6 +3911,72 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Alojamiento y Fechas</p>
                     <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
                       <div className="flex justify-between text-sm"><span className="text-slate-500">Alojamiento</span><span className="font-medium text-[#3d2010]">{overviewDetailReserva.accommodation}</span></div>
+                      {(overviewDetailReserva.accommodation?.toLowerCase().includes("pareja") || overviewDetailReserva.accommodation?.toLowerCase().includes("cuadruple")) && (
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-500">N° Habitación</span>
+                          {editandoHabitacionModal ? (
+                            <div className="flex items-center gap-1.5">
+                              {overviewDetailReserva.accommodation?.toLowerCase().includes("cuadruple") ? (
+                                <span className="text-[#3d2010] font-medium">Habitación 5</span>
+                              ) : (
+                                <select
+                                  autoFocus
+                                  className="text-sm border border-slate-300 rounded px-2 py-0.5 text-[#3d2010]"
+                                  value={habitacionModalTemp}
+                                  onChange={e => setHabitacionModalTemp(e.target.value)}
+                                >
+                                  <option value="">-- Seleccionar --</option>
+                                  {[1,2,3,4].map(n => (
+                                    <option key={n} value={String(n)}>Habitación {n}</option>
+                                  ))}
+                                </select>
+                              )}
+                              <button
+                                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                                title="Guardar"
+                                onClick={async () => {
+                                  const numHab = overviewDetailReserva.accommodation?.toLowerCase().includes("cuadruple") ? "5" : habitacionModalTemp;
+                                  if (!numHab) return;
+                                  const token = localStorage.getItem("authToken");
+                                  await reservasAPI.editarReserva(overviewDetailReserva.id, { numero_habitacion: numHab }, token);
+                                  await reloadReservas();
+                                  setOverviewDetailReserva((r: any) => ({ ...r, numeroHabitacion: numHab }));
+                                  setEditandoHabitacionModal(false);
+                                }}
+                              >
+                                <CheckCircle size={15} />
+                              </button>
+                              <button
+                                className="p-1 text-slate-400 hover:bg-slate-100 rounded"
+                                title="Cancelar"
+                                onClick={() => setEditandoHabitacionModal(false)}
+                              >
+                                <X size={15} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              {overviewDetailReserva.numeroHabitacion ? (
+                                <span className="font-medium text-[#3d2010]">Habitación {overviewDetailReserva.numeroHabitacion}</span>
+                              ) : (
+                                <span className="text-slate-400 italic text-xs">Sin asignar</span>
+                              )}
+                              {canEdit && (
+                                <button
+                                  className="p-1 text-slate-400 hover:text-[#5a3518] hover:bg-slate-100 rounded"
+                                  title="Editar habitación"
+                                  onClick={() => {
+                                    setHabitacionModalTemp(overviewDetailReserva.numeroHabitacion || "");
+                                    setEditandoHabitacionModal(true);
+                                  }}
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-500">{overviewDetailReserva.accommodation === "Día de Sol" ? "Fecha" : "Check-in"}</span>
                         <span className="text-[#3d2010]">{overviewDetailReserva.checkIn}</span>
@@ -3910,7 +4000,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.additionalServiceValue)}</span></div>
                       )}
                       {overviewDetailReserva.deposit > 0 && (
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">Abono</span><span className="text-amber-700">− {formatCurrency(overviewDetailReserva.deposit)}</span></div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">
+                            Abono{overviewDetailReserva.cuentaAbono ? ` · ${overviewDetailReserva.cuentaAbono}` : ""}
+                          </span>
+                          <span className="text-amber-700">− {formatCurrency(overviewDetailReserva.deposit)}</span>
+                        </div>
                       )}
                       <div className="flex justify-between text-sm font-semibold border-t border-slate-200 pt-2 mt-1">
                         <span className="text-[#3d2010]">Total</span>
@@ -3956,7 +4051,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <div className="px-6 pb-6 flex gap-3">
                   {canEdit && overviewDetailReserva.guest !== "Evento Privado" && (
                     <button
-                      onClick={() => { setOverviewDetailReserva(null); setOverviewModal(null); setActiveTab("reservas"); handleOpenReservaModal(overviewDetailReserva); }}
+                      onClick={() => { setOverviewDetailReserva(null); setEditandoHabitacionModal(false); setOverviewModal(null); setActiveTab("reservas"); handleOpenReservaModal(overviewDetailReserva); }}
                       className="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 transition-colors"
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
@@ -3964,7 +4059,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </button>
                   )}
                   <button
-                    onClick={() => setOverviewDetailReserva(null)}
+                    onClick={() => { setOverviewDetailReserva(null); setEditandoHabitacionModal(false); }}
                     className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
@@ -4020,15 +4115,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           value={reservaForm.hospedaje}
                           onChange={e => {
                             setAdminServiciosSeleccionados([]);
+                            const nuevoHospedaje = e.target.value;
+                            const numHab = nuevoHospedaje.toLowerCase().includes("cuadruple") ? "5" : "";
                             setReservaForm(f => ({
                               ...f,
-                              hospedaje: e.target.value,
-                              check_out: e.target.value === "Día de Sol" ? f.check_in : f.check_out,
+                              hospedaje: nuevoHospedaje,
+                              check_out: nuevoHospedaje === "Día de Sol" ? f.check_in : f.check_out,
                               servicio_adicional: "N/A",
                               color_decoracion: "",
                               mensaje_decoracion: "",
                               valor_servicio_adicional: 0,
-                              ...(e.target.value === "Día de Sol" ? { abono: 0 } : {}),
+                              numero_habitacion: numHab,
+                              ...(nuevoHospedaje === "Día de Sol" ? { abono: 0 } : {}),
                             }));
                           }}
                           required
@@ -4472,28 +4570,49 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           )}
 
                           {!reservaForm.hospedaje.toLowerCase().includes("de sol") && (
-                            <div>
-                              <label className="block text-sm mb-1 text-[#7a4828]">Abono</label>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
-                                  placeholder="0"
-                                  value={displayCOP(reservaForm.abono)}
-                                  onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
-                                  onChange={e => {
-                                    const val = parseCOP(e.target.value);
-                                    if (val <= valorAlojamiento + valorServicioAdicional) {
-                                      setReservaForm(f => ({
-                                        ...f,
-                                        abono: val,
-                                        ...(val > 0 && f.estado === "Pendiente" ? { estado: "Confirmada" } : {}),
-                                      }));
-                                    }
-                                  }}
-                                />
+                            <div className="space-y-2">
+                              <div>
+                                <label className="block text-sm mb-1 text-[#7a4828]">Abono</label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9db5a0] text-sm">$</span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="w-full pl-7 pr-3 py-2 border rounded text-[#3d2010] placeholder:text-[#9db5a0]"
+                                    placeholder="0"
+                                    value={displayCOP(reservaForm.abono)}
+                                    onFocus={e => { if (Number(reservaForm.abono) !== 0) e.target.select(); }}
+                                    onChange={e => {
+                                      const val = parseCOP(e.target.value);
+                                      if (val <= valorAlojamiento + valorServicioAdicional) {
+                                        setReservaForm(f => ({
+                                          ...f,
+                                          abono: val,
+                                          cuenta_abono: val === 0 ? "" : f.cuenta_abono,
+                                          ...(val > 0 && f.estado === "Pendiente" ? { estado: "Confirmada" } : {}),
+                                        }));
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-sm mb-1 text-[#7a4828]">
+                                  Cuenta del abono
+                                  {Number(reservaForm.abono) > 0 && <span className="ml-1 text-red-500">*</span>}
+                                </label>
+                                <select
+                                  className="w-full px-3 py-2 border rounded text-[#3d2010] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                  disabled={Number(reservaForm.abono) === 0}
+                                  value={reservaForm.cuenta_abono}
+                                  onChange={e => setReservaForm(f => ({ ...f, cuenta_abono: e.target.value }))}
+                                >
+                                  <option value="">— Seleccionar cuenta —</option>
+                                  <option value="Cuenta Sara">Cuenta Sara</option>
+                                  <option value="Cuenta Kevin">Cuenta Kevin</option>
+                                  <option value="Cuenta Glamping">Cuenta Glamping</option>
+                                  <option value="BOLD">BOLD</option>
+                                </select>
                               </div>
                             </div>
                           )}
@@ -4697,7 +4816,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         check_in: reserva.checkIn,
                         check_out: reserva.checkOut,
                         numero_huespedes: reserva.guests,
-                        numero_habitacion: reserva.numeroHabitacion != null ? String(reserva.numeroHabitacion) : "",
+                        numero_habitacion: (reserva.numeroHabitacion != null && String(reserva.numeroHabitacion).trim() !== "" && reserva.numeroHabitacion !== 0) ? String(reserva.numeroHabitacion) : (reserva.accommodation?.toLowerCase().includes("cuadruple") ? "5" : ""),
                         servicio_adicional: reserva.additionalService,
                         color_decoracion: reserva.color_decoracion || "",
                         mensaje_decoracion: reserva.mensaje_decoracion || "",
