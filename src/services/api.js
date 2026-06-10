@@ -193,6 +193,12 @@ export const correosAPI = {
   },
 };
 
+// Caché módulo para disponibilidad general — evita refetches innecesarios
+let _cacheDispGeneral = null;
+let _cacheDispTs = 0;
+let _pendingDispGeneral = null;
+const DISP_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
 // Rutas públicas de reserva (sin autenticación — para el enlace del huésped)
 export const reservaPublicaAPI = {
   async getByToken(token) {
@@ -212,13 +218,32 @@ export const reservaPublicaAPI = {
   },
 
   async disponibilidadGeneral() {
-    const res = await fetch(`${API_BASE_URL}/reservas/publica/disponibilidad-general`);
-    if (!res.ok) {
-      let msg = 'Error al consultar disponibilidad';
-      try { msg = (await res.json()).error || msg; } catch {}
-      throw new Error(msg);
+    const now = Date.now();
+    if (_cacheDispGeneral && (now - _cacheDispTs) < DISP_CACHE_TTL) {
+      return _cacheDispGeneral;
     }
-    return res.json();
+    // Deduplica: si ya hay un fetch en vuelo, reutiliza la misma promesa
+    if (_pendingDispGeneral) return _pendingDispGeneral;
+
+    _pendingDispGeneral = fetch(`${API_BASE_URL}/reservas/publica/disponibilidad-general`)
+      .then(async (res) => {
+        if (!res.ok) {
+          let msg = 'Error al consultar disponibilidad';
+          try { msg = (await res.json()).error || msg; } catch {}
+          throw new Error(msg);
+        }
+        const data = await res.json();
+        _cacheDispGeneral = data;
+        _cacheDispTs = Date.now();
+        _pendingDispGeneral = null;
+        return data;
+      })
+      .catch((err) => {
+        _pendingDispGeneral = null;
+        throw err;
+      });
+
+    return _pendingDispGeneral;
   },
 
   async crearPublica(data) {

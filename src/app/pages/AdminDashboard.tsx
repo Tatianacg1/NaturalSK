@@ -710,13 +710,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 celular: h?.celular?.trim() || "0",
               };
             })
-          : reservaForm.huespedes_adicionales;
+          : reservaForm.huespedes_adicionales.map(h => ({
+              ...h,
+              email: h.email?.trim() || "pendiente@naturalsk.com",
+            }));
       const { huespedes_adicionales: _huespedesIgnorados, ...restReservaForm } = reservaForm;
       const reservaPayload = {
         ...restReservaForm,
         ...(esPendiente && !restReservaForm.cedula_huesped?.trim() ? { cedula_huesped: "Pendiente" } : {}),
         ...(esPendiente && !restReservaForm.nombre_huesped?.trim() ? { nombre_huesped: "Sin nombre" } : {}),
-        ...(esPendiente && !restReservaForm.email_huesped?.trim() ? { email_huesped: "pendiente@naturalsk.com" } : {}),
+        ...(!restReservaForm.email_huesped?.trim() ? { email_huesped: "pendiente@naturalsk.com" } : {}),
         huespedes_adicionales: huespedesToSend,
         servicio_adicional: servicioLabel,
         color_decoracion: adminServiciosSeleccionados.find(x => x.color)?.color ?? "",
