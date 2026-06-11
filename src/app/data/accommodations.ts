@@ -164,7 +164,7 @@ export const accommodations: Accommodation[] = [
     badge: "Ideal para familias",
   },
     {
-    name: "Dia de sol",
+    name: "Día de Sol",
     type: "Sin alojamiento",
     image: "/images/diadesol1.jpeg",
     images: [
