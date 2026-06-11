@@ -434,9 +434,11 @@ export function ReservaPage() {
       const servicioLabel = serviciosSeleccionados.length > 0
         ? serviciosSeleccionados.map(x => labelServicio(x.servicio)).join(", ")
         : "N/A";
+      const checkOutFinal = isDiaDeSol ? form.check_in : form.check_out;
+      const valorAlojamiento = precioTotal(form.hospedaje, form.check_in, checkOutFinal, numHuespedes);
       const resp = await reservaPublicaAPI.crearPublica({
         ...form,
-        check_out: isDiaDeSol ? form.check_in : form.check_out,
+        check_out: checkOutFinal,
         telefono_huesped: (() => {
           const local = form.telefono_huesped.trim().replace(/^\+/, "");
           const codSin = indicativo.replace("+", "");
@@ -445,6 +447,7 @@ export function ReservaPage() {
         numero_huespedes: Number(form.numero_huespedes),
         servicio_adicional: servicioLabel,
         color_decoracion: serviciosSeleccionados.find(x => x.color)?.color ?? "",
+        valor_alojamiento: valorAlojamiento,
         valor_servicio_adicional: precioTotalServicios,
         ...(serviciosSeleccionados.length > 0 && {
           servicios_adicionales: serviciosSeleccionados.map(x => ({

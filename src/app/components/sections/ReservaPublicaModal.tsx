@@ -195,11 +195,23 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
       const telefonoCombinado = local
         ? (local.startsWith(codSin) ? `+${local}` : `${indicativo}${local}`)
         : "";
+      const numHuespedes = Number(form.numero_huespedes);
+      const valorAlojamiento = precioTotal(form.hospedaje, form.check_in, form.check_out, numHuespedes);
+      const precioServAdicional = precioServicio(form.hospedaje, form.servicio_adicional, numHuespedes);
+      const serviciosArr = form.servicio_adicional !== "N/A" ? [{
+        nombre: form.servicio_adicional,
+        label: labelServicio(form.servicio_adicional),
+        color: form.color_decoracion || null,
+        mensaje: form.mensaje_decoracion || null,
+        precio: precioServAdicional,
+      }] : [];
       const resp = await reservaPublicaAPI.crearPublica({
         ...form,
         telefono_huesped: telefonoCombinado,
-        numero_huespedes: Number(form.numero_huespedes),
-        valor_servicio_adicional: precioServicio(form.hospedaje, form.servicio_adicional),
+        numero_huespedes: numHuespedes,
+        valor_alojamiento: valorAlojamiento,
+        valor_servicio_adicional: precioServAdicional,
+        ...(serviciosArr.length > 0 && { servicios_adicionales: serviciosArr }),
       });
       setNumeroReserva(resp?.numero_reserva ?? null);
       setExito(true);
