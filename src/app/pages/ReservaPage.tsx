@@ -1022,7 +1022,7 @@ export function ReservaPage() {
                     <div className="flex gap-1.5 flex-wrap">
                       {Array.from({ length: numHuespedes }, (_, i) => {
                         const isIncomplete = i === 0
-                          ? !form.nombre_huesped.trim() || !form.cedula_huesped.trim()
+                          ? !form.nombre_huesped.trim() || !form.cedula_huesped.trim() || !form.email_huesped.trim() || !form.telefono_huesped.trim()
                           : !huespedesAdicionales[i - 1]?.nombre?.trim() || !huespedesAdicionales[i - 1]?.cedula?.trim();
                         return (
                           <button
