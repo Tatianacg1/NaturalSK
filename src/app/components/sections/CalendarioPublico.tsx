@@ -10,6 +10,7 @@ export interface Rango {
   check_in: string;
   check_out: string;
   numero_huespedes?: number;  // solo para Día de Sol
+  numero_habitacion?: string; // para Habitación Pareja
 }
 
 export interface AloData {

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef, useMemo } from "react";
 import { ArrowLeft, CheckCircle, AlertCircle, Loader, CalendarDays, MapPin, Expand, Info, MessageCircle, Clock } from "lucide-react";
 import { accommodations } from "../data/accommodations";
 import { reservaPublicaAPI } from "../../services/api";
@@ -288,6 +288,13 @@ export function ReservaPage() {
     }));
   }, [form.hospedaje]);
 
+  // Reset room selection if it becomes occupied when dates change
+  useEffect(() => {
+    if (form.numero_habitacion && habitacionesOcupadas.includes(form.numero_habitacion)) {
+      setForm(p => ({ ...p, numero_habitacion: "" }));
+    }
+  }, [habitacionesOcupadas]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (modoVista !== "fecha") return;
     if (!form.check_out || form.check_out === form.check_in) return;
@@ -358,6 +365,19 @@ export function ReservaPage() {
     x => servicioRequiereColor(x.servicio) && !x.color
   );
   const esHabitacion = normalize(form.hospedaje).includes("pareja") || normalize(form.hospedaje).includes("cuadruple");
+
+  // Rooms already taken for the selected date range (based on admin-assigned room numbers)
+  const habitacionesOcupadas = useMemo(() => {
+    if (!form.check_in || !form.check_out || !datosGenerales) return [];
+    const parejaData = datosGenerales.find(alo => normalize(alo.nombre).includes("pareja"));
+    if (!parejaData) return [];
+    const ci = form.check_in;
+    const co = form.check_out;
+    return parejaData.reservas
+      .filter(r => r.numero_habitacion && r.check_in < co && r.check_out > ci)
+      .map(r => r.numero_habitacion!);
+  }, [datosGenerales, form.check_in, form.check_out]);
+
   const huesped1Completo = !!form.nombre_huesped.trim() && !!form.cedula_huesped.trim() && !!form.email_huesped.trim() && !!form.telefono_huesped.trim();
   const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre?.trim() && h.cedula?.trim() && h.email?.trim() && h.celular?.trim());
   const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos && !colorRequerido && (!esHabitacion || !!form.numero_habitacion) && numHuespedes >= minH;
@@ -1303,7 +1323,7 @@ export function ReservaPage() {
                             style={{ fontFamily: "'DM Sans', sans-serif" }}
                           >
                             <option value="">Selecciona una habitación</option>
-                            {[1, 2, 3, 4].map(n => (
+                            {[1, 2, 3, 4].filter(n => !habitacionesOcupadas.includes(String(n))).map(n => (
                               <option key={n} value={String(n)}>Habitación {n}</option>
                             ))}
                           </select>
