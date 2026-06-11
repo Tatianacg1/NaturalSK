@@ -66,11 +66,13 @@ function buildWaUrl(
   nights: number,
   huespedes: string,
   servicio: string,
-  total: number | null
+  total: number | null,
+  numeroReserva: number | null
 ): string {
   const lines = [
     `Hola! Acabo de solicitar una reserva en Natural Sound 🌿`,
     ``,
+    ...(numeroReserva ? [`🔖 *Reserva #${numeroReserva}*`] : []),
     `🏡 *${hospedaje}*`,
     `📅 Llegada: ${formatDateEs(checkIn)}`,
     `🚪 Salida: ${formatDateEs(checkOut)}`,
@@ -114,6 +116,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState(false);
+  const [numeroReserva, setNumeroReserva] = useState<number | null>(null);
 
   const [datosGenerales, setDatosGenerales] = useState<AloData[] | undefined>(undefined);
   const [loadingGeneral, setLoadingGeneral] = useState(false);
@@ -132,6 +135,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
     setIndicativo("+57");
     setError("");
     setExito(false);
+    setNumeroReserva(null);
   }, [open, alojamientoInicial]);
 
   useEffect(() => {
@@ -191,12 +195,13 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
       const telefonoCombinado = local
         ? (local.startsWith(codSin) ? `+${local}` : `${indicativo}${local}`)
         : "";
-      await reservaPublicaAPI.crearPublica({
+      const resp = await reservaPublicaAPI.crearPublica({
         ...form,
         telefono_huesped: telefonoCombinado,
         numero_huespedes: Number(form.numero_huespedes),
         valor_servicio_adicional: precioServicio(form.hospedaje, form.servicio_adicional),
       });
+      setNumeroReserva(resp?.numero_reserva ?? null);
       setExito(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al enviar la solicitud");
@@ -268,7 +273,7 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
               : null;
             const waUrl = buildWaUrl(
               form.hospedaje, form.check_in, form.check_out, nights,
-              form.numero_huespedes, form.servicio_adicional, exitoTotal
+              form.numero_huespedes, form.servicio_adicional, exitoTotal, numeroReserva
             );
             return (
               <div className="text-center py-8">
@@ -279,6 +284,14 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
                 >
                   Tu solicitud fue recibida
                 </p>
+                {numeroReserva && (
+                  <p
+                    className="text-[#8a6038] text-[11px] tracking-widest uppercase mb-2"
+                    style={{ fontFamily: "'DM Mono', monospace" }}
+                  >
+                    Reserva #{numeroReserva}
+                  </p>
+                )}
                 <p className="text-gray-600 text-sm mb-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                   <span className="text-[#3d2010] font-medium">{form.hospedaje}</span>
                   {" · "}
