@@ -674,6 +674,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     try {
       const token = localStorage.getItem("authToken");
       if (!token) return;
+      if (!reservaForm.hospedaje) {
+        alert("Debes seleccionar un alojamiento antes de guardar la reserva");
+        return;
+      }
       if (
         reservaForm.estado !== "Pendiente" &&
         reservaForm.numero_huespedes > 1 &&
