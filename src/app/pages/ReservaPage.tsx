@@ -257,7 +257,7 @@ export function ReservaPage() {
   const [exito, setExito] = useState(false);
   const [numeroReserva, setNumeroReserva] = useState<number | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
-  const [huespedesAdicionales, setHuespedesAdicionales] = useState<Array<{ nombre: string; cedula: string }>>([]);
+  const [huespedesAdicionales, setHuespedesAdicionales] = useState<Array<{ nombre: string; cedula: string; email: string }>>([]);
   const [tabActivo, setTabActivo] = useState(0);
   const alosRef = useRef<HTMLDivElement>(null);
   const prevNumHuespedesRef = useRef(2);
@@ -312,7 +312,7 @@ export function ReservaPage() {
     const extra = Math.max(0, numHuespedes - 1);
     setHuespedesAdicionales(prev => {
       const next = [...prev];
-      while (next.length < extra) next.push({ nombre: "", cedula: "" });
+      while (next.length < extra) next.push({ nombre: "", cedula: "", email: "" });
       return next.slice(0, extra);
     });
     if (numHuespedes < prevNumHuespedesRef.current) {
@@ -359,7 +359,7 @@ export function ReservaPage() {
   );
   const esHabitacion = normalize(form.hospedaje).includes("pareja") || normalize(form.hospedaje).includes("cuadruple");
   const huesped1Completo = !!form.nombre_huesped.trim() && !!form.cedula_huesped.trim() && !!form.email_huesped.trim() && !!form.telefono_huesped.trim();
-  const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre?.trim() && h.cedula?.trim());
+  const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre?.trim() && h.cedula?.trim() && h.email?.trim());
   const canSubmit = !!form.hospedaje && !!form.check_in && (isDiaDeSol || !!form.check_out) && huesped1Completo && adiccionalesCompletos && !colorRequerido && (!esHabitacion || !!form.numero_habitacion) && numHuespedes >= minH;
 
   const toggleServicio = (s: string) => {
@@ -1023,7 +1023,7 @@ export function ReservaPage() {
                       {Array.from({ length: numHuespedes }, (_, i) => {
                         const isIncomplete = i === 0
                           ? !form.nombre_huesped.trim() || !form.cedula_huesped.trim() || !form.email_huesped.trim() || !form.telefono_huesped.trim()
-                          : !huespedesAdicionales[i - 1]?.nombre?.trim() || !huespedesAdicionales[i - 1]?.cedula?.trim();
+                          : !huespedesAdicionales[i - 1]?.nombre?.trim() || !huespedesAdicionales[i - 1]?.cedula?.trim() || !huespedesAdicionales[i - 1]?.email?.trim();
                         return (
                           <button
                             key={i}
@@ -1194,11 +1194,27 @@ export function ReservaPage() {
                       />
                     </div>
 
-                    <div className="flex items-start gap-2 bg-gray-50 rounded-xl px-3 py-2.5">
-                      <Info size={11} className="text-gray-400 mt-0.5 shrink-0" />
-                      <p className="text-gray-400 text-[11px]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                        Solo se requiere nombre y cédula para los acompañantes.
-                      </p>
+                    <div>
+                      <label className={labelCls} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={huespedesAdicionales[tabActivo - 1]?.email ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setHuespedesAdicionales(prev => {
+                            const next = [...prev];
+                            next[tabActivo - 1] = { ...next[tabActivo - 1], email: val };
+                            return next;
+                          });
+                          setError("");
+                        }}
+                        placeholder="correo@ejemplo.com"
+                        className={inputCls}
+                        style={{ fontFamily: "'DM Sans', sans-serif" }}
+                      />
                     </div>
                   </>
                 )}
