@@ -288,13 +288,6 @@ export function ReservaPage() {
     }));
   }, [form.hospedaje]);
 
-  // Reset room selection if it becomes occupied when dates change
-  useEffect(() => {
-    if (form.numero_habitacion && habitacionesOcupadas.includes(form.numero_habitacion)) {
-      setForm(p => ({ ...p, numero_habitacion: "" }));
-    }
-  }, [habitacionesOcupadas]); // eslint-disable-line react-hooks/exhaustive-deps
-
   useEffect(() => {
     if (modoVista !== "fecha") return;
     if (!form.check_out || form.check_out === form.check_in) return;
@@ -377,6 +370,13 @@ export function ReservaPage() {
       .filter(r => r.numero_habitacion && r.check_in < co && r.check_out > ci)
       .map(r => r.numero_habitacion!);
   }, [datosGenerales, form.check_in, form.check_out]);
+
+  // Reset room selection if it becomes occupied when dates change
+  useEffect(() => {
+    if (form.numero_habitacion && habitacionesOcupadas.includes(form.numero_habitacion)) {
+      setForm(p => ({ ...p, numero_habitacion: "" }));
+    }
+  }, [habitacionesOcupadas]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const huesped1Completo = !!form.nombre_huesped.trim() && !!form.cedula_huesped.trim() && !!form.email_huesped.trim() && !!form.telefono_huesped.trim();
   const adiccionalesCompletos = numHuespedes <= 1 || huespedesAdicionales.every(h => h.nombre?.trim() && h.cedula?.trim() && h.email?.trim() && h.celular?.trim());
