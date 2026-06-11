@@ -57,15 +57,6 @@ function advance(year: number, month: number, delta: number) {
   return { year: d.getFullYear(), month: d.getMonth() };
 }
 
-function buildCells(year: number, month: number): (number | null)[] {
-  const firstDow = new Date(year, month, 1).getDay();
-  const days = new Date(year, month + 1, 0).getDate();
-  const total = Math.ceil((firstDow + days) / 7) * 7;
-  return Array.from({ length: total }, (_, i) => {
-    const d = i - firstDow + 1;
-    return d >= 1 && d <= days ? d : null;
-  });
-}
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
@@ -239,7 +230,22 @@ export function CalendarioPublico({
   const showEmpty = !modoFecha && !alojamiento;
 
   const renderMonth = (year: number, month: number) => {
-    const cells = buildCells(year, month);
+    const firstDow = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+    const nextM = advance(year, month, 1);
+
+    const cells = Array.from({ length: totalCells }, (_, i) => {
+      const d = i - firstDow + 1;
+      if (d >= 1 && d <= daysInMonth) {
+        return { day: d, cy: year, cm: month, overflow: false };
+      } else if (d < 1) {
+        return null;
+      } else {
+        return { day: d - daysInMonth, cy: nextM.year, cm: nextM.month, overflow: true };
+      }
+    });
+
     return (
       <div>
         <div className="grid grid-cols-7 mb-1">
@@ -255,19 +261,20 @@ export function CalendarioPublico({
         </div>
 
         <div className="grid grid-cols-7">
-          {cells.map((day, i) => {
-            if (!day) return <div key={`e-${i}`} className="h-11" />;
+          {cells.map((cell, i) => {
+            if (!cell) return <div key={`e-${i}`} className="h-11" />;
 
-            const ds = toStr(year, month, day);
-            const past = isPast(year, month, day);
-            const todayCell = isTodayDate(year, month, day);
+            const { day, cy, cm, overflow } = cell;
+            const ds = toStr(cy, cm, day);
+            const past = isPast(cy, cm, day);
+            const todayCell = isTodayDate(cy, cm, day);
             const start = isStart(ds);
             const end = isEnd(ds);
             const ranged = inRange(ds);
 
-            const bookedAlo = !modoFecha && !past && isBookedAlo(year, month, day);
-            const cuposDiaSol = !modoFecha && esDiaDeSol && !past ? getCuposDiaDeSol(year, month, day) : null;
-            const avCount = modoFecha && !past ? availableCountAt(year, month, day) : 0;
+            const bookedAlo = !modoFecha && !past && isBookedAlo(cy, cm, day);
+            const cuposDiaSol = !modoFecha && esDiaDeSol && !past ? getCuposDiaDeSol(cy, cm, day) : null;
+            const avCount = modoFecha && !past ? availableCountAt(cy, cm, day) : 0;
             const festivo = !past && esFestivo(ds);
             const allAvail = avCount === totalAlos;
             const noneAvail = avCount === 0;
@@ -278,7 +285,13 @@ export function CalendarioPublico({
             const showEndBand = showBand && end && ds !== checkIn;
 
             return (
-              <div key={day} className="relative h-11">
+              <div
+                key={`${cy}-${cm}-${day}`}
+                className={cn(
+                  "relative h-11",
+                  overflow && !start && !end && !ranged && "opacity-40"
+                )}
+              >
                 {showBand && (
                   <div
                     className="absolute inset-y-[3px] bg-[#8a6038]/15 pointer-events-none"
@@ -292,7 +305,7 @@ export function CalendarioPublico({
                 <button
                   className="absolute inset-0 flex flex-col items-center justify-center gap-0.5"
                   disabled={disabled}
-                  onClick={() => handleDayClick(ds, year, month, day)}
+                  onClick={() => handleDayClick(ds, cy, cm, day)}
                   onMouseEnter={() => {
                     if (!disabled && checkIn && !checkOut && !esSingleDay) setHover(ds);
                   }}

@@ -78,12 +78,14 @@ function buildWaUrl(
   nights: number,
   huespedes: string,
   servicio: string,
-  total: number | null
+  total: number | null,
+  numeroReserva: number | null = null
 ): string {
   const esDiaSol = normalize(hospedaje) === "dia de sol";
   const lines = [
     `Hola! Acabo de solicitar una reserva en Natural Sound 🌿`,
     ``,
+    ...(numeroReserva ? [`🔖 *Reserva #${numeroReserva}*`] : []),
     `🏡 *${hospedaje}*`,
     `📅 Llegada: ${formatDateLong(checkIn)}`,
     ...(!esDiaSol ? [`🚪 Salida: ${formatDateLong(checkOut)}`] : []),
@@ -253,6 +255,7 @@ export function ReservaPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState(false);
+  const [numeroReserva, setNumeroReserva] = useState<number | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [huespedesAdicionales, setHuespedesAdicionales] = useState<Array<{ nombre: string; cedula: string }>>([]);
   const [tabActivo, setTabActivo] = useState(0);
@@ -411,7 +414,7 @@ export function ReservaPage() {
       const servicioLabel = serviciosSeleccionados.length > 0
         ? serviciosSeleccionados.map(x => labelServicio(x.servicio)).join(", ")
         : "N/A";
-      await reservaPublicaAPI.crearPublica({
+      const resp = await reservaPublicaAPI.crearPublica({
         ...form,
         check_out: isDiaDeSol ? form.check_in : form.check_out,
         telefono_huesped: (() => {
@@ -434,6 +437,7 @@ export function ReservaPage() {
         }),
         ...(huespedesAdicionales.length > 0 && { huespedes_adicionales: huespedesAdicionales }),
       });
+      setNumeroReserva(resp?.numero_reserva ?? null);
       setExito(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: unknown) {
@@ -457,7 +461,7 @@ export function ReservaPage() {
       : "N/A";
     const waUrl = buildWaUrl(
       form.hospedaje, form.check_in, form.check_out, nights,
-      form.numero_huespedes, exitoServicio, exitoTotal
+      form.numero_huespedes, exitoServicio, exitoTotal, numeroReserva
     );
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">

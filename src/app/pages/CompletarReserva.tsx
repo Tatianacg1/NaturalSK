@@ -293,12 +293,13 @@ export function CompletarReserva({ token }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm mb-1 text-[#7a4828]">Correo electrónico</label>
+            <label className="block text-sm mb-1 text-[#7a4828]">Correo electrónico *</label>
             <input
               type="email"
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[#3d2010] focus:outline-none focus:border-[#5a3518]"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              required
               placeholder="tu@correo.com"
             />
           </div>
