@@ -83,17 +83,17 @@ function buildWaUrl(
 ): string {
   const esDiaSol = normalize(hospedaje) === "dia de sol";
   const lines = [
-    `Hola! Acabo de solicitar una reserva en Natural Sound 🌿`,
+    `Hola! Acabo de solicitar una reserva en Natural Sound`,
     ``,
-    ...(numeroReserva ? [`🔖 *Reserva #${numeroReserva}*`] : []),
-    `🏡 *${hospedaje}*`,
-    `📅 Llegada: ${formatDateLong(checkIn)}`,
-    ...(!esDiaSol ? [`🚪 Salida: ${formatDateLong(checkOut)}`] : []),
+    ...(numeroReserva ? [`*Reserva #${numeroReserva}*`] : []),
+    `*${hospedaje}*`,
+    `Llegada: ${formatDateLong(checkIn)}`,
+    ...(!esDiaSol ? [`Salida: ${formatDateLong(checkOut)}`] : []),
     esDiaSol
-      ? `👥 ${huespedes} ${Number(huespedes) === 1 ? "persona" : "personas"}`
-      : `🌙 ${nights} ${nights === 1 ? "noche" : "noches"} · ${huespedes} ${Number(huespedes) === 1 ? "huésped" : "huéspedes"}`,
-    ...(servicio !== "N/A" ? [`✨ Servicio: ${servicio}`] : []),
-    ...(total ? [`💰 Precio estimado: ${formatCOP(total)} COP`] : []),
+      ? `${huespedes} ${Number(huespedes) === 1 ? "persona" : "personas"}`
+      : `${nights} ${nights === 1 ? "noche" : "noches"} · ${huespedes} ${Number(huespedes) === 1 ? "huésped" : "huéspedes"}`,
+    ...(servicio !== "N/A" ? [`Servicio: ${servicio}`] : []),
+    ...(total ? [`Precio estimado: ${formatCOP(total)} COP`] : []),
     ``,
     `Quiero confirmar los detalles del pago.`,
   ];

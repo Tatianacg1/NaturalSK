@@ -70,15 +70,15 @@ function buildWaUrl(
   numeroReserva: number | null
 ): string {
   const lines = [
-    `Hola! Acabo de solicitar una reserva en Natural Sound 🌿`,
+    `Hola! Acabo de solicitar una reserva en Natural Sound`,
     ``,
-    ...(numeroReserva ? [`🔖 *Reserva #${numeroReserva}*`] : []),
-    `🏡 *${hospedaje}*`,
-    `📅 Llegada: ${formatDateEs(checkIn)}`,
-    `🚪 Salida: ${formatDateEs(checkOut)}`,
-    `🌙 ${nights} ${nights === 1 ? "noche" : "noches"} · ${huespedes} ${Number(huespedes) === 1 ? "huésped" : "huéspedes"}`,
-    ...(servicio !== "N/A" ? [`✨ Servicio: ${servicio}`] : []),
-    ...(total ? [`💰 Precio estimado: ${formatCOP(total)} COP`] : []),
+    ...(numeroReserva ? [`*Reserva #${numeroReserva}*`] : []),
+    `*${hospedaje}*`,
+    `Llegada: ${formatDateEs(checkIn)}`,
+    `Salida: ${formatDateEs(checkOut)}`,
+    `${nights} ${nights === 1 ? "noche" : "noches"} · ${huespedes} ${Number(huespedes) === 1 ? "huésped" : "huéspedes"}`,
+    ...(servicio !== "N/A" ? [`Servicio: ${servicio}`] : []),
+    ...(total ? [`Precio estimado: ${formatCOP(total)} COP`] : []),
     ``,
     `Quiero confirmar los detalles del pago.`,
   ];
