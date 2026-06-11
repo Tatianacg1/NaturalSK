@@ -3013,7 +3013,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             {selRes.map(r => (
                               <div
                                 key={r.id}
-                                className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:border-slate-300 transition-colors"
+                                className="border border-slate-200 rounded-lg p-3 flex items-start gap-3 hover:border-primary/40 hover:bg-amber-50/30 transition-colors cursor-pointer"
+                                onClick={() => { setCalSelectedDay(null); setOverviewDetailReserva(r); setEditandoHabitacionModal(false); }}
                               >
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5">
@@ -3043,7 +3044,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     <div className="flex flex-col gap-1 shrink-0">
                                       {r.status === "Pendiente" && (
                                         <button
-                                          onClick={() => {
+                                          onClick={(e) => {
+                                            e.stopPropagation();
                                             setCalSelectedDay(null);
                                             handleConfirmarReserva(r.id);
                                           }}
@@ -3055,7 +3057,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                         </button>
                                       )}
                                       <button
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           setCalSelectedDay(null);
                                           handleOpenReservaModal(r);
                                         }}
