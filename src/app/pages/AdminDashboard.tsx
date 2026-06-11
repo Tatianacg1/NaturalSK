@@ -2570,6 +2570,37 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </div>
                       </div>
 
+                      {/* Servicios adicionales */}
+                      {historialReserva.servicios_adicionales?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
+                            Servicios Adicionales
+                          </p>
+                          <div className="space-y-2">
+                            {historialReserva.servicios_adicionales.map((s: any, i: number) => (
+                              <div key={i} className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">{s.label || s.nombre}</span>
+                                  <span className="font-medium text-[#3d2010]">{formatCurrency(s.precio)}</span>
+                                </div>
+                                {s.color && (
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Color</span>
+                                    <span className="text-[#3d2010]">{s.color}</span>
+                                  </div>
+                                )}
+                                {s.mensaje && (
+                                  <div className="flex justify-between items-start gap-2">
+                                    <span className="text-slate-500 shrink-0">Mensaje</span>
+                                    <span className="text-[#3d2010] text-right">{s.mensaje}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Resumen financiero */}
                       <div>
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
@@ -2580,12 +2611,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <span className="text-slate-500">Valor alojamiento</span>
                             <span className="text-[#3d2010]">{formatCurrency(historialReserva.accommodationValue)}</span>
                           </div>
-                          {historialReserva.additionalServiceValue > 0 && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">Servicio adicional</span>
-                              <span className="text-[#3d2010]">{formatCurrency(historialReserva.additionalServiceValue)}</span>
-                            </div>
-                          )}
+                          {historialReserva.servicios_adicionales?.length > 0
+                            ? historialReserva.servicios_adicionales.map((s: any, i: number) => (
+                                <div key={i} className="flex justify-between text-sm">
+                                  <span className="text-slate-500">{s.label || s.nombre}</span>
+                                  <span className="text-[#3d2010]">{formatCurrency(s.precio)}</span>
+                                </div>
+                              ))
+                            : historialReserva.additionalServiceValue > 0 && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-500">Servicio adicional</span>
+                                  <span className="text-[#3d2010]">{formatCurrency(historialReserva.additionalServiceValue)}</span>
+                                </div>
+                              )
+                          }
                           {historialReserva.deposit > 0 && (
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-500">
@@ -2604,6 +2643,32 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           </div>
                         </div>
                       </div>
+
+                      {/* Observaciones */}
+                      {(historialReserva.observacion || historialReserva.mensaje_decoracion) && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
+                            Observaciones y Notas
+                          </p>
+                          <div className="space-y-2">
+                            {historialReserva.observacion && (
+                              <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                                <MessageCircle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Observación</p>
+                                  <p className="text-sm text-amber-900">{historialReserva.observacion}</p>
+                                </div>
+                              </div>
+                            )}
+                            {historialReserva.mensaje_decoracion && (
+                              <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5">
+                                <span className="text-[10px] font-semibold text-purple-700 mt-0.5 shrink-0 uppercase tracking-wide">Decoración</span>
+                                <p className="text-sm text-purple-900">{historialReserva.mensaje_decoracion}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Pie del modal */}
@@ -4002,13 +4067,48 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       )}
                     </div>
                   </div>
+                  {overviewDetailReserva.servicios_adicionales?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Servicios Adicionales</p>
+                      <div className="space-y-2">
+                        {overviewDetailReserva.servicios_adicionales.map((s: any, i: number) => (
+                          <div key={i} className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">{s.label || s.nombre}</span>
+                              <span className="font-medium text-[#3d2010]">{formatCurrency(s.precio)}</span>
+                            </div>
+                            {s.color && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Color</span>
+                                <span className="text-[#3d2010]">{s.color}</span>
+                              </div>
+                            )}
+                            {s.mensaje && (
+                              <div className="flex justify-between items-start gap-2">
+                                <span className="text-slate-500 shrink-0">Mensaje</span>
+                                <span className="text-[#3d2010] text-right">{s.mensaje}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Resumen Financiero</p>
                     <div className="bg-slate-50 rounded-lg p-4 space-y-1.5">
                       <div className="flex justify-between text-sm"><span className="text-slate-500">Valor alojamiento</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.accommodationValue)}</span></div>
-                      {overviewDetailReserva.additionalServiceValue > 0 && (
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.additionalServiceValue)}</span></div>
-                      )}
+                      {overviewDetailReserva.servicios_adicionales?.length > 0
+                        ? overviewDetailReserva.servicios_adicionales.map((s: any, i: number) => (
+                            <div key={i} className="flex justify-between text-sm">
+                              <span className="text-slate-500">{s.label || s.nombre}</span>
+                              <span className="text-[#3d2010]">{formatCurrency(s.precio)}</span>
+                            </div>
+                          ))
+                        : overviewDetailReserva.additionalServiceValue > 0 && (
+                            <div className="flex justify-between text-sm"><span className="text-slate-500">Servicio adicional</span><span className="text-[#3d2010]">{formatCurrency(overviewDetailReserva.additionalServiceValue)}</span></div>
+                          )
+                      }
                       {overviewDetailReserva.deposit > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-500">
