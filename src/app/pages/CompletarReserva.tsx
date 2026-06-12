@@ -105,12 +105,7 @@ export function CompletarReserva({ token }: Props) {
       setMensajeExito(resultado.mensaje);
       setEnviado(true);
     } catch (err: any) {
-      if (err.message?.toLowerCase().includes("completada")) {
-        setMensajeExito("Tus datos ya estaban registrados en esta reserva.");
-        setEnviado(true);
-      } else {
-        setError(err.message || "Error al enviar los datos");
-      }
+      setError(err.message || "Error al enviar los datos");
     } finally {
       setEnviando(false);
     }
