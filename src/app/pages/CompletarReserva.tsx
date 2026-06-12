@@ -29,6 +29,7 @@ interface ReservaInfo {
   estado: string;
   servicio_adicional: string;
   nombre_huesped?: string;
+  email_huesped?: string;
 }
 
 export function CompletarReserva({ token }: Props) {
