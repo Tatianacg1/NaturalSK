@@ -52,7 +52,7 @@ export function CompletarReserva({ token }: Props) {
     reservaPublicaAPI.getByToken(token)
       .then(data => {
         setReservaInfo(data);
-        if (data.datos_completados && data.nombre_huesped) setEnviado(true);
+        if (data.datos_completados) setEnviado(true);
       })
       .catch(err => setError(err.message))
       .finally(() => setCargando(false));
