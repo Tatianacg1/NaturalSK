@@ -2143,7 +2143,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               )}
                               {canEdit && r.tokenPublico && (
                                 <button
-                                  disabled={r.datosCompletados}
                                   onClick={() => {
                                     const url = `${window.location.origin}/reservar/${r.tokenPublico}`;
                                     setEnlaceGenerado(url);
@@ -2151,8 +2150,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     setMotivoPendiente(r.observacion || "");
                                     setShowEnlaceModal(true);
                                   }}
-                                  className={`p-2 rounded transition-colors ${r.datosCompletados ? "text-slate-300 cursor-not-allowed" : "text-[#5a3518] hover:bg-[#f0e4d0] cursor-pointer"}`}
-                                  title={r.datosCompletados ? "El huésped ya completó sus datos" : "Completar datos / ver enlace"}
+                                  className="p-2 rounded transition-colors text-[#5a3518] hover:bg-[#f0e4d0] cursor-pointer"
+                                  title={r.datosCompletados ? "Ver enlace (huésped ya completó sus datos)" : "Completar datos / ver enlace"}
                                 >
                                   <Link size={16} />
                                 </button>
