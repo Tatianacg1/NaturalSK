@@ -52,7 +52,12 @@ export function CompletarReserva({ token }: Props) {
     reservaPublicaAPI.getByToken(token)
       .then(data => {
         setReservaInfo(data);
-        if (data.datos_completados) setEnviado(true);
+        const nombreReal = data.nombre_huesped &&
+          data.nombre_huesped !== "Sin nombre" &&
+          data.nombre_huesped !== "Pendiente";
+        const emailReal = data.email_huesped &&
+          data.email_huesped !== "pendiente@naturalsk.com";
+        if (data.datos_completados && nombreReal && emailReal) setEnviado(true);
       })
       .catch(err => setError(err.message))
       .finally(() => setCargando(false));
@@ -99,7 +104,12 @@ export function CompletarReserva({ token }: Props) {
       setMensajeExito(resultado.mensaje);
       setEnviado(true);
     } catch (err: any) {
-      setError(err.message || "Error al enviar los datos");
+      if (err.message?.toLowerCase().includes("completada")) {
+        setMensajeExito("Tus datos ya estaban registrados en esta reserva.");
+        setEnviado(true);
+      } else {
+        setError(err.message || "Error al enviar los datos");
+      }
     } finally {
       setEnviando(false);
     }
