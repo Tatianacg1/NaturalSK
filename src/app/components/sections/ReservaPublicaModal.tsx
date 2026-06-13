@@ -94,6 +94,8 @@ const emptyForm = (alojamiento = "") => ({
   email_huesped: "",
   telefono_huesped: "",
   numero_huespedes: "1",
+  numero_habitacion: "",
+  observacion: "",
   servicio_adicional: "N/A",
   color_decoracion: "",
   mensaje_decoracion: "",
@@ -198,19 +200,28 @@ export function ReservaPublicaModal({ open, onClose, alojamientoInicial }: Props
       const numHuespedes = Number(form.numero_huespedes);
       const valorAlojamiento = precioTotal(form.hospedaje, form.check_in, form.check_out, numHuespedes);
       const precioServAdicional = precioServicio(form.hospedaje, form.servicio_adicional, numHuespedes);
+      const servicioLabel = form.servicio_adicional !== "N/A"
+        ? labelServicio(form.servicio_adicional)
+        : "N/A";
       const serviciosArr = form.servicio_adicional !== "N/A" ? [{
         nombre: form.servicio_adicional,
-        label: labelServicio(form.servicio_adicional),
+        label: servicioLabel,
         color: form.color_decoracion || null,
         mensaje: form.mensaje_decoracion || null,
         precio: precioServAdicional,
       }] : [];
+      const n = form.hospedaje.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const tipoHospedajeModal = n.includes("dia de sol") ? "Día de Sol"
+        : n.includes("habitacion") ? "Habitación"
+        : "Glamping";
       const resp = await reservaPublicaAPI.crearPublica({
         ...form,
         telefono_huesped: telefonoCombinado,
         numero_huespedes: numHuespedes,
+        servicio_adicional: servicioLabel,
         valor_alojamiento: valorAlojamiento,
         valor_servicio_adicional: precioServAdicional,
+        tipo_hospedaje: tipoHospedajeModal,
         ...(serviciosArr.length > 0 && { servicios_adicionales: serviciosArr }),
       });
       setNumeroReserva(resp?.numero_reserva ?? null);

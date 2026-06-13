@@ -350,11 +350,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   }, [user?.role]);
 
-  // Carga inicial + polling cada 30 segundos
+  const [nextRefreshIn, setNextRefreshIn] = useState(10);
+
+  // Carga inicial + polling cada 10 segundos
   useEffect(() => {
     loadData();
-    const interval = setInterval(() => loadData(true), 30000);
-    return () => clearInterval(interval);
+    setNextRefreshIn(10);
+    const interval = setInterval(() => {
+      loadData(true);
+      setNextRefreshIn(10);
+    }, 10000);
+    const countdown = setInterval(() => {
+      setNextRefreshIn(prev => (prev <= 1 ? 10 : prev - 1));
+    }, 1000);
+    return () => { clearInterval(interval); clearInterval(countdown); };
   }, [loadData]);
 
   const reloadReservas = () => loadData(true);
@@ -1341,7 +1350,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <button
-                    onClick={() => loadData()}
+                    onClick={() => { loadData(); setNextRefreshIn(10); }}
                     disabled={isRefreshing}
                     className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded bg-white hover:bg-slate-50 text-[#7a4828] transition-colors disabled:opacity-60"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
@@ -1349,14 +1358,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
                     Actualizar
                   </button>
-                  {lastUpdated && (
-                    <span
-                      className="text-xs text-slate-400"
-                      style={{ fontFamily: "'DM Mono', monospace" }}
-                    >
-                      {lastUpdated.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  <div className="flex items-center gap-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                     </span>
-                  )}
+                    <span className="text-xs text-slate-400">
+                      {lastUpdated
+                        ? `${lastUpdated.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} · ${nextRefreshIn}s`
+                        : `${nextRefreshIn}s`}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -3176,15 +3188,24 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       {reservasPendientes.length} reserva{reservasPendientes.length !== 1 ? "s" : ""} pendiente{reservasPendientes.length !== 1 ? "s" : ""} de confirmación
                     </p>
                   </div>
-                  <button
-                    onClick={() => loadData()}
-                    disabled={isRefreshing}
-                    className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded bg-white hover:bg-slate-50 text-[#7a4828] transition-colors disabled:opacity-60"
-                    style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  >
-                    <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
-                    Actualizar
-                  </button>
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      onClick={() => { loadData(); setNextRefreshIn(10); }}
+                      disabled={isRefreshing}
+                      className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded bg-white hover:bg-slate-50 text-[#7a4828] transition-colors disabled:opacity-60"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+                      Actualizar
+                    </button>
+                    <div className="flex items-center gap-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                      </span>
+                      <span className="text-xs text-slate-400">{nextRefreshIn}s</span>
+                    </div>
+                  </div>
                 </div>
 
                 {reservasPendientes.length === 0 ? (

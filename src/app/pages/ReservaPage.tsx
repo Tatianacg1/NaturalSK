@@ -436,6 +436,10 @@ export function ReservaPage() {
         : "N/A";
       const checkOutFinal = isDiaDeSol ? form.check_in : form.check_out;
       const valorAlojamiento = precioTotal(form.hospedaje, form.check_in, checkOutFinal, numHuespedes);
+      const tipoHospedajePublico = datosGenerales?.find(a => a.nombre === form.hospedaje)?.tipo
+        ?? (normalize(form.hospedaje).includes("dia de sol") ? "Día de Sol"
+          : normalize(form.hospedaje).includes("habitacion") ? "Habitación"
+          : "Glamping");
       const resp = await reservaPublicaAPI.crearPublica({
         ...form,
         check_out: checkOutFinal,
@@ -447,8 +451,10 @@ export function ReservaPage() {
         numero_huespedes: Number(form.numero_huespedes),
         servicio_adicional: servicioLabel,
         color_decoracion: serviciosSeleccionados.find(x => x.color)?.color ?? "",
+        mensaje_decoracion: serviciosSeleccionados.find(x => x.mensaje)?.mensaje ?? "",
         valor_alojamiento: valorAlojamiento,
         valor_servicio_adicional: precioTotalServicios,
+        tipo_hospedaje: tipoHospedajePublico,
         ...(serviciosSeleccionados.length > 0 && {
           servicios_adicionales: serviciosSeleccionados.map(x => ({
             nombre: x.servicio,
